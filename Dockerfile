@@ -1,11 +1,14 @@
+# Stage 1: Build the React application
+FROM node:18-alpine AS build-stage
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+RUN npm run build
+
+# Stage 2: Serve the compiled application using Nginx
 FROM nginx:alpine
-
-# Copy everything from the workspace into Nginx
-COPY . /usr/share/nginx/html/
-
-# If Google Cloud put the files in a subfolder, this moves them to the right spot
-RUN if [ -d "/usr/share/nginx/html/workload" ]; then cp -r /usr/share/nginx/html/workload/* /usr/share/nginx/html/; fi
-
+COPY --from=build-stage /app/dist /usr/share/nginx/html
 EXPOSE 8080
-
 RUN sed -i 's/listen       80;/listen       8080;/g' /etc/nginx/conf.d/default.conf
+CMD ["nginx", "-g", "daemon off;"]
