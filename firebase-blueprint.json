@@ -1,0 +1,146 @@
+{
+  "entities": {
+    "CourseDevelopmentTask": {
+      "title": "CourseDevelopmentTask",
+      "description": "A scheduled course development checklist item",
+      "type": "object",
+      "properties": {
+        "id": { "type": "integer" },
+        "phase": { "type": "string" },
+        "name": { "type": "string" },
+        "assignedTo": { "type": "string", "enum": ["Operations", "Instructional Designer", "Subject Matter Expert", "Quality Assurance", "Multimedia", "Learning Experience Architect"] },
+        "status": { "type": "string", "enum": ["Not Started", "In Progress", "Developing (Content)", "Developing (Canvas)", "Complete", "Not Applicable", "Submission Late (SME)", "Scheduled", "On Hold"] },
+        "startDate": { "type": "string", "format": "date" },
+        "dueDate": { "type": "string", "format": "date" },
+        "durationDays": { "type": "integer" }
+      },
+      "required": ["id", "phase", "name", "assignedTo", "status"]
+    },
+    "CourseDevelopment": {
+      "title": "CourseDevelopment",
+      "description": "Category 1 project tracking course design iterations",
+      "type": "object",
+      "properties": {
+        "program": { "type": "string" },
+        "courseNumber": { "type": "string" },
+        "courseTitle": { "type": "string" },
+        "canvasVersion": { "type": "string" },
+        "workshopCourse": { "type": "string" },
+        "devType": { "type": "string", "enum": ["Original (New) Development", "New Release", "Tier 1 & 2 Revision", "Modification"] },
+        "versionNumber": { "type": "integer" },
+        "termRelease": { "type": "string" },
+        "termDeadline": { "type": "string", "format": "date" },
+        "devStagger": { "type": "integer" },
+        "onboarding": { "type": "boolean" },
+        "celTeam": { "type": "object" },
+        "deptTeam": { "type": "object" },
+        "alertStatus": { "type": "string", "enum": ["No Concerns", "Potential Concerns", "High Priority Concerns"] },
+        "hideCompletedTasks": { "type": "boolean" },
+        "tasks": { "type": "array", "items": { "$ref": "#/entities/CourseDevelopmentTask" } }
+      },
+      "required": ["program", "courseNumber", "courseTitle", "canvasVersion", "workshopCourse", "devType", "termRelease", "termDeadline", "devStagger", "onboarding", "alertStatus", "hideCompletedTasks"]
+    },
+    "LssTask": {
+      "title": "LssTask",
+      "description": "A manual task belonging to a Six Sigma project",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "assignedTo": { "type": "string" },
+        "dueDate": { "type": "string", "format": "date" },
+        "status": { "type": "string", "enum": ["Pending", "Completed"] }
+      },
+      "required": ["id", "name", "dueDate", "status"]
+    },
+    "LssProject": {
+      "title": "LssProject",
+      "description": "Category 2 Lean Six Sigma project charter",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "type": { "type": "string" },
+        "priority": { "type": "string", "enum": ["Low", "Moderate", "High", "Critical"] },
+        "startDate": { "type": "string", "format": "date" },
+        "targetCompletionDate": { "type": "string", "format": "date" },
+        "status": { "type": "string", "enum": ["Not Started", "On Hold", "In Progress", "Complete"] },
+        "projectLead": { "type": "string" },
+        "processOwner": { "type": "string" },
+        "projectChampion": { "type": "string" },
+        "stakeholders": { "type": "string" },
+        "problemStatement": { "type": "string" },
+        "businessCaseAndBenefits": { "type": "string" },
+        "inScope": { "type": "string" },
+        "outOfScope": { "type": "string" },
+        "performanceMetrics": { "type": "string" },
+        "risks": { "type": "string" },
+        "voiceOfCustomer": { "type": "string" },
+        "customerComment": { "type": "string" },
+        "issue": { "type": "string" },
+        "customerRequirement": { "type": "string" },
+        "objectiveMeasure": { "type": "string" },
+        "operationalDefinition": { "type": "string" },
+        "timelineMethodology": { "type": "string", "enum": ["Kaizen", "Lean", "Six Sigma"] },
+        "defineDuration": { "type": "integer" },
+        "defineProjectedCompletion": { "type": "string", "format": "date" },
+        "measureDuration": { "type": "integer" },
+        "measureProjectedCompletion": { "type": "string", "format": "date" },
+        "analyzeDuration": { "type": "integer" },
+        "analyzeProjectedCompletion": { "type": "string", "format": "date" },
+        "improveDuration": { "type": "integer" },
+        "improveProjectedCompletion": { "type": "string", "format": "date" },
+        "controlDuration": { "type": "integer" },
+        "controlProjectedCompletion": { "type": "string", "format": "date" },
+        "gateReviewDates": { "type": "string" },
+        "estimatedDuration": { "type": "integer" },
+        "timelineNotes": { "type": "string" },
+        "tasks": { "type": "array", "items": { "$ref": "#/entities/LssTask" } }
+      },
+      "required": ["title", "type", "priority", "startDate", "status", "projectLead", "problemStatement", "businessCaseAndBenefits", "inScope", "outOfScope", "performanceMetrics", "risks", "timelineMethodology"]
+    },
+    "StandaloneTask": {
+      "title": "StandaloneTask",
+      "description": "Category 3 miscellaneous simple task",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "startDate": { "type": "string", "format": "date" },
+        "dueDate": { "type": "string", "format": "date" },
+        "notes": { "type": "string" },
+        "status": { "type": "string", "enum": ["Not Started", "In Progress", "Complete", "On Hold"] },
+        "progress": { "type": "integer" },
+        "priority": { "type": "string", "enum": ["Low", "Moderate", "High", "Critical"] }
+      },
+      "required": ["title", "startDate", "dueDate", "status", "progress", "priority"]
+    },
+    "CalendarSettings": {
+      "title": "CalendarSettings",
+      "description": "Excluded dates and Outlook connection state",
+      "type": "object",
+      "properties": {
+        "customBlocked": { "type": "array", "items": { "type": "string" } },
+        "outlookConnected": { "type": "boolean" },
+        "outlookEmail": { "type": "string" }
+      },
+      "required": ["customBlocked"]
+    }
+  },
+  "firestore": {
+    "course-developments": {
+      "schema": { "$ref": "#/entities/CourseDevelopment" },
+      "description": "Collection of all Course Development tracks (Category 1)"
+    },
+    "lss-projects": {
+      "schema": { "$ref": "#/entities/LssProject" },
+      "description": "Collection of Lean Six Sigma charter projects (Category 2)"
+    },
+    "standalone-tasks": {
+      "schema": { "$ref": "#/entities/StandaloneTask" },
+      "description": "Collection of miscellaneous standalone tasks (Category 3)"
+    },
+    "calendar-settings": {
+      "schema": { "$ref": "#/entities/CalendarSettings" },
+      "description": "Exclusions and timezone definitions"
+    }
+  }
+}
