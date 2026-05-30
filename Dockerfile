@@ -1,5 +1,5 @@
-# Use the official Node.js runtime as the base image
-FROM node:18-alpine
+# Upgrade to Node 22 to satisfy modern Tailwind v4 and Google GenAI SDK requirements
+FROM node:22-alpine
 
 # Set the working directory inside the container
 WORKDIR /app
@@ -7,7 +7,7 @@ WORKDIR /app
 # Copy dependency manifests
 COPY package*.json ./
 
-# Install ALL dependencies (including devDependencies like esbuild/vite)
+# Install dependencies cleanly
 RUN npm install
 
 # Copy the rest of your application code
