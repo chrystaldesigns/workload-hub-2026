@@ -1,19 +1,33 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
-@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
-@theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+:root {
+  /* Typography Configuration */
+  --font-sans: "Inter", sans-serif;
+
+  /* FSCJ Theme Color Palette Tokens */
+  --color-fscj-teal: #003E52;
+  --color-fscj-navy: #073C5C;
+  --color-fscj-green: #087834;
+  --color-fscj-sky: #33B1C8;
   
-  /* Modern Slate & Indigo Theme Config */
-  --color-bg-main: var(--color-slate-50);
-  --color-card-bg: var(--color-white);
-  --color-border-clean: color-mix(in srgb, var(--color-slate-200) 60%, transparent);
-  
-  --color-brand-primary: var(--color-indigo-600);
-  --color-brand-hover: var(--color-indigo-700);
-  --color-brand-subtle: var(--color-indigo-50);
-  --color-brand-text: var(--color-indigo-700);
+  /* Modern Neutral Backgrounds & Borders */
+  --color-bg-main: #F8FAFC;
+  --color-bg-card: #FFFFFF;
+  --color-border-subtle: rgba(226, 232, 240, 0.6);
+  --color-text-dark: #0F172A;
+  --color-text-muted: #475569;
+}
+
+/* Enforce "Inter" globally across the rendering tree */
+*, *::before, *::after {
+  font-family: "Inter", sans-serif !important;
+  box-sizing: border-box;
+}
+
+body {
+  background-color: var(--color-bg-main);
+  color: var(--color-text-dark);
+  margin: 0;
 }
 
 /* Custom Premium Utility Classes */
