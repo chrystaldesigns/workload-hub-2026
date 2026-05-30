@@ -1,26 +1,23 @@
-# Upgrade to Node 22 to satisfy modern Tailwind v4 and Google GenAI SDK requirements
-FROM node:22-alpine
-
-# Set the working directory inside the container
+# Step 1: Build phase
+FROM node:22-alpine AS builder
 WORKDIR /app
-
-# Copy dependency manifests
 COPY package*.json ./
-
-# Install dependencies cleanly
 RUN npm install
-
-# Copy the rest of your application code
 COPY . .
-
-# Run the build script (compiles frontend via Vite AND backend via esbuild)
 RUN npm run build
 
-# Expose port 8080 for Cloud Run
+# Step 2: Ultra-fast production execution phase
+FROM node:22-alpine
+WORKDIR /app
+
+# Only copy what is absolutely needed to eliminate server bloat
+COPY package*.json ./
+RUN npm install --omit=dev
+COPY --from=builder /app/dist ./dist
+
 EXPOSE 8080
-
-# Define the environment variable for the port
 ENV PORT=8080
+ENV NODE_ENV=production
 
-# Start the built full-stack Express server
-CMD ["npm", "start"]
+# Bypass npm overhead and boot the server file instantly
+CMD ["node", "dist/server.cjs"]
