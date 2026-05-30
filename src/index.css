@@ -10,38 +10,67 @@
   --color-fscj-green: #087834;
   --color-fscj-sky: #33B1C8;
   
-  /* Modern Neutral Backgrounds & Borders */
+  /* Modern Neutral Backgrounds & Surfaces */
   --color-bg-main: #F8FAFC;
   --color-bg-card: #FFFFFF;
   --color-border-subtle: rgba(226, 232, 240, 0.6);
   --color-text-dark: #0F172A;
   --color-text-muted: #475569;
+
+  /* Tailwind Core Semantic Overrides (Aligning Tailwind defaults to your palette) */
+  --color-slate-100: #F1F5F9;
+  --color-slate-200: #E2E8F0;
+  --color-slate-700: #334155;
+  --color-slate-900: #0F172A;
 }
 
-/* Enforce "Inter" globally across the rendering tree */
-*, *::before, *::after {
-  font-family: "Inter", sans-serif !important;
+/* SAFE TARGETED FONTS RESET 
+  Applies "Inter" cleanly to standard web typography elements. 
+  Intentionally excludes icon libraries (like FontAwesome/Lucide) so they don't break.
+*/
+html, body, #root, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, td, th {
+  font-family: var(--font-sans);
+}
+
+/* Structural Base Resets */
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  background-color: var(--color-bg-main);
+  color: var(--color-text-dark);
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
   box-sizing: border-box;
 }
 
-body {
-  background-color: var(--color-bg-main);
-  color: var(--color-text-dark);
-  margin: 0;
+/* Weight Rule Hierarchy Tuning */
+h1, h2, h3, h4, .font-semibold, th, strong {
+  font-weight: 600 !important;
 }
 
-/* Custom Premium Utility Classes */
+.font-medium, .semibold-limited {
+  font-weight: 500 !important;
+}
+
+/* -------------------------------------------------------------
+   SYNCHRONIZED CUSTOM UTILITY LAYERS (TAILWIND V4 COMPLIANT)
+   ------------------------------------------------------------- */
+
 @utility btn-primary {
-  background-color: var(--color-brand-primary);
-  color: var(--color-white);
+  background-color: var(--color-fscj-teal);
+  color: #FFFFFF;
   font-weight: 500;
   padding: 0.625rem 1.25rem;
   border-radius: 0.75rem; /* Soft rounded corners (rounded-xl) */
   box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   transition: all 0.2s ease-in-out;
+  border: 1px solid transparent;
+  cursor: pointer;
   
   &:hover {
-    background-color: var(--color-brand-hover);
+    background-color: var(--color-fscj-navy);
   }
 }
 
@@ -51,7 +80,9 @@ body {
   font-weight: 500;
   padding: 0.625rem 1.25rem;
   border-radius: 0.75rem;
+  border: 1px solid var(--color-slate-200);
   transition: all 0.2s ease-in-out;
+  cursor: pointer;
   
   &:hover {
     background-color: var(--color-slate-200);
@@ -59,8 +90,8 @@ body {
 }
 
 @utility modern-card {
-  background-color: var(--color-card-bg);
-  border: 1px solid var(--color-border-clean);
+  background-color: var(--color-bg-card);
+  border: 1px solid var(--color-border-subtle);
   border-radius: 1rem; /* Premium double-rounded look (rounded-2xl) */
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.02), 0 1px 2px -1px rgba(0, 0, 0, 0.02);
   padding: 1.5rem;
@@ -71,27 +102,6 @@ body {
   top: 0;
   z-index: 50;
   backdrop-filter: blur(12px);
-  background-color: rgba(255, 255, 255, 0.8);
-  border-bottom: 1px solid var(--color-border-clean);
-}
-
-/* Base style resets and scrollbars */
-html, body, #root {
-  height: 100%;
-  margin: 0;
-  font-family: var(--font-sans);
-  background-color: var(--color-bg-main);
-  color: var(--color-slate-900);
-}
-
-* {
-  font-weight: 400;
-}
-
-h1, h2, h3, .font-semibold, th, strong {
-  font-weight: 600 !important;
-}
-
-.font-medium, .semibold-limited {
-  font-weight: 500 !important;
+  background-color: rgba(255, 255, 255, 0.85);
+  border-bottom: 1px solid var(--color-border-subtle);
 }
