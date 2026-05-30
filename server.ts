@@ -2,572 +2,549 @@ import express from "express";
 import path from "path";
 import admin from "firebase-admin";
 import { createServer as createViteServer } from "vite";
-import fs from "fs";
 
 const app = express();
 
-// Modernized: Prioritize dynamic environment variables provided by Cloud Run, falling back to 8080 or 3000 locally.
 const PORT = process.env.PORT || 8080;
+const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || "workload-hub-2026";
 
-app.use(express.json());
+app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
-// -------------------------------------------------------------
-// FIRESTORE CONNECTION SETUP (LAZY ENVIRONMENT AUTO RECOVERY)
-// -------------------------------------------------------------
-const FIREBASE_PROJECT_ID = 'workload-hub-2026';
 let db: admin.firestore.Firestore | null = null;
 let isFirestoreConnected = false;
 
 try {
-  // If running in Cloud Run/Compute Engine, it auto-detects metadata credentials,
-  // or checks for standard service account env variables.
-  admin.initializeApp({
-    projectId: FIREBASE_PROJECT_ID
-  });
+  if (!admin.apps.length) {
+    admin.initializeApp({
+      projectId: FIREBASE_PROJECT_ID,
+    });
+  }
+
   db = admin.firestore();
   isFirestoreConnected = true;
-  console.log(`[Firebase] Successfully connected to GCP Project "${FIREBASE_PROJECT_ID}"`);
+  console.log(`[Firebase] Connected to project "${FIREBASE_PROJECT_ID}"`);
 } catch (error: any) {
-  console.warn(`[Firebase Warning] Falling back to high-fidelity server memory state. Reason: ${error.message}`);
+  console.warn(`[Firebase Warning] Running in memory-only mode. Reason: ${error.message}`);
 }
 
-// -------------------------------------------------------------
-// LOCAL STATE DATABASE FALLBACK (FOR OFFLINE / ISOLATED CONTAINER MODE)
-// -------------------------------------------------------------
-let inMemoryCourseDevelopments: any[] = [
-  {
-    id: "dev-seed-1",
-    program: "Information Technology",
-    courseNumber: "DIG3115",
-    courseTitle: "Cloud Run Container Systems Development",
-    canvasVersion: "cel-DIG3115-v1",
-    workshopCourse: "wickline-wrkshp-cel-DIG3115-v1",
-    devType: "Original",
-    versionNumber: 1,
-    termRelease: "Fall B",
-    termDeadline: "2026-12-15",
-    devStagger: 14,
-    onboarding: true,
-    celTeam: { golf: "Golf.K@fscj.edu", chrystal: "wickline@fscj.edu", admin: "cel@fscj.edu" },
-    deptTeam: {
-      smeName: "Dr. Linda Jones",
-      smeEmail: "linda.jones@fscj.edu",
-      deanName: "Dr. Susan M. Harris",
-      deanEmail: "s.harris@fscj.edu",
-      managerName: "George Vance",
-      managerEmail: "g.vance@fscj.edu"
-    },
-    alertStatus: "Potential Concerns",
-    courseNotes: "Reviewing accreditation credentials for virtual labs.",
-    hideCompletedTasks: false,
-    tasks: [] // Dynamically calculated below if fetched
-  }
-];
+/**
+ * IMPORTANT:
+ * These in-memory arrays intentionally start EMPTY.
+ * Do not seed demo/sample records.
+ */
+let inMemoryCourseDevelopments: any[] = [];
+let inMemoryLssProjects: any[] = [];
+let inMemoryStandaloneTasks: any[] = [];
 
-let inMemoryLssProjects: any[] = [
-  {
-    id: "lss-seed-1",
-    title: "Scheduling Pipeline Processing Simplification",
-    type: "DMAIC",
-    priority: "Critical",
-    startDate: "2026-05-15",
-    targetCompletionDate: "2026-09-30",
-    status: "Measure",
-    projectLead: "Chrystal Wickline",
-    processOwner: "Dr. Linda Jones",
-    projectChampion: "VP of Academic Support",
-    stakeholders: "Registrar Coordinators, Division Deans, Admissions Staff",
-    problemStatement: "The course scheduling timeline currently averages 42 days from draft submission to live registration, costing high administrative overhead and 22% delay adjustments.",
-    businessCaseAndBenefits: "Shortening processing loops to <= 14 business days via DMAIC optimization saves an estimated $45,000 annually.",
-    inScope: "Undergraduate course schedules, standard term blocks, and automated portal listings.",
-    outOfScope: "Temporary seminars, special military group adjustments, and dual alignment schools.",
-    performanceMetrics: "As-is processing median: 38 Days, Sigma: 1.8. Target processing: 14 Days, Sigma: 3.5.",
-    risks: "SME unavailability, peak calendar constraints, and legacy portal imports bottleneck.",
-    voiceOfCustomer: "Academic Deans report visibility lag. Registrar clerks request simplified data formats.",
-    customerComment: "We spend hours confirming room availability on outdated rosters.",
-    issue: "Inefficient manual verification loop across divisions.",
-    customerRequirement: "Instant room status overview or auto-exclusions checklist.",
-    objectiveMeasure: "Cycle days per scheduler verification.",
-    operationalDefinition: "Start Time is email transmission to SME; End Time is signed roster return.",
-    timelineMethodology: "Six Sigma",
-    defineDuration: 4,
-    defineProjectedCompletion: "2026-06-15",
-    measureDuration: 6,
-    measureProjectedCompletion: "2026-07-30",
-    analyzeDuration: 4,
-    analyzeProjectedCompletion: "2026-08-30",
-    improveDuration: 6,
-    improveProjectedCompletion: "2026-10-15",
-    controlDuration: 4,
-    controlProjectedCompletion: "2026-11-15",
-    gateReviewDates: "Define Gate: 06-15-26 | Measure Gate: 07-30-26 | Analyze Gate: 08-30-26",
-    estimatedDuration: 24,
-    timelineNotes: "Estimates mapped to US Eastern Academic Calendar restrictions.",
-    tasks: [
-      { id: "t1", name: "Build initial Value Stream Map (VSM) of drafts", assignedTo: "Chrystal Wickline", dueDate: "2026-06-10", status: "Completed" },
-      { id: "t2", name: "Perform RTO bottleneck survey for scheduler sub-phases", assignedTo: "Dr. Linda Jones", dueDate: "2026-06-25", status: "Pending" }
-    ]
-  }
-];
-
-let inMemoryStandaloneTasks: any[] = [
-  {
-    id: "task-seed-1",
-    title: "Submit FSCJ Curriculum Data Summit Proposal",
-    startDate: "2026-05-30",
-    dueDate: "2026-06-10",
-    notes: "Requires abstract regarding backward timeline scheduling.",
-    status: "In Progress",
-    progress: 50,
-    priority: "High"
-  },
-  {
-    id: "task-seed-2",
-    title: "Complete FSCJ Annual Self-Evaluation Report",
-    startDate: "2026-05-15",
-    dueDate: "2026-05-25",
-    notes: "Review with eLearning Dean Dr. Golf.",
-    status: "In Progress",
-    progress: 50,
-    priority: "Critical"
-  }
-];
-
-let inMemoryCalendarExclusions = {
-  customBlocked: ["2026-06-11", "2026-06-12", "2026-07-10"] as string[],
+let inMemoryCalendarSettings = {
+  customBlocked: [] as string[],
   outlookConnected: false,
-  outlookEmail: ""
+  outlookEmail: "",
 };
 
-// -------------------------------------------------------------
-// HELPER TO INTERACT WITH FIRESTORE OR MEMORY
-// -------------------------------------------------------------
 async function getCollectionData(collectionName: string, fallbackData: any[]) {
   if (!isFirestoreConnected || !db) {
     return fallbackData;
   }
+
   try {
     const snap = await db.collection(collectionName).get();
+
     if (snap.empty) {
-      for (const item of fallbackData) {
-        const { id, ...payload } = item;
-        await db.collection(collectionName).add(payload);
-      }
-      return fallbackData;
+      return [];
     }
+
     const result: any[] = [];
-    snap.forEach(doc => {
+    snap.forEach((doc) => {
       result.push({ id: doc.id, ...doc.data() });
     });
+
     return result;
   } catch (err) {
-    console.warn(`Firestore read fail, fallback used: ${err}`);
+    console.warn(`[Firestore] Failed reading ${collectionName}. Using memory fallback.`, err);
     return fallbackData;
   }
 }
 
-// -------------------------------------------------------------
-// ENDPOINTS
-// -------------------------------------------------------------
+async function createDocument(collectionName: string, payload: any, memoryArray: any[], memoryPrefix: string) {
+  if (isFirestoreConnected && db) {
+    const docRef = await db.collection(collectionName).add(payload);
+    return { id: docRef.id, ...payload };
+  }
 
-// Course Developments (Category 1)
-app.get("/api/course-developments", async (req, res) => {
+  const id = `${memoryPrefix}-${Date.now()}`;
+  const record = { id, ...payload };
+  memoryArray.push(record);
+  return record;
+}
+
+async function updateDocument(collectionName: string, id: string, payload: any, memoryArray: any[]) {
+  if (isFirestoreConnected && db) {
+    await db.collection(collectionName).doc(id).set(payload, { merge: true });
+    return { id, ...payload };
+  }
+
+  const idx = memoryArray.findIndex((item) => item.id === id);
+
+  if (idx === -1) {
+    return null;
+  }
+
+  memoryArray[idx] = { ...memoryArray[idx], ...payload, id };
+  return memoryArray[idx];
+}
+
+async function deleteDocument(collectionName: string, id: string, memoryArray: any[]) {
+  if (isFirestoreConnected && db) {
+    await db.collection(collectionName).doc(id).delete();
+    return true;
+  }
+
+  const originalLength = memoryArray.length;
+  const filtered = memoryArray.filter((item) => item.id !== id);
+
+  if (collectionName === "course-developments") {
+    inMemoryCourseDevelopments = filtered;
+  }
+
+  if (collectionName === "lss-projects") {
+    inMemoryLssProjects = filtered;
+  }
+
+  if (collectionName === "standalone-tasks") {
+    inMemoryStandaloneTasks = filtered;
+  }
+
+  return filtered.length !== originalLength;
+}
+
+// -------------------------------------------------------------
+// HEALTH CHECK
+// -------------------------------------------------------------
+app.get("/api/health", (_req, res) => {
+  res.json({
+    ok: true,
+    firestoreConnected: isFirestoreConnected,
+    projectId: FIREBASE_PROJECT_ID,
+    message: "Workload Hub API is running.",
+  });
+});
+
+// -------------------------------------------------------------
+// COURSE DEVELOPMENTS
+// -------------------------------------------------------------
+app.get("/api/course-developments", async (_req, res) => {
   const data = await getCollectionData("course-developments", inMemoryCourseDevelopments);
   res.json(data);
 });
 
 app.post("/api/course-developments", async (req, res) => {
-  const payload = req.body;
-  if (!payload.program || !payload.courseNumber) {
-    return res.status(400).json({ error: "Missing required program details" });
-  }
-  
-  if (isFirestoreConnected && db) {
-    try {
-      const docRef = await db.collection("course-developments").add(payload);
-      res.json({ id: docRef.id, ...payload });
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
+  try {
+    const payload = req.body;
+
+    if (!payload || typeof payload !== "object") {
+      return res.status(400).json({ error: "Invalid course development payload." });
     }
-  } else {
-    const id = `cd-mem-${Date.now()}`;
-    const newRecord = { id, ...payload };
-    inMemoryCourseDevelopments.push(newRecord);
-    res.json(newRecord);
+
+    if (!payload.program || !payload.courseNumber || !payload.courseTitle) {
+      return res.status(400).json({
+        error: "Course Development requires Program, Course Number, and Course Title.",
+      });
+    }
+
+    const record = await createDocument(
+      "course-developments",
+      {
+        ...payload,
+        itemType: "courseDevelopment",
+        tasks: Array.isArray(payload.tasks) ? payload.tasks : [],
+      },
+      inMemoryCourseDevelopments,
+      "cd"
+    );
+
+    res.json(record);
+  } catch (err: any) {
+    console.error("[POST /api/course-developments]", err);
+    res.status(500).json({ error: err.message || "Failed to create course development." });
   }
 });
 
 app.put("/api/course-developments/:id", async (req, res) => {
-  const { id } = req.params;
-  const payload = req.body;
-  
-  if (isFirestoreConnected && db) {
-    try {
-      await db.collection("course-developments").doc(id).set(payload, { merge: true });
-      res.json({ id, ...payload });
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
+  try {
+    const record = await updateDocument(
+      "course-developments",
+      req.params.id,
+      req.body,
+      inMemoryCourseDevelopments
+    );
+
+    if (!record) {
+      return res.status(404).json({ error: "Course development not found." });
     }
-  } else {
-    const idx = inMemoryCourseDevelopments.findIndex(cd => cd.id === id);
-    if (idx !== -1) {
-      inMemoryCourseDevelopments[idx] = { ...inMemoryCourseDevelopments[idx], ...payload };
-      res.json(inMemoryCourseDevelopments[idx]);
-    } else {
-      res.status(404).json({ error: "Record not found" });
-    }
+
+    res.json(record);
+  } catch (err: any) {
+    console.error("[PUT /api/course-developments/:id]", err);
+    res.status(500).json({ error: err.message || "Failed to update course development." });
   }
 });
 
 app.delete("/api/course-developments/:id", async (req, res) => {
-  const { id } = req.params;
-  if (isFirestoreConnected && db) {
-    try {
-      await db.collection("course-developments").doc(id).delete();
-      res.json({ success: true });
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
+  try {
+    const deleted = await deleteDocument(
+      "course-developments",
+      req.params.id,
+      inMemoryCourseDevelopments
+    );
+
+    if (!deleted) {
+      return res.status(404).json({ error: "Course development not found." });
     }
-  } else {
-    inMemoryCourseDevelopments = inMemoryCourseDevelopments.filter(cd => cd.id !== id);
+
     res.json({ success: true });
+  } catch (err: any) {
+    console.error("[DELETE /api/course-developments/:id]", err);
+    res.status(500).json({ error: err.message || "Failed to delete course development." });
   }
 });
 
-// LSS Projects (Category 2)
-app.get("/api/lss-projects", async (req, res) => {
+// -------------------------------------------------------------
+// LSS PROJECTS
+// -------------------------------------------------------------
+app.get("/api/lss-projects", async (_req, res) => {
   const data = await getCollectionData("lss-projects", inMemoryLssProjects);
   res.json(data);
 });
 
 app.post("/api/lss-projects", async (req, res) => {
-  const payload = req.body;
-  
-  if (isFirestoreConnected && db) {
-    try {
-      const docRef = await db.collection("lss-projects").add(payload);
-      res.json({ id: docRef.id, ...payload });
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
+  try {
+    const payload = req.body;
+
+    if (!payload || typeof payload !== "object") {
+      return res.status(400).json({ error: "Invalid project payload." });
     }
-  } else {
-    const id = `lss-mem-${Date.now()}`;
-    const newRecord = { id, ...payload };
-    inMemoryLssProjects.push(newRecord);
-    res.json(newRecord);
+
+    if (!payload.title) {
+      return res.status(400).json({ error: "Project requires a title." });
+    }
+
+    const record = await createDocument(
+      "lss-projects",
+      {
+        ...payload,
+        itemType: "project",
+        tasks: Array.isArray(payload.tasks) ? payload.tasks : [],
+      },
+      inMemoryLssProjects,
+      "lss"
+    );
+
+    res.json(record);
+  } catch (err: any) {
+    console.error("[POST /api/lss-projects]", err);
+    res.status(500).json({ error: err.message || "Failed to create project." });
   }
 });
 
 app.put("/api/lss-projects/:id", async (req, res) => {
-  const { id } = req.params;
-  const payload = req.body;
-  
-  if (isFirestoreConnected && db) {
-    try {
-      await db.collection("lss-projects").doc(id).set(payload, { merge: true });
-      res.json({ id, ...payload });
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
+  try {
+    const record = await updateDocument(
+      "lss-projects",
+      req.params.id,
+      req.body,
+      inMemoryLssProjects
+    );
+
+    if (!record) {
+      return res.status(404).json({ error: "Project not found." });
     }
-  } else {
-    const idx = inMemoryLssProjects.findIndex(lss => lss.id === id);
-    if (idx !== -1) {
-      inMemoryLssProjects[idx] = { ...inMemoryLssProjects[idx], ...payload };
-      res.json(inMemoryLssProjects[idx]);
-    } else {
-      res.status(404).json({ error: "Record not found" });
-    }
+
+    res.json(record);
+  } catch (err: any) {
+    console.error("[PUT /api/lss-projects/:id]", err);
+    res.status(500).json({ error: err.message || "Failed to update project." });
   }
 });
 
 app.delete("/api/lss-projects/:id", async (req, res) => {
-  const { id } = req.params;
-  if (isFirestoreConnected && db) {
-    try {
-      await db.collection("lss-projects").doc(id).delete();
-      res.json({ success: true });
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
+  try {
+    const deleted = await deleteDocument("lss-projects", req.params.id, inMemoryLssProjects);
+
+    if (!deleted) {
+      return res.status(404).json({ error: "Project not found." });
     }
-  } else {
-    inMemoryLssProjects = inMemoryLssProjects.filter(p => p.id !== id);
+
     res.json({ success: true });
+  } catch (err: any) {
+    console.error("[DELETE /api/lss-projects/:id]", err);
+    res.status(500).json({ error: err.message || "Failed to delete project." });
   }
 });
 
-// Standalone Tasks (Category 3)
-app.get("/api/standalone-tasks", async (req, res) => {
+// -------------------------------------------------------------
+// STANDALONE TASKS
+// -------------------------------------------------------------
+app.get("/api/standalone-tasks", async (_req, res) => {
   const data = await getCollectionData("standalone-tasks", inMemoryStandaloneTasks);
   res.json(data);
 });
 
 app.post("/api/standalone-tasks", async (req, res) => {
-  const payload = req.body;
-  if (isFirestoreConnected && db) {
-    try {
-      const docRef = await db.collection("standalone-tasks").add(payload);
-      res.json({ id: docRef.id, ...payload });
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
+  try {
+    const payload = req.body;
+
+    if (!payload || typeof payload !== "object") {
+      return res.status(400).json({ error: "Invalid standalone task payload." });
     }
-  } else {
-    const id = `task-mem-${Date.now()}`;
-    const newRecord = { id, ...payload };
-    inMemoryStandaloneTasks.push(newRecord);
-    res.json(newRecord);
+
+    if (!payload.title) {
+      return res.status(400).json({ error: "Standalone task requires a title." });
+    }
+
+    const record = await createDocument(
+      "standalone-tasks",
+      {
+        ...payload,
+        itemType: "standaloneTask",
+      },
+      inMemoryStandaloneTasks,
+      "task"
+    );
+
+    res.json(record);
+  } catch (err: any) {
+    console.error("[POST /api/standalone-tasks]", err);
+    res.status(500).json({ error: err.message || "Failed to create standalone task." });
   }
 });
 
 app.put("/api/standalone-tasks/:id", async (req, res) => {
-  const { id } = req.params;
-  const payload = req.body;
-  if (isFirestoreConnected && db) {
-    try {
-      await db.collection("standalone-tasks").doc(id).set(payload, { merge: true });
-      res.json({ id, ...payload });
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
+  try {
+    const record = await updateDocument(
+      "standalone-tasks",
+      req.params.id,
+      req.body,
+      inMemoryStandaloneTasks
+    );
+
+    if (!record) {
+      return res.status(404).json({ error: "Standalone task not found." });
     }
-  } else {
-    const idx = inMemoryStandaloneTasks.findIndex(t => t.id === id);
-    if (idx !== -1) {
-      inMemoryStandaloneTasks[idx] = { ...inMemoryStandaloneTasks[idx], ...payload };
-      res.json(inMemoryStandaloneTasks[idx]);
-    } else {
-      res.status(444).json({ error: "No task" });
-    }
+
+    res.json(record);
+  } catch (err: any) {
+    console.error("[PUT /api/standalone-tasks/:id]", err);
+    res.status(500).json({ error: err.message || "Failed to update standalone task." });
   }
 });
 
 app.delete("/api/standalone-tasks/:id", async (req, res) => {
-  const { id } = req.params;
-  if (isFirestoreConnected && db) {
-    try {
-      await db.collection("standalone-tasks").doc(id).delete();
-      res.json({ success: true });
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
+  try {
+    const deleted = await deleteDocument(
+      "standalone-tasks",
+      req.params.id,
+      inMemoryStandaloneTasks
+    );
+
+    if (!deleted) {
+      return res.status(404).json({ error: "Standalone task not found." });
     }
-  } else {
-    inMemoryStandaloneTasks = inMemoryStandaloneTasks.filter(t => t.id !== id);
+
     res.json({ success: true });
+  } catch (err: any) {
+    console.error("[DELETE /api/standalone-tasks/:id]", err);
+    res.status(500).json({ error: err.message || "Failed to delete standalone task." });
   }
 });
 
-// Calendar Settings & Exclusions
-app.get("/api/calendar-settings", async (req, res) => {
+// -------------------------------------------------------------
+// CALENDAR SETTINGS
+// -------------------------------------------------------------
+app.get("/api/calendar-settings", async (_req, res) => {
   if (isFirestoreConnected && db) {
     try {
       const doc = await db.collection("calendar-settings").doc("exclusions").get();
+
       if (doc.exists) {
-        res.json(doc.data());
-      } else {
-        await db.collection("calendar-settings").doc("exclusions").set(inMemoryCalendarExclusions);
-        res.json(inMemoryCalendarExclusions);
+        return res.json({
+          customBlocked: [],
+          outlookConnected: false,
+          outlookEmail: "",
+          ...doc.data(),
+        });
       }
+
+      return res.json(inMemoryCalendarSettings);
     } catch (err) {
-      res.json(inMemoryCalendarExclusions);
+      console.warn("[GET /api/calendar-settings]", err);
+      return res.json(inMemoryCalendarSettings);
     }
-  } else {
-    res.json(inMemoryCalendarExclusions);
   }
+
+  res.json(inMemoryCalendarSettings);
 });
 
 app.post("/api/calendar-settings", async (req, res) => {
-  const payload = req.body;
-  if (isFirestoreConnected && db) {
-    try {
+  try {
+    const payload = {
+      customBlocked: Array.isArray(req.body.customBlocked) ? req.body.customBlocked : [],
+      outlookConnected: !!req.body.outlookConnected,
+      outlookEmail: req.body.outlookEmail || "",
+    };
+
+    if (isFirestoreConnected && db) {
       await db.collection("calendar-settings").doc("exclusions").set(payload, { merge: true });
-      res.json(payload);
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
+    } else {
+      inMemoryCalendarSettings = { ...inMemoryCalendarSettings, ...payload };
     }
-  } else {
-    inMemoryCalendarExclusions = { ...inMemoryCalendarExclusions, ...payload };
-    res.json(inMemoryCalendarExclusions);
+
+    res.json(payload);
+  } catch (err: any) {
+    console.error("[POST /api/calendar-settings]", err);
+    res.status(500).json({ error: err.message || "Failed to save calendar settings." });
   }
 });
 
 // -------------------------------------------------------------
-// MICROSOFT OUTLOOK OAUTH FLOW & SIMULATION PROXIES
+// OUTLOOK PLACEHOLDERS
 // -------------------------------------------------------------
 app.get("/api/outlook/auth-url", (req, res) => {
-  const clientId = req.query.clientId || "mock-client-id";
+  const clientId = String(req.query.clientId || "").trim();
+  const tenantId = String(req.query.tenantId || "common").trim();
+
+  if (!clientId) {
+    return res.status(400).json({
+      error:
+        "Microsoft Outlook connection requires a real Azure App Registration clientId. No mock clientId will be used.",
+    });
+  }
+
   const redirectUri = `${req.protocol}://${req.get("host")}/api/outlook/callback`;
-  const tenant = req.query.tenantId || "common";
-  
-  const authUrl = `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/authorize?client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&response_mode=query&scope=Calendars.Read%20offline_access`;
+  const authUrl =
+    `https://login.microsoftonline.com/${encodeURIComponent(tenantId)}/oauth2/v2.0/authorize` +
+    `?client_id=${encodeURIComponent(clientId)}` +
+    `&response_type=code` +
+    `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+    `&response_mode=query` +
+    `&scope=${encodeURIComponent("Calendars.Read offline_access")}`;
+
   res.json({ url: authUrl });
 });
 
-app.get("/api/outlook/callback", async (req, res) => {
-  const { code } = req.query;
+app.get("/api/outlook/callback", async (_req, res) => {
   const config = {
-    customBlocked: inMemoryCalendarExclusions.customBlocked,
+    ...inMemoryCalendarSettings,
     outlookConnected: true,
-    outlookEmail: "wickline@fscj.edu"
+    outlookEmail: "wickline@fscj.edu",
   };
 
   if (isFirestoreConnected && db) {
     try {
       await db.collection("calendar-settings").doc("exclusions").set(config, { merge: true });
     } catch (err) {
-      console.error(err);
+      console.error("[Outlook callback save]", err);
     }
   } else {
-    inMemoryCalendarExclusions = { ...inMemoryCalendarExclusions, ...config };
+    inMemoryCalendarSettings = config;
   }
 
-  // Modernized Inline DOM Payload: Styled to match the new clean, double-rounded visual architecture
   res.send(`
     <html>
       <head>
         <title>Outlook Authorization Completed</title>
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
         <style>
           body {
             display: flex;
             align-items: center;
             justify-content: center;
-            height: 100vh;
-            background-color: #f8fafc;
+            min-height: 100vh;
             margin: 0;
-            font-family: 'Inter', sans-serif;
-            text-align: center;
+            background: #f8fafc;
+            color: #0f172a;
+            font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
           }
           .card {
-            background-color: #ffffff;
-            border: 1px solid rgba(226, 232, 240, 0.6);
+            width: min(420px, calc(100vw - 2rem));
+            background: white;
+            border: 1px solid #e2e8f0;
             border-radius: 1rem;
-            padding: 2.5rem;
-            max-width: 400px;
-            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.02), 0 1px 2px -1px rgba(0, 0, 0, 0.02);
+            padding: 2rem;
+            box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+            text-align: center;
           }
-          .icon-badge {
-            background-color: #e0e7ff;
-            color: #4f46e5;
-            width: 3.5rem;
-            height: 3.5rem;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 1.25rem auto;
-          }
-          h2 {
+          h1 {
+            margin: 0 0 0.75rem;
             font-size: 1.25rem;
-            font-weight: 600;
-            color: #0f172a;
-            margin: 0 0 0.5rem 0;
-            tracking: -0.025em;
           }
           p {
-            font-size: 0.875rem;
+            margin: 0 0 1.5rem;
             color: #475569;
-            margin: 0 0 1.5rem 0;
-            line-height: 1.4;
+            line-height: 1.5;
           }
           button {
             width: 100%;
-            background-color: #4f46e5;
+            background: #003E52;
+            color: white;
             border: none;
-            color: #ffffff;
-            padding: 0.625rem 1.25rem;
-            font-size: 0.875rem;
-            font-weight: 500;
             border-radius: 0.75rem;
+            padding: 0.75rem 1rem;
+            font-weight: 600;
             cursor: pointer;
-            transition: background-color 0.2s ease-in-out;
-          }
-          button:hover {
-            background-color: #4338ca;
           }
         </style>
       </head>
       <body>
-        <div class="card">
-          <div class="icon-badge">
-            <svg style="width:24px; height:24px;" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path>
-            </svg>
-          </div>
-          <h2>Outlook Authenticated!</h2>
-          <p>Microsoft Graph calendar retrieval linked successfully for wickline@fscj.edu.</p>
-          <button onclick="window.close()">Close Window</button>
-        </div>
+        <main class="card">
+          <h1>Outlook authorization completed</h1>
+          <p>You can close this window and return to Workload Hub.</p>
+          <button onclick="window.close()">Close window</button>
+        </main>
         <script>
           setTimeout(() => {
             if (window.opener) {
               window.opener.location.reload();
             }
             window.close();
-          }, 3000);
+          }, 1500);
         </script>
       </body>
     </html>
   `);
 });
 
-// Retrieve outlook calendar busy states to deduct available working capacity
-app.get("/api/outlook/sync", (req, res) => {
-  const mockBusySlices = [
-    {
-      id: "evt-1",
-      subject: "FSCJ Academic Accreditation Committee Meeting",
-      start: { dateTime: "2026-06-08T09:00:00", timeZone: "Eastern Standard Time" },
-      end: { dateTime: "2026-06-08T11:00:00", timeZone: "Eastern Standard Time" },
-      showAs: "busy"
-    },
-    {
-      id: "evt-2",
-      subject: "CeL Division Weekly Synergies Sync",
-      start: { dateTime: "2026-06-15T14:30:00", timeZone: "Eastern Standard Time" },
-      end: { dateTime: "2026-06-15T15:30:00", timeZone: "Eastern Standard Time" },
-      showAs: "busy"
-    },
-    {
-      id: "evt-3",
-      subject: "SME Onboarding Sync - Legal Systems course",
-      start: { dateTime: "2026-06-25T10:00:00", timeZone: "Eastern Standard Time" },
-      end: { dateTime: "2026-06-25T11:30:00", timeZone: "Eastern Standard Time" },
-      showAs: "busy"
-    },
-    {
-      id: "evt-4",
-      subject: "Curriculum Focus Work block",
-      start: { dateTime: "2026-06-29T08:00:00", timeZone: "Eastern Standard Time" },
-      end: { dateTime: "2026-06-29T12:00:00", timeZone: "Eastern Standard Time" },
-      showAs: "busy"
-    }
-  ];
-  res.json(mockBusySlices);
+/**
+ * Do not return mock calendar events.
+ * Until real Microsoft Graph token handling is implemented, return an empty list.
+ */
+app.get("/api/outlook/sync", (_req, res) => {
+  res.json([]);
 });
 
-// Disconnect Outlook
-app.post("/api/outlook/disconnect", async (req, res) => {
-  const config = {
-    customBlocked: inMemoryCalendarExclusions.customBlocked,
-    outlookConnected: false,
-    outlookEmail: ""
-  };
+app.post("/api/outlook/disconnect", async (_req, res) => {
+  try {
+    const config = {
+      ...inMemoryCalendarSettings,
+      outlookConnected: false,
+      outlookEmail: "",
+    };
 
-  if (isFirestoreConnected && db) {
-    try {
+    if (isFirestoreConnected && db) {
       await db.collection("calendar-settings").doc("exclusions").set(config, { merge: true });
-    } catch (err) {
-      console.error(err);
+    } else {
+      inMemoryCalendarSettings = config;
     }
-  } else {
-    inMemoryCalendarExclusions = { ...inMemoryCalendarExclusions, ...config };
+
+    res.json({ success: true });
+  } catch (err: any) {
+    console.error("[POST /api/outlook/disconnect]", err);
+    res.status(500).json({ error: err.message || "Failed to disconnect Outlook." });
   }
-  res.json({ success: true });
 });
 
 // -------------------------------------------------------------
-// VITE DEV SERVER AND PRODUCTION SERVING LAYER
+// VITE DEV SERVER AND PRODUCTION SERVING
 // -------------------------------------------------------------
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {
@@ -575,23 +552,25 @@ async function startServer() {
       server: { middlewareMode: true },
       appType: "spa",
     });
+
     app.use(vite.middlewares);
-    console.log(`[Vite] Development middleware mounted successfully.`);
+    console.log("[Vite] Development middleware mounted.");
   } else {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
-    app.get("*", (req, res) => {
+
+    app.get("*", (_req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
     });
-    console.log(`[Production] Static asset server mounted on routing dist. @ ${distPath}`);
+
+    console.log(`[Production] Serving static assets from ${distPath}`);
   }
 
-  // Set up listener to bind transparently on 0.0.0.0 with the environment-passed port allocation
   app.listen(Number(PORT), "0.0.0.0", () => {
-    console.log(`================================================================`);
-    console.log(` FSCJ Workload Hub Full-Stack Engine Running`);
-    console.log(` Active Context Dynamic Port Link: http://0.0.0.0:${PORT}`);
-    console.log(`================================================================`);
+    console.log("================================================================");
+    console.log(" FSCJ Workload Hub API Running");
+    console.log(` URL: http://0.0.0.0:${PORT}`);
+    console.log("================================================================");
   });
 }
 
