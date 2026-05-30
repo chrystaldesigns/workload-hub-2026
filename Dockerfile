@@ -1,20 +1,11 @@
-# Use the official lightweight Node.js image
-FROM node:18-alpine
+# Use a lightweight web server to serve static files
+FROM nginx:alpine
 
-# Create and change to the app directory
-WORKDIR /usr/src/app
+# Copy all your repository files into the web server directory
+COPY . /usr/share/nginx/html
 
-# Copy application dependency manifests to the container image
-COPY package*.json ./
-
-# Install dependencies
-RUN npm install
-
-# Copy local code to the container image
-COPY . .
-
-# Expose the port the app runs on
+# Expose port 8080 for Google Cloud
 EXPOSE 8080
 
-# Run the web service on container startup
-CMD [ "npm", "start" ]
+# Configure Nginx to listen on port 8080 instead of the default 80
+RUN sed -i 's/listen       80;/listen       8080;/g' /etc/nginx/conf.d/default.conf
