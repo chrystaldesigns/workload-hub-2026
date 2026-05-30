@@ -1,6 +1,0 @@
-{
-  "name": "Workload Hub",
-  "description": "A highly polished, modern, and accessible single-page Express and Firestore workload management dashboard integrated with Google Cloud Run.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
