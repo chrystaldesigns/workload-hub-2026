@@ -1,14 +1,26 @@
-# Step 1: Use Node to install dependencies and build the Vite project
-FROM node:18-alpine AS build-stage
+# Use the official Node.js runtime as the base image
+FROM node:18-alpine
+
+# Set the working directory inside the container
 WORKDIR /app
+
+# Copy dependency manifests
 COPY package*.json ./
+
+# Install ALL dependencies (including devDependencies like esbuild/vite)
 RUN npm install
+
+# Copy the rest of your application code
 COPY . .
+
+# Run the build script (compiles frontend via Vite AND backend via esbuild)
 RUN npm run build
 
-# Step 2: Use Nginx to host the compiled production files
-FROM nginx:alpine
-COPY --from=build-stage /app/dist /usr/share/nginx/html
+# Expose port 8080 for Cloud Run
 EXPOSE 8080
-RUN sed -i 's/listen       80;/listen       8080;/g' /etc/nginx/conf.d/default.conf
-CMD ["nginx", "-g", "daemon off;"]
+
+# Define the environment variable for the port
+ENV PORT=8080
+
+# Start the built full-stack Express server
+CMD ["npm", "start"]
