@@ -20,7 +20,7 @@ const emptyTask: StandaloneTask = {
   alertStatus: "No Concerns",
 };
 
-export default function Category3_Tasks({
+export function Category3Tasks({
   tasks,
   onAddTask,
   onUpdateTask,
