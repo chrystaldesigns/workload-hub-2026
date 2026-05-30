@@ -5,7 +5,9 @@ import { createServer as createViteServer } from "vite";
 import fs from "fs";
 
 const app = express();
-const PORT = 3000;
+
+// Modernized: Prioritize dynamic environment variables provided by Cloud Run, falling back to 8080 or 3000 locally.
+const PORT = process.env.PORT || 8080;
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -124,7 +126,7 @@ let inMemoryStandaloneTasks: any[] = [
     id: "task-seed-2",
     title: "Complete FSCJ Annual Self-Evaluation Report",
     startDate: "2026-05-15",
-    dueDate: "2026-05-25", // Overdue! Action-based alert potential or high priority
+    dueDate: "2026-05-25",
     notes: "Review with eLearning Dean Dr. Golf.",
     status: "In Progress",
     progress: 50,
@@ -148,7 +150,6 @@ async function getCollectionData(collectionName: string, fallbackData: any[]) {
   try {
     const snap = await db.collection(collectionName).get();
     if (snap.empty) {
-      // Seed initial data
       for (const item of fallbackData) {
         const { id, ...payload } = item;
         await db.collection(collectionName).add(payload);
@@ -295,7 +296,6 @@ app.delete("/api/lss-projects/:id", async (req, res) => {
   }
 });
 
-
 // Standalone Tasks (Category 3)
 app.get("/api/standalone-tasks", async (req, res) => {
   const data = await getCollectionData("standalone-tasks", inMemoryStandaloneTasks);
@@ -355,7 +355,6 @@ app.delete("/api/standalone-tasks/:id", async (req, res) => {
   }
 });
 
-
 // Calendar Settings & Exclusions
 app.get("/api/calendar-settings", async (req, res) => {
   if (isFirestoreConnected && db) {
@@ -376,7 +375,7 @@ app.get("/api/calendar-settings", async (req, res) => {
 });
 
 app.post("/api/calendar-settings", async (req, res) => {
-  const payload = req.body; // customBlocked: string[], outlookConnected?: boolean, outlookEmail?: string
+  const payload = req.body;
   if (isFirestoreConnected && db) {
     try {
       await db.collection("calendar-settings").doc("exclusions").set(payload, { merge: true });
@@ -393,23 +392,17 @@ app.post("/api/calendar-settings", async (req, res) => {
 // -------------------------------------------------------------
 // MICROSOFT OUTLOOK OAUTH FLOW & SIMULATION PROXIES
 // -------------------------------------------------------------
-// We provide standard endpoints for Outlook Calendar Integration so the application is full-scale.
-// When authorized, client can sync directly or pull mock events mapping out Busy Outlook slots
-// to prevent simulated empty timelines and support real data structures synchronously.
 app.get("/api/outlook/auth-url", (req, res) => {
   const clientId = req.query.clientId || "mock-client-id";
   const redirectUri = `${req.protocol}://${req.get("host")}/api/outlook/callback`;
   const tenant = req.query.tenantId || "common";
   
-  // Real Microsoft Graph scopes needed list
   const authUrl = `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/authorize?client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&response_mode=query&scope=Calendars.Read%20offline_access`;
   res.json({ url: authUrl });
 });
 
 app.get("/api/outlook/callback", async (req, res) => {
   const { code } = req.query;
-  // If authorization code exists, can do token exchange
-  // For simulation or fully operational demo, we activate connection & write to exclusions
   const config = {
     customBlocked: inMemoryCalendarExclusions.customBlocked,
     outlookConnected: true,
@@ -426,18 +419,84 @@ app.get("/api/outlook/callback", async (req, res) => {
     inMemoryCalendarExclusions = { ...inMemoryCalendarExclusions, ...config };
   }
 
-  // Redirect client back to settings tab
+  // Modernized Inline DOM Payload: Styled to match the new clean, double-rounded visual architecture
   res.send(`
     <html>
-      <head><title>Outlook Authorization Completed</title></head>
-      <body class="font-sans" style="display:-webkit-flex; display:flex; align-items:center; justify-content:center; height:100vh; background-color:#F4F1ED; margin:0; text-align:center;">
-        <div style="background-color:white; border: 1px solid #E0DCD8; padding: 2.5rem; max-width: 400px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
-          <svg style="width:48px; height:48px; color:#006282;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path d="M5 13l4 4L19 7"></path>
-          </svg>
-          <h2 style="font-size:1.25rem; font-weight:600; color:#1A1A1A; margin-top:1rem;">Outlook Authenticated!</h2>
-          <p style="font-size:0.875rem; color:#4B5563; margin-top:0.5rem; line-height:1.25rem;">Microsoft Graph calendar retrieval linked successfully for wickline@fscj.edu.</p>
-          <button onclick="window.close()" style="margin-top:1.5rem; background-color:#006282; border:none; color:white; padding:0.5rem 1.5rem; font-size:0.75rem; font-weight:600; text-transform:uppercase; cursor:pointer;">Close Window</button>
+      <head>
+        <title>Outlook Authorization Completed</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+        <style>
+          body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background-color: #f8fafc;
+            margin: 0;
+            font-family: 'Inter', sans-serif;
+            text-align: center;
+          }
+          .card {
+            background-color: #ffffff;
+            border: 1px solid rgba(226, 232, 240, 0.6);
+            border-radius: 1rem;
+            padding: 2.5rem;
+            max-width: 400px;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.02), 0 1px 2px -1px rgba(0, 0, 0, 0.02);
+          }
+          .icon-badge {
+            background-color: #e0e7ff;
+            color: #4f46e5;
+            width: 3.5rem;
+            height: 3.5rem;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.25rem auto;
+          }
+          h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #0f172a;
+            margin: 0 0 0.5rem 0;
+            tracking: -0.025em;
+          }
+          p {
+            font-size: 0.875rem;
+            color: #475569;
+            margin: 0 0 1.5rem 0;
+            line-height: 1.4;
+          }
+          button {
+            width: 100%;
+            background-color: #4f46e5;
+            border: none;
+            color: #ffffff;
+            padding: 0.625rem 1.25rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            border-radius: 0.75rem;
+            cursor: pointer;
+            transition: background-color 0.2s ease-in-out;
+          }
+          button:hover {
+            background-color: #4338ca;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="card">
+          <div class="icon-badge">
+            <svg style="width:24px; height:24px;" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path>
+            </svg>
+          </div>
+          <h2>Outlook Authenticated!</h2>
+          <p>Microsoft Graph calendar retrieval linked successfully for wickline@fscj.edu.</p>
+          <button onclick="window.close()">Close Window</button>
         </div>
         <script>
           setTimeout(() => {
@@ -454,7 +513,6 @@ app.get("/api/outlook/callback", async (req, res) => {
 
 // Retrieve outlook calendar busy states to deduct available working capacity
 app.get("/api/outlook/sync", (req, res) => {
-  // Returns real calendar view mock/live busy slots
   const mockBusySlices = [
     {
       id: "evt-1",
@@ -508,7 +566,6 @@ app.post("/api/outlook/disconnect", async (req, res) => {
   res.json({ success: true });
 });
 
-
 // -------------------------------------------------------------
 // VITE DEV SERVER AND PRODUCTION SERVING LAYER
 // -------------------------------------------------------------
@@ -529,10 +586,11 @@ async function startServer() {
     console.log(`[Production] Static asset server mounted on routing dist. @ ${distPath}`);
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
+  // Set up listener to bind transparently on 0.0.0.0 with the environment-passed port allocation
+  app.listen(Number(PORT), "0.0.0.0", () => {
     console.log(`================================================================`);
     console.log(` FSCJ Workload Hub Full-Stack Engine Running`);
-    console.log(` Target Subdomain Connection URI: http://0.0.0.0:${PORT}`);
+    console.log(` Active Context Dynamic Port Link: http://0.0.0.0:${PORT}`);
     console.log(`================================================================`);
   });
 }
