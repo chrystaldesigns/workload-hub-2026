@@ -1,4 +1,4 @@
-# Stage 1: Build the React application
+# Step 1: Use Node to install dependencies and build the Vite project
 FROM node:18-alpine AS build-stage
 WORKDIR /app
 COPY package*.json ./
@@ -6,7 +6,7 @@ RUN npm install
 COPY . .
 RUN npm run build
 
-# Stage 2: Serve the compiled application using Nginx
+# Step 2: Use Nginx to host the compiled production files
 FROM nginx:alpine
 COPY --from=build-stage /app/dist /usr/share/nginx/html
 EXPOSE 8080
