@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { PlusCircle, CheckCircle2, Circle, PauseCircle, AlertTriangle } from "lucide-react";
-import { StandaloneTask } from "./types";
+import { StandaloneTask } from "../types";
 
 interface Category3TasksProps {
   tasks: StandaloneTask[];
@@ -90,64 +90,46 @@ export function Category3Tasks({
   const getStatusIcon = (status: StandaloneTask["status"]) => {
     switch (status) {
       case "Complete":
-        return <CheckCircle2 className="h-5 w-5 text-green-700" aria-hidden="true" />;
+        return <CheckCircle2 className="h-5 w-5 text-green-700" />;
       case "In Progress":
-        return <Circle className="h-5 w-5 text-blue-700" aria-hidden="true" />;
+        return <Circle className="h-5 w-5 text-blue-700" />;
       case "On Hold":
-        return <PauseCircle className="h-5 w-5 text-orange-700" aria-hidden="true" />;
+        return <PauseCircle className="h-5 w-5 text-orange-700" />;
       case "Overdue":
-        return <AlertTriangle className="h-5 w-5 text-red-700" aria-hidden="true" />;
+        return <AlertTriangle className="h-5 w-5 text-red-700" />;
       default:
-        return <Circle className="h-5 w-5 text-slate-500" aria-hidden="true" />;
-    }
-  };
-
-  const getAlertClass = (alertStatus?: StandaloneTask["alertStatus"]) => {
-    switch (alertStatus) {
-      case "High Priority Concerns":
-        return "bg-red-700 text-white";
-      case "Potential Concerns":
-        return "bg-orange-700 text-white";
-      default:
-        return "bg-slate-600 text-white";
+        return <Circle className="h-5 w-5 text-slate-500" />;
     }
   };
 
   return (
-    <section className="space-y-6" aria-labelledby="standalone-tasks-heading">
+    <section className="space-y-6">
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="mb-5">
-          <h2 id="standalone-tasks-heading" className="text-xl font-semibold text-slate-900">
-            Standalone Tasks
-          </h2>
-          <p className="mt-1 text-sm text-slate-600">
-            Add random tasks that are not tied to Course Development or Projects.
-          </p>
-        </div>
+        <h2 className="text-xl font-semibold text-slate-900">Standalone Tasks</h2>
+        <p className="mt-1 text-sm text-slate-600">
+          Add random tasks that are not tied to Course Development or Projects.
+        </p>
 
-        <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2">
+        <form onSubmit={handleSubmit} className="mt-5 grid gap-4 md:grid-cols-2">
           <div className="md:col-span-2">
-            <label htmlFor="title" className="mb-1 block text-sm font-medium text-slate-700">
+            <label className="mb-1 block text-sm font-medium text-slate-700">
               Task Title
             </label>
             <input
-              id="title"
               name="title"
               type="text"
               value={newTask.title}
               onChange={handleChange}
-              placeholder="Enter task title"
               className="w-full rounded-xl border border-slate-300 px-3 py-2"
               required
             />
           </div>
 
           <div>
-            <label htmlFor="startDate" className="mb-1 block text-sm font-medium text-slate-700">
+            <label className="mb-1 block text-sm font-medium text-slate-700">
               Start Date
             </label>
             <input
-              id="startDate"
               name="startDate"
               type="date"
               value={newTask.startDate || ""}
@@ -157,11 +139,10 @@ export function Category3Tasks({
           </div>
 
           <div>
-            <label htmlFor="dueDate" className="mb-1 block text-sm font-medium text-slate-700">
+            <label className="mb-1 block text-sm font-medium text-slate-700">
               Due Date
             </label>
             <input
-              id="dueDate"
               name="dueDate"
               type="date"
               value={newTask.dueDate || ""}
@@ -171,11 +152,10 @@ export function Category3Tasks({
           </div>
 
           <div>
-            <label htmlFor="status" className="mb-1 block text-sm font-medium text-slate-700">
+            <label className="mb-1 block text-sm font-medium text-slate-700">
               Status
             </label>
             <select
-              id="status"
               name="status"
               value={newTask.status}
               onChange={handleChange}
@@ -190,11 +170,10 @@ export function Category3Tasks({
           </div>
 
           <div>
-            <label htmlFor="priority" className="mb-1 block text-sm font-medium text-slate-700">
+            <label className="mb-1 block text-sm font-medium text-slate-700">
               Priority
             </label>
             <select
-              id="priority"
               name="priority"
               value={newTask.priority}
               onChange={handleChange}
@@ -208,11 +187,10 @@ export function Category3Tasks({
           </div>
 
           <div>
-            <label htmlFor="alertStatus" className="mb-1 block text-sm font-medium text-slate-700">
+            <label className="mb-1 block text-sm font-medium text-slate-700">
               ALERTS
             </label>
             <select
-              id="alertStatus"
               name="alertStatus"
               value={newTask.alertStatus || "No Concerns"}
               onChange={handleChange}
@@ -225,11 +203,10 @@ export function Category3Tasks({
           </div>
 
           <div>
-            <label htmlFor="progress" className="mb-1 block text-sm font-medium text-slate-700">
+            <label className="mb-1 block text-sm font-medium text-slate-700">
               Progress %
             </label>
             <input
-              id="progress"
               name="progress"
               type="number"
               min={0}
@@ -241,15 +218,13 @@ export function Category3Tasks({
           </div>
 
           <div className="md:col-span-2">
-            <label htmlFor="notes" className="mb-1 block text-sm font-medium text-slate-700">
+            <label className="mb-1 block text-sm font-medium text-slate-700">
               Notes
             </label>
             <textarea
-              id="notes"
               name="notes"
               value={newTask.notes || ""}
               onChange={handleChange}
-              placeholder="Add notes"
               rows={4}
               className="w-full rounded-xl border border-slate-300 px-3 py-2"
             />
@@ -260,7 +235,7 @@ export function Category3Tasks({
               type="submit"
               className="inline-flex items-center gap-2 rounded-xl bg-[#003E52] px-4 py-2 font-medium text-white hover:bg-[#073C5C]"
             >
-              <PlusCircle className="h-5 w-5" aria-hidden="true" />
+              <PlusCircle className="h-5 w-5" />
               Create Task
             </button>
           </div>
@@ -279,58 +254,26 @@ export function Category3Tasks({
                 key={task.id || index}
                 className="rounded-xl border border-slate-200 bg-slate-50 p-4"
               >
-                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                  <div className="flex gap-3">
-                    <button
-                      type="button"
-                      onClick={() => handleStatusToggle(index, task)}
-                      className="mt-1 rounded-full focus:outline-none focus:ring-2 focus:ring-[#33B1C8]"
-                      aria-label={`Update status for ${task.title}`}
-                    >
-                      {getStatusIcon(task.status)}
-                    </button>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => handleStatusToggle(index, task)}
+                    aria-label={`Update status for ${task.title}`}
+                  >
+                    {getStatusIcon(task.status)}
+                  </button>
 
-                    <div>
-                      <h4 className="font-medium text-slate-900">{task.title}</h4>
-                      <p className="mt-1 text-sm text-slate-600">
-                        {task.startDate ? `Start: ${task.startDate}` : "Start: Not set"} ·{" "}
-                        {task.dueDate ? `Due: ${task.dueDate}` : "Due: Not set"}
+                  <div>
+                    <h4 className="font-medium text-slate-900">{task.title}</h4>
+                    <p className="text-sm text-slate-600">
+                      {task.startDate ? `Start: ${task.startDate}` : "Start: Not set"} ·{" "}
+                      {task.dueDate ? `Due: ${task.dueDate}` : "Due: Not set"}
+                    </p>
+                    {task.notes && (
+                      <p className="mt-2 whitespace-pre-wrap text-sm text-slate-700">
+                        {task.notes}
                       </p>
-                      {task.notes && (
-                        <p className="mt-2 whitespace-pre-wrap text-sm text-slate-700">
-                          {task.notes}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    <span className="rounded-full bg-slate-700 px-3 py-1 text-xs font-medium text-white">
-                      {task.status}
-                    </span>
-                    <span className="rounded-full bg-[#003E52] px-3 py-1 text-xs font-medium text-white">
-                      {task.priority}
-                    </span>
-                    <span
-                      className={`rounded-full px-3 py-1 text-xs font-medium ${getAlertClass(
-                        task.alertStatus
-                      )}`}
-                    >
-                      {task.alertStatus || "No Concerns"}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="mt-4">
-                  <div className="mb-1 flex justify-between text-xs text-slate-600">
-                    <span>Progress</span>
-                    <span>{task.progress || 0}%</span>
-                  </div>
-                  <div className="h-2 rounded-full bg-slate-200">
-                    <div
-                      className="h-2 rounded-full bg-[#087834]"
-                      style={{ width: `${Math.min(task.progress || 0, 100)}%` }}
-                    />
+                    )}
                   </div>
                 </div>
               </article>
