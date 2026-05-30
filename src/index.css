@@ -1,42 +1,30 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
 :root {
-  /* Typography Configuration */
-  --font-sans: "Inter", sans-serif;
-
-  /* FSCJ Theme Color Palette Tokens */
+  /* Strict Institutional Palette */
   --color-fscj-teal: #003E52;
   --color-fscj-navy: #073C5C;
   --color-fscj-green: #087834;
   --color-fscj-sky: #33B1C8;
   
-  /* Modern Neutral Backgrounds & Surfaces */
+  /* Modern Neutral Base Layers */
   --color-bg-main: #F8FAFC;
   --color-bg-card: #FFFFFF;
-  --color-border-subtle: rgba(226, 232, 240, 0.6);
+  --color-border-subtle: rgba(226, 232, 240, 0.8);
   --color-text-dark: #0F172A;
   --color-text-muted: #475569;
-
-  /* Tailwind Core Semantic Overrides (Aligning Tailwind defaults to your palette) */
-  --color-slate-100: #F1F5F9;
-  --color-slate-200: #E2E8F0;
-  --color-slate-700: #334155;
-  --color-slate-900: #0F172A;
 }
 
-/* SAFE TARGETED FONTS RESET 
-  Applies "Inter" cleanly to standard web typography elements. 
-  Intentionally excludes icon libraries (like FontAwesome/Lucide) so they don't break.
-*/
-html, body, #root, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, td, th {
-  font-family: var(--font-sans);
+/* --- THE TYPOGRAPHY SAFE HARBOR --- */
+html, body, #root, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, td, th, div {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif !important;
 }
 
-/* Structural Base Resets */
 html, body, #root {
   height: 100%;
   margin: 0;
-  background-color: var(--color-bg-main);
+  padding: 0;
+  background-color: var(--color-bg-main) !important;
   color: var(--color-text-dark);
   -webkit-font-smoothing: antialiased;
 }
@@ -45,63 +33,79 @@ html, body, #root {
   box-sizing: border-box;
 }
 
-/* Weight Rule Hierarchy Tuning */
+/* --- TRADITIONAL CSS FALLBACK CLASSES (Bypasses Tailwind Bugs) --- */
+
+/* Background Color Direct Injectors */
+.bg-fscj-teal, [class*="bg-fscj-teal"] { background-color: #003E52 !important; }
+.bg-fscj-navy, [class*="bg-fscj-navy"] { background-color: #073C5C !important; }
+.bg-fscj-green, [class*="bg-fscj-green"] { background-color: #087834 !important; }
+.bg-fscj-sky, [class*="bg-fscj-sky"] { background-color: #33B1C8 !important; }
+
+/* Text Color Direct Injectors */
+.text-fscj-teal, [class*="text-fscj-teal"] { color: #003E52 !important; }
+.text-fscj-navy, [class*="text-fscj-navy"] { color: #073C5C !important; }
+.text-fscj-green, [class*="text-fscj-green"] { color: #087834 !important; }
+.text-fscj-sky, [class*="text-fscj-sky"] { color: #33B1C8 !important; }
+
+/* Border Direct Injectors */
+.border-fscj-teal { border-color: #003E52 !important; }
+.border-fscj-navy { border-color: #073C5C !important; }
+
+/* Component Styles */
+.btn-primary, [class*="btn-primary"] {
+  background-color: var(--color-fscj-teal) !important;
+  color: #FFFFFF !important;
+  font-weight: 500 !important;
+  padding: 0.625rem 1.25rem !important;
+  border-radius: 0.75rem !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
+  border: 1px solid transparent !important;
+  transition: all 0.2s ease-in-out !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+.btn-primary:hover {
+  background-color: var(--color-fscj-navy) !important;
+}
+
+.btn-secondary, [class*="btn-secondary"] {
+  background-color: #F1F5F9 !important;
+  color: #334155 !important;
+  font-weight: 500 !important;
+  padding: 0.625rem 1.25rem !important;
+  border-radius: 0.75rem !important;
+  border: 1px solid rgba(226, 232, 240, 1) !important;
+  transition: all 0.2s ease-in-out !important;
+  cursor: pointer !important;
+}
+.btn-secondary:hover {
+  background-color: #E2E8F0 !important;
+}
+
+.modern-card, [class*="modern-card"] {
+  background-color: var(--color-bg-card) !important;
+  border: 1px solid var(--color-border-subtle) !important;
+  border-radius: 1rem !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03) !important;
+  padding: 1.5rem !important;
+}
+
+.modern-nav, [class*="modern-nav"] {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 50 !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  background-color: rgba(255, 255, 255, 0.85) !important;
+  border-bottom: 1px solid var(--color-border-subtle) !important;
+}
+
+/* --- WEIGHT ENFORCEMENT ENGINE --- */
 h1, h2, h3, h4, .font-semibold, th, strong {
   font-weight: 600 !important;
 }
-
 .font-medium, .semibold-limited {
   font-weight: 500 !important;
-}
-
-/* -------------------------------------------------------------
-   SYNCHRONIZED CUSTOM UTILITY LAYERS (TAILWIND V4 COMPLIANT)
-   ------------------------------------------------------------- */
-
-@utility btn-primary {
-  background-color: var(--color-fscj-teal);
-  color: #FFFFFF;
-  font-weight: 500;
-  padding: 0.625rem 1.25rem;
-  border-radius: 0.75rem; /* Soft rounded corners (rounded-xl) */
-  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  transition: all 0.2s ease-in-out;
-  border: 1px solid transparent;
-  cursor: pointer;
-  
-  &:hover {
-    background-color: var(--color-fscj-navy);
-  }
-}
-
-@utility btn-secondary {
-  background-color: var(--color-slate-100);
-  color: var(--color-slate-700);
-  font-weight: 500;
-  padding: 0.625rem 1.25rem;
-  border-radius: 0.75rem;
-  border: 1px solid var(--color-slate-200);
-  transition: all 0.2s ease-in-out;
-  cursor: pointer;
-  
-  &:hover {
-    background-color: var(--color-slate-200);
-  }
-}
-
-@utility modern-card {
-  background-color: var(--color-bg-card);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: 1rem; /* Premium double-rounded look (rounded-2xl) */
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.02), 0 1px 2px -1px rgba(0, 0, 0, 0.02);
-  padding: 1.5rem;
-}
-
-@utility modern-nav {
-  position: sticky;
-  top: 0;
-  z-index: 50;
-  backdrop-filter: blur(12px);
-  background-color: rgba(255, 255, 255, 0.85);
-  border-bottom: 1px solid var(--color-border-subtle);
 }
