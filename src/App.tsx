@@ -12,7 +12,7 @@ import { Category1CourseDev } from './components/Category1_CourseDev';
 import { Category2LssProjects } from './components/Category2_LssProjects';
 import { Category3Tasks } from './components/Category3_Tasks';
 import { CalendarSettingsPanel } from './components/CalendarSettingsPanel';
-import { BookOpen, AlertCircle, RefreshCw } from 'lucide-react';
+import { AlertCircle, RefreshCw } from 'lucide-react';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>('category1');
@@ -26,7 +26,7 @@ export default function App() {
   const [calendarSettings, setCalendarSettings] = useState<CalendarSettings>({ customBlocked: [] });
   const [outlookEvents, setOutlookEvents] = useState<OutlookEvent[]>([]);
 
-  // Calculate overall alerts count in system (Overdue Standalone tasks or Non-compliance courses)
+  // Calculate overall alerts count in system
   const [alertCount, setAlertCount] = useState<number>(0);
 
   // Load everything from full-stack service endpoints on bootstrap
@@ -69,7 +69,6 @@ export default function App() {
       cdData.forEach((course: CourseDevelopment) => {
         const task26 = course.tasks.find(t => t.id === 26 || t.id === 62 || t.name.toLowerCase().includes("code check and archive"));
         if (task26 && task26.dueDate) {
-          // Check working days count
           const blocked = calData.customBlocked || [];
           const daysAndGaps = countWorkingDaysBetweenDates(task26.dueDate, course.termDeadline, blocked);
           if (daysAndGaps < 30) {
@@ -90,7 +89,7 @@ export default function App() {
     loadDashboardData();
   }, []);
 
-  // Sibling layout helper for working days (avoid dependency errors)
+  // Sibling layout helper for working days
   const countWorkingDaysBetweenDates = (startStr: string, endStr: string, blocked: string[]) => {
     if (startStr > endStr) return 0;
     let current = new Date(startStr + 'T12:00:00');
@@ -103,10 +102,9 @@ export default function App() {
       const isWeekend = day === 0 || day === 6;
       let isSummerFriday = false;
       
-      // Calculate simplified summer schedule friday закрыт bounds
       if (day === 5) {
         const mo = current.getMonth();
-        if (mo >= 4 && mo <= 7) { // May, June, July, August is closed
+        if (mo >= 4 && mo <= 7) {
           isSummerFriday = true;
         }
       }
@@ -119,7 +117,6 @@ export default function App() {
     return count;
   };
 
-
   // -----------------------------------------------------------------
   // HANDLERS FOR CATEGORY 1: COURSE DEVELOPMENTS
   // -----------------------------------------------------------------
@@ -130,9 +127,7 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newCourse)
       });
-      if (res.ok) {
-        await loadDashboardData();
-      }
+      if (res.ok) await loadDashboardData();
     } catch (err) {
       console.error(err);
     }
@@ -145,9 +140,7 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updatedCourse)
       });
-      if (res.ok) {
-        await loadDashboardData();
-      }
+      if (res.ok) await loadDashboardData();
     } catch (err) {
       console.error(err);
     }
@@ -156,9 +149,7 @@ export default function App() {
   const handleDeleteCourse = async (id: string) => {
     try {
       const res = await fetch(`/api/course-developments/${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        await loadDashboardData();
-      }
+      if (res.ok) await loadDashboardData();
     } catch (err) {
       console.error(err);
     }
@@ -174,9 +165,7 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newProj)
       });
-      if (res.ok) {
-        await loadDashboardData();
-      }
+      if (res.ok) await loadDashboardData();
     } catch (err) {
       console.error(err);
     }
@@ -189,9 +178,7 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updatedProj)
       });
-      if (res.ok) {
-        await loadDashboardData();
-      }
+      if (res.ok) await loadDashboardData();
     } catch (err) {
       console.error(err);
     }
@@ -200,9 +187,7 @@ export default function App() {
   const handleDeleteProject = async (id: string) => {
     try {
       const res = await fetch(`/api/lss-projects/${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        await loadDashboardData();
-      }
+      if (res.ok) await loadDashboardData();
     } catch (err) {
       console.error(err);
     }
@@ -218,9 +203,7 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newTask)
       });
-      if (res.ok) {
-        await loadDashboardData();
-      }
+      if (res.ok) await loadDashboardData();
     } catch (err) {
       console.error(err);
     }
@@ -233,9 +216,7 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updatedTask)
       });
-      if (res.ok) {
-        await loadDashboardData();
-      }
+      if (res.ok) await loadDashboardData();
     } catch (err) {
       console.error(err);
     }
@@ -244,9 +225,7 @@ export default function App() {
   const handleDeleteTask = async (id: string) => {
     try {
       const res = await fetch(`/api/standalone-tasks/${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        await loadDashboardData();
-      }
+      if (res.ok) await loadDashboardData();
     } catch (err) {
       console.error(err);
     }
@@ -257,30 +236,23 @@ export default function App() {
   // -----------------------------------------------------------------
   const handleUpdateBlockedDates = async (dates: string[]) => {
     try {
-      const updatedConfig = {
-        ...calendarSettings,
-        customBlocked: dates
-      };
+      const updatedConfig = { ...calendarSettings, customBlocked: dates };
       const res = await fetch('/api/calendar-settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updatedConfig)
       });
-      if (res.ok) {
-        await loadDashboardData();
-      }
+      if (res.ok) await loadDashboardData();
     } catch (err) {
       console.error(err);
     }
   };
 
   const handleConnectOutlook = (clientId: string, tenantId: string) => {
-    // Initiate secure browser OAuth popup redirect flow
     const popupWidth = 600;
     const popupHeight = 650;
     const left = window.screen.width / 2 - popupWidth / 2;
     const top = window.screen.height / 2 - popupHeight / 2;
-
     const popupUrl = `/api/outlook/auth-url?clientId=${clientId}&tenantId=${tenantId}`;
     window.open(popupUrl, 'Authorize Outlook Calendar', `width=${popupWidth},height=${popupHeight},top=${top},left=${left}`);
   };
@@ -288,15 +260,12 @@ export default function App() {
   const handleDisconnectOutlook = async () => {
     try {
       const res = await fetch('/api/outlook/disconnect', { method: 'POST' });
-      if (res.ok) {
-        await loadDashboardData();
-      }
+      if (res.ok) await loadDashboardData();
     } catch (err) {
       console.error(err);
     }
   };
 
-  // Render selection helpers
   const renderTabContent = () => {
     switch (activeTab) {
       case 'category1':
@@ -346,13 +315,13 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen bg-[#F4F1ED]">
+      <div className="flex flex-col items-center justify-center h-screen bg-slate-50">
         <div className="flex flex-col items-center gap-4 text-slate-800">
-          <RefreshCw className="w-10 h-10 animate-spin text-[#006282]" />
-          <h2 className="text-sm font-bold uppercase tracking-widest font-mono">
-            Synchronizing with live GCP Cloud Run...
+          <RefreshCw className="w-10 h-10 animate-spin text-indigo-600" />
+          <h2 className="text-sm font-semibold tracking-wider uppercase font-sans">
+            Synchronizing Engine Data...
           </h2>
-          <p className="text-xs text-slate-400">Loading your academic planning registries</p>
+          <p className="text-xs text-slate-500">Loading your academic planning registries</p>
         </div>
       </div>
     );
@@ -360,16 +329,18 @@ export default function App() {
 
   if (errorMsg) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen bg-[#F4F1ED] p-6 text-center">
-        <div className="max-w-md bg-white border border-rose-300 shadow-md p-8 flex flex-col items-center gap-4">
-          <AlertCircle className="w-16 h-16 text-rose-600 shrink-0" />
-          <h2 className="text-lg font-bold uppercase tracking-wide text-slate-900 border-b pb-2">
+      <div className="flex flex-col items-center justify-center h-screen bg-slate-50 p-6 text-center">
+        <div className="max-w-md bg-white border border-slate-100 shadow-sm rounded-2xl p-8 flex flex-col items-center gap-4">
+          <div className="bg-rose-50 p-3 rounded-full">
+            <AlertCircle className="w-10 h-10 text-rose-600 shrink-0" />
+          </div>
+          <h2 className="text-lg font-semibold tracking-tight text-slate-900">
             System Communication Exception
           </h2>
-          <p className="text-xs text-rose-800">{errorMsg}</p>
+          <p className="text-sm text-slate-600 px-2">{errorMsg}</p>
           <button 
             onClick={loadDashboardData}
-            className="mt-4 bg-[#006282] text-white px-5 py-2 hover:bg-[#076092] font-semibold text-2xs uppercase tracking-wide"
+            className="mt-2 btn-primary w-full text-sm font-medium tracking-wide"
           >
             Retry Connection Link
           </button>
@@ -379,9 +350,9 @@ export default function App() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#F4F1ED]">
+    <div className="flex flex-col min-h-screen bg-slate-50/50">
       
-      {/* FSCJ EMBELLISHED TOP WRAPPER */}
+      {/* WRAPPER BAR */}
       <Header 
         outlookConnected={!!calendarSettings.outlookConnected} 
         alertCount={alertCount}
@@ -394,21 +365,21 @@ export default function App() {
         alertCount={alertCount}
       />
 
-      {/* VIEWPORT CONTROLLER CARD */}
+      {/* VIEWPORT CONTROLLER */}
       <main className="flex-1 pb-16 animate-fade-in print:pb-0">
         {renderTabContent()}
       </main>
 
       {/* FOOTER RAILS */}
-      <footer className="bg-[#1A1A1A] text-stone-400 text-[10px] py-10 px-6 text-center border-t border-black print:hidden">
+      <footer className="bg-white text-slate-500 text-xs py-10 px-6 text-center border-t border-slate-100 print:hidden">
         <div className="max-w-7xl mx-auto flex flex-col gap-2">
-          <p className="text-stone-300 font-semibold tracking-wider uppercase text-xs">
+          <p className="text-slate-800 font-semibold tracking-wide uppercase text-xs">
             Florida State College at Jacksonville &bull; Workload Hub
           </p>
-          <p>
+          <p className="text-slate-500 text-xs">
             Developed strictly with academic timeline algorithms under federal and institutional criteria. All rights reserved.
           </p>
-          <p className="text-slate-500 font-mono text-[9px] uppercase tracking-widest mt-1">
+          <p className="text-slate-400 font-mono text-[10px] uppercase tracking-wider mt-2 bg-slate-50 py-1.5 px-3 rounded-lg max-w-max mx-auto border border-slate-100/60">
             SECURE CLOUD ENGINE // COMPLIANT WITH WCAG 2.1 AA SECTION 508 REGULATORY GUIDELINES
           </p>
         </div>
