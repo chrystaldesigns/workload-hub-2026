@@ -1,52 +1,121 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  CourseDevelopment, 
-  LssProject, 
-  StandaloneTask, 
-  CalendarSettings, 
-  OutlookEvent 
-} from './types';
-import { Header } from './components/Header';
-import { Navigation } from './components/Navigation';
-import { Category1CourseDev } from './components/Category1_CourseDev';
-import { Category2LssProjects } from './components/Category2_LssProjects';
-import { Category3Tasks } from './components/Category3_Tasks';
-import { CalendarSettingsPanel } from './components/CalendarSettingsPanel';
-import { AlertCircle, RefreshCw } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  CourseDevelopment,
+  LssProject,
+  StandaloneTask,
+  CalendarSettings,
+  OutlookEvent,
+} from "./types";
+import { Header } from "./components/Header";
+import { Navigation } from "./components/Navigation";
+import { Category1CourseDev } from "./components/Category1_CourseDev";
+import { Category2LssProjects } from "./components/Category2_LssProjects";
+import { Category3Tasks } from "./components/Category3_Tasks";
+import { CalendarSettingsPanel } from "./components/CalendarSettingsPanel";
+import { AlertCircle, RefreshCw } from "lucide-react";
+import { countWorkingDaysBetween } from "./utils/calendarEngine";
+
+const isCourseDevelopment = (item: any): item is CourseDevelopment => {
+  return (
+    item &&
+    typeof item === "object" &&
+    (item.itemType === "courseDevelopment" ||
+      (!!item.courseNumber && !!item.courseTitle))
+  );
+};
+
+const isProject = (item: any): item is LssProject => {
+  return (
+    item &&
+    typeof item === "object" &&
+    (item.itemType === "project" ||
+      (!!item.title && !item.courseNumber && Array.isArray(item.tasks)))
+  );
+};
+
+const isStandaloneTask = (item: any): item is StandaloneTask => {
+  return (
+    item &&
+    typeof item === "object" &&
+    (item.itemType === "standaloneTask" ||
+      (!!item.title && !item.courseNumber && !Array.isArray(item.tasks)))
+  );
+};
+
+const safeArray = <T,>(value: unknown, filterFn: (item: any) => item is T): T[] => {
+  if (!Array.isArray(value)) return [];
+  return value.filter(filterFn);
+};
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<string>('category1');
+  const [activeTab, setActiveTab] = useState<string>("category1");
   const [loading, setLoading] = useState<boolean>(true);
-  const [errorMsg, setErrorMsg] = useState<string>('');
+  const [errorMsg, setErrorMsg] = useState<string>("");
 
-  // Structured Core State Engines
   const [courseDevelopments, setCourseDevelopments] = useState<CourseDevelopment[]>([]);
   const [lssProjects, setLssProjects] = useState<LssProject[]>([]);
   const [standaloneTasks, setStandaloneTasks] = useState<StandaloneTask[]>([]);
-  const [calendarSettings, setCalendarSettings] = useState<CalendarSettings>({ customBlocked: [] });
+  const [calendarSettings, setCalendarSettings] = useState<CalendarSettings>({
+    customBlocked: [],
+  });
   const [outlookEvents, setOutlookEvents] = useState<OutlookEvent[]>([]);
 
-  // Calculate overall alerts count in system
-  const [alertCount, setAlertCount] = useState<number>(0);
+  const alertCount = useMemo(() => {
+    const todayStr = new Date().toISOString().split("T")[0];
 
-  // Load everything from full-stack service endpoints on bootstrap
+    const overdueStandaloneTasks = standaloneTasks.filter(
+      (task) => task.status !== "Complete" && !!task.dueDate && task.dueDate < todayStr
+    ).length;
+
+    let courseWarningCount = 0;
+
+    courseDevelopments.forEach((course) => {
+      if (!course?.tasks?.length || !course.termDeadline) return;
+
+      const closeoutTask =
+        course.tasks.find((task) => task.id === 62) ||
+        course.tasks.find((task) =>
+          task.name?.toLowerCase().includes("code check and archive")
+        );
+
+      if (!closeoutTask?.dueDate) return;
+
+      try {
+        const daysBetween = countWorkingDaysBetween(
+          closeoutTask.dueDate,
+          course.termDeadline,
+          calendarSettings.customBlocked || []
+        );
+
+        if (daysBetween < 30) {
+          courseWarningCount++;
+        }
+      } catch {
+        courseWarningCount++;
+      }
+    });
+
+    return overdueStandaloneTasks + courseWarningCount;
+  }, [standaloneTasks, courseDevelopments, calendarSettings.customBlocked]);
+
   const loadDashboardData = async () => {
     try {
       setLoading(true);
-      setErrorMsg('');
+      setErrorMsg("");
 
-      // Fetch all assets in parallel to maintain responsive loading performance
       const [cdRes, lssRes, taskRes, calRes, outRes] = await Promise.all([
-        fetch('/api/course-developments'),
-        fetch('/api/lss-projects'),
-        fetch('/api/standalone-tasks'),
-        fetch('/api/calendar-settings'),
-        fetch('/api/outlook/sync')
+        fetch("/api/course-developments"),
+        fetch("/api/lss-projects"),
+        fetch("/api/standalone-tasks"),
+        fetch("/api/calendar-settings"),
+        fetch("/api/outlook/sync"),
       ]);
 
-      if (!cdRes.ok || !lssRes.ok || !taskRes.ok || !calRes.ok || !outRes.ok) {
-        throw new Error("Failure communicating with core full-stack API services.");
-      }
+      if (!cdRes.ok) throw new Error("Failed to load Course Developments.");
+      if (!lssRes.ok) throw new Error("Failed to load Projects.");
+      if (!taskRes.ok) throw new Error("Failed to load Standalone Tasks.");
+      if (!calRes.ok) throw new Error("Failed to load Calendar Settings.");
+      if (!outRes.ok) throw new Error("Failed to load Outlook Events.");
 
       const cdData = await cdRes.json();
       const lssData = await lssRes.json();
@@ -54,32 +123,21 @@ export default function App() {
       const calData = await calRes.json();
       const outData = await outRes.json();
 
-      setCourseDevelopments(cdData);
-      setLssProjects(lssData);
-      setStandaloneTasks(taskData);
-      setCalendarSettings(calData);
-      setOutlookEvents(outData);
+      setCourseDevelopments(safeArray<CourseDevelopment>(cdData, isCourseDevelopment));
+      setLssProjects(safeArray<LssProject>(lssData, isProject));
+      setStandaloneTasks(safeArray<StandaloneTask>(taskData, isStandaloneTask));
 
-      // Evaluate system alerts count
-      const todayStr = new Date().toISOString().split('T')[0];
-      const overdueTasks = taskData.filter((t: any) => t.status !== 'Complete' && t.dueDate < todayStr).length;
-      
-      // Calculate non-compliance warning counts from courses
-      let nonComplianceCount = 0;
-      cdData.forEach((course: CourseDevelopment) => {
-        const task26 = course.tasks.find(t => t.id === 26 || t.id === 62 || t.name.toLowerCase().includes("code check and archive"));
-        if (task26 && task26.dueDate) {
-          const blocked = calData.customBlocked || [];
-          const daysAndGaps = countWorkingDaysBetweenDates(task26.dueDate, course.termDeadline, blocked);
-          if (daysAndGaps < 30) {
-            nonComplianceCount++;
-          }
-        }
+      setCalendarSettings({
+        customBlocked: Array.isArray(calData?.customBlocked) ? calData.customBlocked : [],
+        outlookConnected: !!calData?.outlookConnected,
+        outlookEmail: calData?.outlookEmail || "",
+        timezone: calData?.timezone || "America/New_York",
       });
 
-      setAlertCount(overdueTasks + nonComplianceCount);
+      setOutlookEvents(Array.isArray(outData) ? outData : []);
     } catch (err: any) {
-      setErrorMsg(err.message || 'System failed loading academic records.');
+      console.error("Dashboard load failed:", err);
+      setErrorMsg(err.message || "System failed loading workload records.");
     } finally {
       setLoading(false);
     }
@@ -89,162 +147,276 @@ export default function App() {
     loadDashboardData();
   }, []);
 
-  // Sibling layout helper for working days
-  const countWorkingDaysBetweenDates = (startStr: string, endStr: string, blocked: string[]) => {
-    if (startStr > endStr) return 0;
-    let current = new Date(startStr + 'T12:00:00');
-    const end = new Date(endStr + 'T12:00:00');
-    let count = 0;
-
-    while (current <= end) {
-      const day = current.getDay();
-      const dateStr = current.toISOString().split('T')[0];
-      const isWeekend = day === 0 || day === 6;
-      let isSummerFriday = false;
-      
-      if (day === 5) {
-        const mo = current.getMonth();
-        if (mo >= 4 && mo <= 7) {
-          isSummerFriday = true;
-        }
-      }
-
-      if (!isWeekend && !isSummerFriday && !blocked.includes(dateStr)) {
-        count++;
-      }
-      current.setDate(current.getDate() + 1);
-    }
-    return count;
-  };
-
-  // -----------------------------------------------------------------
-  // HANDLERS FOR CATEGORY 1: COURSE DEVELOPMENTS
-  // -----------------------------------------------------------------
   const handleAddCourse = async (newCourse: CourseDevelopment) => {
     try {
-      const res = await fetch('/api/course-developments', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newCourse)
+      const payload: CourseDevelopment = {
+        ...newCourse,
+        itemType: "courseDevelopment",
+        tasks: Array.isArray(newCourse.tasks) ? newCourse.tasks : [],
+        createdAt: newCourse.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const res = await fetch("/api/course-developments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
-      if (res.ok) await loadDashboardData();
+
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}));
+        throw new Error(error.error || "Failed to create Course Development.");
+      }
+
+      await loadDashboardData();
     } catch (err) {
-      console.error(err);
+      console.error("Create Course Development failed:", err);
+      alert("Course Development could not be saved.");
     }
   };
 
   const handleUpdateCourse = async (updatedCourse: CourseDevelopment) => {
+    if (!updatedCourse.id) {
+      alert("Course Development is missing an ID and cannot be updated.");
+      return;
+    }
+
     try {
+      const payload: CourseDevelopment = {
+        ...updatedCourse,
+        itemType: "courseDevelopment",
+        tasks: Array.isArray(updatedCourse.tasks) ? updatedCourse.tasks : [],
+        updatedAt: new Date().toISOString(),
+      };
+
       const res = await fetch(`/api/course-developments/${updatedCourse.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedCourse)
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
-      if (res.ok) await loadDashboardData();
+
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}));
+        throw new Error(error.error || "Failed to update Course Development.");
+      }
+
+      await loadDashboardData();
     } catch (err) {
-      console.error(err);
+      console.error("Update Course Development failed:", err);
+      alert("Course Development could not be updated.");
     }
   };
 
   const handleDeleteCourse = async (id: string) => {
+    if (!id) return;
+
     try {
-      const res = await fetch(`/api/course-developments/${id}`, { method: 'DELETE' });
-      if (res.ok) await loadDashboardData();
+      const res = await fetch(`/api/course-developments/${id}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}));
+        throw new Error(error.error || "Failed to delete Course Development.");
+      }
+
+      await loadDashboardData();
     } catch (err) {
-      console.error(err);
+      console.error("Delete Course Development failed:", err);
+      alert("Course Development could not be deleted.");
     }
   };
 
-  // -----------------------------------------------------------------
-  // HANDLERS FOR CATEGORY 2: LSS PROJECTS
-  // -----------------------------------------------------------------
-  const handleAddProject = async (newProj: LssProject) => {
+  const handleAddProject = async (newProject: LssProject) => {
     try {
-      const res = await fetch('/api/lss-projects', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newProj)
+      const payload: LssProject = {
+        ...newProject,
+        itemType: "project",
+        tasks: Array.isArray(newProject.tasks) ? newProject.tasks : [],
+        createdAt: newProject.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const res = await fetch("/api/lss-projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
-      if (res.ok) await loadDashboardData();
+
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}));
+        throw new Error(error.error || "Failed to create Project.");
+      }
+
+      await loadDashboardData();
     } catch (err) {
-      console.error(err);
+      console.error("Create Project failed:", err);
+      alert("Project could not be saved.");
     }
   };
 
-  const handleUpdateProject = async (updatedProj: LssProject) => {
+  const handleUpdateProject = async (updatedProject: LssProject) => {
+    if (!updatedProject.id) {
+      alert("Project is missing an ID and cannot be updated.");
+      return;
+    }
+
     try {
-      const res = await fetch(`/api/lss-projects/${updatedProj.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedProj)
+      const payload: LssProject = {
+        ...updatedProject,
+        itemType: "project",
+        tasks: Array.isArray(updatedProject.tasks) ? updatedProject.tasks : [],
+        updatedAt: new Date().toISOString(),
+      };
+
+      const res = await fetch(`/api/lss-projects/${updatedProject.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
-      if (res.ok) await loadDashboardData();
+
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}));
+        throw new Error(error.error || "Failed to update Project.");
+      }
+
+      await loadDashboardData();
     } catch (err) {
-      console.error(err);
+      console.error("Update Project failed:", err);
+      alert("Project could not be updated.");
     }
   };
 
   const handleDeleteProject = async (id: string) => {
+    if (!id) return;
+
     try {
-      const res = await fetch(`/api/lss-projects/${id}`, { method: 'DELETE' });
-      if (res.ok) await loadDashboardData();
+      const res = await fetch(`/api/lss-projects/${id}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}));
+        throw new Error(error.error || "Failed to delete Project.");
+      }
+
+      await loadDashboardData();
     } catch (err) {
-      console.error(err);
+      console.error("Delete Project failed:", err);
+      alert("Project could not be deleted.");
     }
   };
 
-  // -----------------------------------------------------------------
-  // HANDLERS FOR CATEGORY 3: STANDALONE TASKS
-  // -----------------------------------------------------------------
   const handleAddTask = async (newTask: StandaloneTask) => {
     try {
-      const res = await fetch('/api/standalone-tasks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newTask)
+      if (!newTask.title?.trim()) {
+        alert("Task Title is required.");
+        return;
+      }
+
+      const payload: StandaloneTask = {
+        ...newTask,
+        itemType: "standaloneTask",
+        status: newTask.status || "Not Started",
+        priority: newTask.priority || "Moderate",
+        progress: Number(newTask.progress || 0),
+        createdAt: newTask.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const res = await fetch("/api/standalone-tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
-      if (res.ok) await loadDashboardData();
+
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}));
+        throw new Error(error.error || "Failed to create Standalone Task.");
+      }
+
+      await loadDashboardData();
     } catch (err) {
-      console.error(err);
+      console.error("Create Standalone Task failed:", err);
+      alert("Standalone Task could not be saved.");
     }
   };
 
   const handleUpdateTask = async (updatedTask: StandaloneTask) => {
+    if (!updatedTask.id) {
+      alert("Task is missing an ID and cannot be updated.");
+      return;
+    }
+
     try {
+      const payload: StandaloneTask = {
+        ...updatedTask,
+        itemType: "standaloneTask",
+        progress: Number(updatedTask.progress || 0),
+        updatedAt: new Date().toISOString(),
+      };
+
       const res = await fetch(`/api/standalone-tasks/${updatedTask.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedTask)
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
-      if (res.ok) await loadDashboardData();
+
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}));
+        throw new Error(error.error || "Failed to update Standalone Task.");
+      }
+
+      await loadDashboardData();
     } catch (err) {
-      console.error(err);
+      console.error("Update Standalone Task failed:", err);
+      alert("Standalone Task could not be updated.");
     }
   };
 
   const handleDeleteTask = async (id: string) => {
+    if (!id) return;
+
     try {
-      const res = await fetch(`/api/standalone-tasks/${id}`, { method: 'DELETE' });
-      if (res.ok) await loadDashboardData();
+      const res = await fetch(`/api/standalone-tasks/${id}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}));
+        throw new Error(error.error || "Failed to delete Standalone Task.");
+      }
+
+      await loadDashboardData();
     } catch (err) {
-      console.error(err);
+      console.error("Delete Standalone Task failed:", err);
+      alert("Standalone Task could not be deleted.");
     }
   };
 
-  // -----------------------------------------------------------------
-  // HANDLERS FOR CALENDAR CONFIGS
-  // -----------------------------------------------------------------
   const handleUpdateBlockedDates = async (dates: string[]) => {
     try {
-      const updatedConfig = { ...calendarSettings, customBlocked: dates };
-      const res = await fetch('/api/calendar-settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedConfig)
+      const updatedConfig: CalendarSettings = {
+        ...calendarSettings,
+        customBlocked: Array.isArray(dates) ? dates : [],
+        timezone: "America/New_York",
+      };
+
+      const res = await fetch("/api/calendar-settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedConfig),
       });
-      if (res.ok) await loadDashboardData();
+
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}));
+        throw new Error(error.error || "Failed to update Calendar Settings.");
+      }
+
+      await loadDashboardData();
     } catch (err) {
-      console.error(err);
+      console.error("Update Calendar Settings failed:", err);
+      alert("Calendar Settings could not be saved.");
     }
   };
 
@@ -253,42 +425,61 @@ export default function App() {
     const popupHeight = 650;
     const left = window.screen.width / 2 - popupWidth / 2;
     const top = window.screen.height / 2 - popupHeight / 2;
-    const popupUrl = `/api/outlook/auth-url?clientId=${clientId}&tenantId=${tenantId}`;
-    window.open(popupUrl, 'Authorize Outlook Calendar', `width=${popupWidth},height=${popupHeight},top=${top},left=${left}`);
+
+    const popupUrl = `/api/outlook/auth-url?clientId=${encodeURIComponent(
+      clientId
+    )}&tenantId=${encodeURIComponent(tenantId)}`;
+
+    window.open(
+      popupUrl,
+      "Authorize Outlook Calendar",
+      `width=${popupWidth},height=${popupHeight},top=${top},left=${left}`
+    );
   };
 
   const handleDisconnectOutlook = async () => {
     try {
-      const res = await fetch('/api/outlook/disconnect', { method: 'POST' });
-      if (res.ok) await loadDashboardData();
+      const res = await fetch("/api/outlook/disconnect", {
+        method: "POST",
+      });
+
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}));
+        throw new Error(error.error || "Failed to disconnect Outlook.");
+      }
+
+      await loadDashboardData();
     } catch (err) {
-      console.error(err);
+      console.error("Disconnect Outlook failed:", err);
+      alert("Outlook could not be disconnected.");
     }
   };
 
   const renderTabContent = () => {
     switch (activeTab) {
-      case 'category1':
+      case "category1":
         return (
           <Category1CourseDev
             courseDevelopments={courseDevelopments}
-            customBlocked={calendarSettings.customBlocked}
+            customBlocked={calendarSettings.customBlocked || []}
             onAddCourse={handleAddCourse}
             onUpdateCourse={handleUpdateCourse}
             onDeleteCourse={handleDeleteCourse}
           />
         );
-      case 'category2':
+
+      case "category2":
         return (
           <Category2LssProjects
             lssProjects={lssProjects}
-            customBlocked={calendarSettings.customBlocked}
+            customBlocked={calendarSettings.customBlocked || []}
             onAddProject={handleAddProject}
             onUpdateProject={handleUpdateProject}
             onDeleteProject={handleDeleteProject}
           />
         );
-      case 'category3':
+
+      case "category3":
         return (
           <Category3Tasks
             standaloneTasks={standaloneTasks}
@@ -297,7 +488,8 @@ export default function App() {
             onDeleteTask={handleDeleteTask}
           />
         );
-      case 'calendar':
+
+      case "calendar":
         return (
           <CalendarSettingsPanel
             settings={calendarSettings}
@@ -308,6 +500,7 @@ export default function App() {
             onTriggerSync={loadDashboardData}
           />
         );
+
       default:
         return null;
     }
@@ -315,13 +508,15 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen bg-slate-50">
+      <div className="flex h-screen flex-col items-center justify-center bg-slate-50">
         <div className="flex flex-col items-center gap-4 text-slate-800">
-          <RefreshCw className="w-10 h-10 animate-spin text-indigo-600" />
-          <h2 className="text-sm font-semibold tracking-wider uppercase font-sans">
-            Synchronizing Engine Data...
+          <RefreshCw className="h-10 w-10 animate-spin text-indigo-600" />
+          <h2 className="font-sans text-sm font-semibold uppercase tracking-wider">
+            Synchronizing Workload Hub Data...
           </h2>
-          <p className="text-xs text-slate-500">Loading your academic planning registries</p>
+          <p className="text-xs text-slate-500">
+            Loading your course, project, and task records.
+          </p>
         </div>
       </div>
     );
@@ -329,20 +524,20 @@ export default function App() {
 
   if (errorMsg) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen bg-slate-50 p-6 text-center">
-        <div className="max-w-md bg-white border border-slate-100 shadow-sm rounded-2xl p-8 flex flex-col items-center gap-4">
-          <div className="bg-rose-50 p-3 rounded-full">
-            <AlertCircle className="w-10 h-10 text-rose-600 shrink-0" />
+      <div className="flex h-screen flex-col items-center justify-center bg-slate-50 p-6 text-center">
+        <div className="flex max-w-md flex-col items-center gap-4 rounded-2xl border border-slate-100 bg-white p-8 shadow-sm">
+          <div className="rounded-full bg-rose-50 p-3">
+            <AlertCircle className="h-10 w-10 text-rose-600" />
           </div>
           <h2 className="text-lg font-semibold tracking-tight text-slate-900">
-            System Communication Exception
+            Workload Hub Could Not Load
           </h2>
-          <p className="text-sm text-slate-600 px-2">{errorMsg}</p>
-          <button 
+          <p className="px-2 text-sm text-slate-600">{errorMsg}</p>
+          <button
             onClick={loadDashboardData}
-            className="mt-2 btn-primary w-full text-sm font-medium tracking-wide"
+            className="mt-2 w-full rounded-lg bg-[#003E52] px-4 py-2 text-sm font-medium tracking-wide text-white hover:bg-[#073C5C]"
           >
-            Retry Connection Link
+            Retry Connection
           </button>
         </div>
       </div>
@@ -350,41 +545,33 @@ export default function App() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50/50">
-      
-      {/* WRAPPER BAR */}
-      <Header 
-        outlookConnected={!!calendarSettings.outlookConnected} 
+    <div className="flex min-h-screen flex-col bg-slate-50/50">
+      <Header
+        outlookConnected={!!calendarSettings.outlookConnected}
         alertCount={alertCount}
       />
 
-      {/* NAV MATRIX TAB BAR */}
-      <Navigation 
-        activeTab={activeTab} 
-        setActiveTab={setActiveTab} 
+      <Navigation
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
         alertCount={alertCount}
       />
 
-      {/* VIEWPORT CONTROLLER */}
-      <main className="flex-1 pb-16 animate-fade-in print:pb-0">
-        {renderTabContent()}
-      </main>
+      <main className="flex-1 pb-16 print:pb-0">{renderTabContent()}</main>
 
-      {/* FOOTER RAILS */}
-      <footer className="bg-white text-slate-500 text-xs py-10 px-6 text-center border-t border-slate-100 print:hidden">
-        <div className="max-w-7xl mx-auto flex flex-col gap-2">
-          <p className="text-slate-800 font-semibold tracking-wide uppercase text-xs">
+      <footer className="border-t border-slate-100 bg-white px-6 py-10 text-center text-xs text-slate-500 print:hidden">
+        <div className="mx-auto flex max-w-7xl flex-col gap-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-800">
             Florida State College at Jacksonville &bull; Workload Hub
           </p>
-          <p className="text-slate-500 text-xs">
-            Developed strictly with academic timeline algorithms under federal and institutional criteria. All rights reserved.
+          <p className="text-xs text-slate-500">
+            Developed for course development, project tracking, and workload planning.
           </p>
-          <p className="text-slate-400 font-mono text-[10px] uppercase tracking-wider mt-2 bg-slate-50 py-1.5 px-3 rounded-lg max-w-max mx-auto border border-slate-100/60">
-            SECURE CLOUD ENGINE // COMPLIANT WITH WCAG 2.1 AA SECTION 508 REGULATORY GUIDELINES
+          <p className="mx-auto mt-2 max-w-max rounded-lg border border-slate-100/60 bg-slate-50 px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider text-slate-400">
+            WCAG 2.1 AA / Section 508 Support-Oriented Interface
           </p>
         </div>
       </footer>
-
     </div>
   );
 }
