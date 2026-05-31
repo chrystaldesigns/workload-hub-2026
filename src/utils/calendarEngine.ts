@@ -22,6 +22,31 @@ export const FSCJ_MANUAL_CLOSURES: Record<string, string[]> = {
   ],
 };
 
+export const FSCJ_HOLIDAYS = [
+  "2026-01-01",
+  "2026-01-19",
+  "2026-02-16",
+  "2026-03-09",
+  "2026-03-10",
+  "2026-03-11",
+  "2026-03-12",
+  "2026-03-13",
+  "2026-05-25",
+  "2026-06-19",
+  "2026-07-03",
+  "2026-09-07",
+  "2026-11-11",
+  "2026-11-26",
+  "2026-11-27",
+  "2026-12-24",
+  "2026-12-25",
+  "2026-12-28",
+  "2026-12-29",
+  "2026-12-30",
+  "2026-12-31",
+  "2027-01-01",
+];
+
 export const TASK_TEMPLATES = [
   { id: 1, phase: "Milestone", name: "Start compensation", assignedTo: "Operations" as const, durationDays: 1, isOb: true },
   { id: 2, phase: "Project Management", name: "Send SME introduction email [Email]", assignedTo: "Instructional Designer" as const, durationDays: 1, isOb: true },
