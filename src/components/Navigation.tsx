@@ -10,8 +10,8 @@ interface NavigationProps {
 export function Navigation({ activeTab, setActiveTab, alertCount }: NavigationProps) {
   const tabs = [
     { id: 'category1', label: 'Course Developments', icon: BookOpen, badge: null },
-    { id: 'category2', label: 'Manual Projects Charter', icon: FolderGit, badge: null },
-    { id: 'category3', label: 'Standalone Tasks', icon: CheckSquare, badge: alertCount > 0 ? alertCount : null },
+    { id: 'category2', label: 'Projects', icon: FolderGit, badge: null },
+    { id: 'category3', label: 'Tasks', icon: CheckSquare, badge: alertCount > 0 ? alertCount : null },
     { id: 'calendar', label: 'Calendar Settings & Sync', icon: Calendar, badge: null },
   ];
 
