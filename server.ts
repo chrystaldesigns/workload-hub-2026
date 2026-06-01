@@ -1,14 +1,10 @@
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
-import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import admin from "firebase-admin";
 
 dotenv.config();
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const FIREBASE_PROJECT_ID =
   process.env.FIREBASE_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT || "";
@@ -135,7 +131,7 @@ async function deleteRecord(collectionName: string, id: string, fallbackName: st
 
 async function startServer() {
   const app = express();
-  const PORT = Number(process.env.PORT || 3000);
+  const PORT = Number(process.env.PORT || 8080);
 
   app.use(express.json({ limit: "10mb" }));
   app.use(express.urlencoded({ extended: true }));
@@ -148,9 +144,6 @@ async function startServer() {
     });
   });
 
-  // ------------------------------------------------------------
-  // COURSE DEVELOPMENTS
-  // ------------------------------------------------------------
   app.get("/api/course-developments", async (_req, res) => {
     const records = await getCollection("course-developments", inMemoryCourseDevelopments);
     res.json(records);
@@ -231,9 +224,6 @@ async function startServer() {
     }
   });
 
-  // ------------------------------------------------------------
-  // PROJECTS
-  // ------------------------------------------------------------
   app.get("/api/lss-projects", async (_req, res) => {
     const records = await getCollection("lss-projects", inMemoryProjects);
     res.json(records);
@@ -308,9 +298,6 @@ async function startServer() {
     }
   });
 
-  // ------------------------------------------------------------
-  // STANDALONE TASKS
-  // ------------------------------------------------------------
   app.get("/api/standalone-tasks", async (_req, res) => {
     const records = await getCollection("standalone-tasks", inMemoryStandaloneTasks);
     res.json(records);
@@ -391,9 +378,6 @@ async function startServer() {
     }
   });
 
-  // ------------------------------------------------------------
-  // CALENDAR SETTINGS
-  // ------------------------------------------------------------
   app.get("/api/calendar-settings", async (_req, res) => {
     if (firestoreReady && db) {
       try {
@@ -408,7 +392,7 @@ async function startServer() {
             ...doc.data(),
           });
         }
-      } catch (error) {
+      } catch {
         console.warn("[Firestore] Could not read calendar settings. Using memory fallback.");
       }
     }
@@ -438,9 +422,6 @@ async function startServer() {
     }
   });
 
-  // ------------------------------------------------------------
-  // OUTLOOK PLACEHOLDERS
-  // ------------------------------------------------------------
   app.get("/api/outlook/sync", (_req, res) => {
     res.json([]);
   });
@@ -504,9 +485,6 @@ async function startServer() {
     res.json({ success: true });
   });
 
-  // ------------------------------------------------------------
-  // VITE / PRODUCTION SERVING
-  // ------------------------------------------------------------
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
