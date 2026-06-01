@@ -6,6 +6,8 @@
 
 This contains everything you need to run your app locally.
 
+Firestore persistence test.
+
 View your app in AI Studio: https://ai.studio/apps/21f4d467-636d-442a-a8d4-485e5552e281
 
 ## Run Locally
