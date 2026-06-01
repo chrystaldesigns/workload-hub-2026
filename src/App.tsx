@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   CourseDevelopment,
   LssProject,
@@ -8,47 +8,15 @@ import {
 } from "./types";
 import { Header } from "./components/Header";
 import { Navigation } from "./components/Navigation";
+import { Dashboard } from "./components/Dashboard";
 import { Category1CourseDev } from "./components/Category1_CourseDev";
 import { Category2LssProjects } from "./components/Category2_LssProjects";
 import { Category3Tasks } from "./components/Category3_Tasks";
 import { CalendarSettingsPanel } from "./components/CalendarSettingsPanel";
 import { AlertCircle, RefreshCw } from "lucide-react";
-import { countWorkingDaysBetween } from "./utils/calendarEngine";
-
-const isCourseDevelopment = (item: any): item is CourseDevelopment => {
-  return (
-    item &&
-    typeof item === "object" &&
-    (item.itemType === "courseDevelopment" ||
-      (!!item.courseNumber && !!item.courseTitle))
-  );
-};
-
-const isProject = (item: any): item is LssProject => {
-  return (
-    item &&
-    typeof item === "object" &&
-    (item.itemType === "project" ||
-      (!!item.title && !item.courseNumber && Array.isArray(item.tasks)))
-  );
-};
-
-const isStandaloneTask = (item: any): item is StandaloneTask => {
-  return (
-    item &&
-    typeof item === "object" &&
-    (item.itemType === "standaloneTask" ||
-      (!!item.title && !item.courseNumber && !Array.isArray(item.tasks)))
-  );
-};
-
-const safeArray = <T,>(value: unknown, filterFn: (item: any) => item is T): T[] => {
-  if (!Array.isArray(value)) return [];
-  return value.filter(filterFn);
-};
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<string>("category1");
+  const [activeTab, setActiveTab] = useState<string>("dashboard");
   const [loading, setLoading] = useState<boolean>(true);
   const [errorMsg, setErrorMsg] = useState<string>("");
 
@@ -57,46 +25,46 @@ export default function App() {
   const [standaloneTasks, setStandaloneTasks] = useState<StandaloneTask[]>([]);
   const [calendarSettings, setCalendarSettings] = useState<CalendarSettings>({
     customBlocked: [],
+    timezone: "America/New_York" as any,
   });
   const [outlookEvents, setOutlookEvents] = useState<OutlookEvent[]>([]);
+  const [alertCount, setAlertCount] = useState<number>(0);
 
-  const alertCount = useMemo(() => {
-    const todayStr = new Date().toISOString().split("T")[0];
+  const countWorkingDaysBetweenDates = (
+    startStr: string,
+    endStr: string,
+    blocked: string[] = []
+  ) => {
+    if (!startStr || !endStr || startStr > endStr) return 0;
 
-    const overdueStandaloneTasks = standaloneTasks.filter(
-      (task) => task.status !== "Complete" && !!task.dueDate && task.dueDate < todayStr
-    ).length;
+    let current = new Date(`${startStr}T12:00:00`);
+    const end = new Date(`${endStr}T12:00:00`);
+    let count = 0;
+    let guard = 0;
 
-    let courseWarningCount = 0;
+    while (current <= end) {
+      const day = current.getDay();
+      const dateStr = current.toISOString().split("T")[0];
+      const isWeekend = day === 0 || day === 6;
+      const isSummerFriday =
+        day === 5 &&
+        dateStr >= `${current.getFullYear()}-05-04` &&
+        dateStr <= `${current.getFullYear()}-08-08`;
 
-    courseDevelopments.forEach((course) => {
-      if (!course?.tasks?.length || !course.termDeadline) return;
-
-      const closeoutTask =
-        course.tasks.find((task) => task.id === 62) ||
-        course.tasks.find((task) =>
-          task.name?.toLowerCase().includes("code check and archive")
-        );
-
-      if (!closeoutTask?.dueDate) return;
-
-      try {
-        const daysBetween = countWorkingDaysBetween(
-          closeoutTask.dueDate,
-          course.termDeadline,
-          calendarSettings.customBlocked || []
-        );
-
-        if (daysBetween < 30) {
-          courseWarningCount++;
-        }
-      } catch {
-        courseWarningCount++;
+      if (!isWeekend && !isSummerFriday && !blocked.includes(dateStr)) {
+        count++;
       }
-    });
 
-    return overdueStandaloneTasks + courseWarningCount;
-  }, [standaloneTasks, courseDevelopments, calendarSettings.customBlocked]);
+      current.setDate(current.getDate() + 1);
+      guard++;
+
+      if (guard > 1000) {
+        throw new Error("Working-day count exceeded safe limit.");
+      }
+    }
+
+    return count;
+  };
 
   const loadDashboardData = async () => {
     try {
@@ -111,11 +79,9 @@ export default function App() {
         fetch("/api/outlook/sync"),
       ]);
 
-      if (!cdRes.ok) throw new Error("Failed to load Course Developments.");
-      if (!lssRes.ok) throw new Error("Failed to load Projects.");
-      if (!taskRes.ok) throw new Error("Failed to load Standalone Tasks.");
-      if (!calRes.ok) throw new Error("Failed to load Calendar Settings.");
-      if (!outRes.ok) throw new Error("Failed to load Outlook Events.");
+      if (!cdRes.ok || !lssRes.ok || !taskRes.ok || !calRes.ok || !outRes.ok) {
+        throw new Error("Failure communicating with core full-stack API services.");
+      }
 
       const cdData = await cdRes.json();
       const lssData = await lssRes.json();
@@ -123,21 +89,60 @@ export default function App() {
       const calData = await calRes.json();
       const outData = await outRes.json();
 
-      setCourseDevelopments(safeArray<CourseDevelopment>(cdData, isCourseDevelopment));
-      setLssProjects(safeArray<LssProject>(lssData, isProject));
-      setStandaloneTasks(safeArray<StandaloneTask>(taskData, isStandaloneTask));
-
-      setCalendarSettings({
+      const safeCourses = Array.isArray(cdData) ? cdData : [];
+      const safeProjects = Array.isArray(lssData) ? lssData : [];
+      const safeTasks = Array.isArray(taskData) ? taskData : [];
+      const safeCalendar = {
         customBlocked: Array.isArray(calData?.customBlocked) ? calData.customBlocked : [],
         outlookConnected: !!calData?.outlookConnected,
         outlookEmail: calData?.outlookEmail || "",
-        timezone: calData?.timezone || "America/New_York",
+        timezone: "America/New_York" as any,
+      };
+
+      setCourseDevelopments(safeCourses);
+      setLssProjects(safeProjects);
+      setStandaloneTasks(safeTasks);
+      setCalendarSettings(safeCalendar);
+      setOutlookEvents(Array.isArray(outData) ? outData : []);
+
+      const todayStr = new Date().toISOString().split("T")[0];
+
+      const overdueTasks = safeTasks.filter(
+        (task: StandaloneTask) =>
+          task.status !== "Complete" && !!task.dueDate && task.dueDate < todayStr
+      ).length;
+
+      let nonComplianceCount = 0;
+
+      safeCourses.forEach((course: CourseDevelopment) => {
+        if (!Array.isArray(course.tasks) || !course.termDeadline) return;
+
+        const closeoutTask =
+          course.tasks.find((task) => task.id === 62) ||
+          course.tasks.find((task) =>
+            task.name?.toLowerCase().includes("code check and archive")
+          ) ||
+          course.tasks.find((task) =>
+            task.phase?.toLowerCase().includes("project closeout")
+          );
+
+        if (closeoutTask?.dueDate) {
+          const daysAndGaps = countWorkingDaysBetweenDates(
+            closeoutTask.dueDate,
+            course.termDeadline,
+            safeCalendar.customBlocked
+          );
+
+          if (daysAndGaps < 30) {
+            nonComplianceCount++;
+          }
+        }
       });
 
-      setOutlookEvents(Array.isArray(outData) ? outData : []);
+      setAlertCount(overdueTasks + nonComplianceCount);
     } catch (err: any) {
       console.error("Dashboard load failed:", err);
-      setErrorMsg(err.message || "System failed loading workload records.");
+      setErrorMsg(err.message || "System failed loading academic records.");
     } finally {
       setLoading(false);
     }
@@ -151,10 +156,8 @@ export default function App() {
     try {
       const payload: CourseDevelopment = {
         ...newCourse,
-        itemType: "courseDevelopment",
+        itemType: "courseDevelopment" as any,
         tasks: Array.isArray(newCourse.tasks) ? newCourse.tasks : [],
-        createdAt: newCourse.createdAt || new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
       };
 
       const res = await fetch("/api/course-developments", {
@@ -165,10 +168,11 @@ export default function App() {
 
       if (!res.ok) {
         const error = await res.json().catch(() => ({}));
-        throw new Error(error.error || "Failed to create Course Development.");
+        throw new Error(error.error || "Course Development could not be saved.");
       }
 
       await loadDashboardData();
+      setActiveTab("category1");
     } catch (err) {
       console.error("Create Course Development failed:", err);
       alert("Course Development could not be saved.");
@@ -184,9 +188,8 @@ export default function App() {
     try {
       const payload: CourseDevelopment = {
         ...updatedCourse,
-        itemType: "courseDevelopment",
+        itemType: "courseDevelopment" as any,
         tasks: Array.isArray(updatedCourse.tasks) ? updatedCourse.tasks : [],
-        updatedAt: new Date().toISOString(),
       };
 
       const res = await fetch(`/api/course-developments/${updatedCourse.id}`, {
@@ -197,7 +200,7 @@ export default function App() {
 
       if (!res.ok) {
         const error = await res.json().catch(() => ({}));
-        throw new Error(error.error || "Failed to update Course Development.");
+        throw new Error(error.error || "Course Development could not be updated.");
       }
 
       await loadDashboardData();
@@ -217,7 +220,7 @@ export default function App() {
 
       if (!res.ok) {
         const error = await res.json().catch(() => ({}));
-        throw new Error(error.error || "Failed to delete Course Development.");
+        throw new Error(error.error || "Course Development could not be deleted.");
       }
 
       await loadDashboardData();
@@ -231,10 +234,8 @@ export default function App() {
     try {
       const payload: LssProject = {
         ...newProject,
-        itemType: "project",
+        itemType: "project" as any,
         tasks: Array.isArray(newProject.tasks) ? newProject.tasks : [],
-        createdAt: newProject.createdAt || new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
       };
 
       const res = await fetch("/api/lss-projects", {
@@ -245,10 +246,11 @@ export default function App() {
 
       if (!res.ok) {
         const error = await res.json().catch(() => ({}));
-        throw new Error(error.error || "Failed to create Project.");
+        throw new Error(error.error || "Project could not be saved.");
       }
 
       await loadDashboardData();
+      setActiveTab("category2");
     } catch (err) {
       console.error("Create Project failed:", err);
       alert("Project could not be saved.");
@@ -264,9 +266,8 @@ export default function App() {
     try {
       const payload: LssProject = {
         ...updatedProject,
-        itemType: "project",
+        itemType: "project" as any,
         tasks: Array.isArray(updatedProject.tasks) ? updatedProject.tasks : [],
-        updatedAt: new Date().toISOString(),
       };
 
       const res = await fetch(`/api/lss-projects/${updatedProject.id}`, {
@@ -277,7 +278,7 @@ export default function App() {
 
       if (!res.ok) {
         const error = await res.json().catch(() => ({}));
-        throw new Error(error.error || "Failed to update Project.");
+        throw new Error(error.error || "Project could not be updated.");
       }
 
       await loadDashboardData();
@@ -297,7 +298,7 @@ export default function App() {
 
       if (!res.ok) {
         const error = await res.json().catch(() => ({}));
-        throw new Error(error.error || "Failed to delete Project.");
+        throw new Error(error.error || "Project could not be deleted.");
       }
 
       await loadDashboardData();
@@ -316,12 +317,10 @@ export default function App() {
 
       const payload: StandaloneTask = {
         ...newTask,
-        itemType: "standaloneTask",
+        itemType: "standaloneTask" as any,
         status: newTask.status || "Not Started",
         priority: newTask.priority || "Moderate",
         progress: Number(newTask.progress || 0),
-        createdAt: newTask.createdAt || new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
       };
 
       const res = await fetch("/api/standalone-tasks", {
@@ -332,10 +331,11 @@ export default function App() {
 
       if (!res.ok) {
         const error = await res.json().catch(() => ({}));
-        throw new Error(error.error || "Failed to create Standalone Task.");
+        throw new Error(error.error || "Standalone Task could not be saved.");
       }
 
       await loadDashboardData();
+      setActiveTab("category3");
     } catch (err) {
       console.error("Create Standalone Task failed:", err);
       alert("Standalone Task could not be saved.");
@@ -351,9 +351,8 @@ export default function App() {
     try {
       const payload: StandaloneTask = {
         ...updatedTask,
-        itemType: "standaloneTask",
+        itemType: "standaloneTask" as any,
         progress: Number(updatedTask.progress || 0),
-        updatedAt: new Date().toISOString(),
       };
 
       const res = await fetch(`/api/standalone-tasks/${updatedTask.id}`, {
@@ -364,7 +363,7 @@ export default function App() {
 
       if (!res.ok) {
         const error = await res.json().catch(() => ({}));
-        throw new Error(error.error || "Failed to update Standalone Task.");
+        throw new Error(error.error || "Standalone Task could not be updated.");
       }
 
       await loadDashboardData();
@@ -384,7 +383,7 @@ export default function App() {
 
       if (!res.ok) {
         const error = await res.json().catch(() => ({}));
-        throw new Error(error.error || "Failed to delete Standalone Task.");
+        throw new Error(error.error || "Standalone Task could not be deleted.");
       }
 
       await loadDashboardData();
@@ -396,21 +395,21 @@ export default function App() {
 
   const handleUpdateBlockedDates = async (dates: string[]) => {
     try {
-      const updatedConfig: CalendarSettings = {
+      const payload: CalendarSettings = {
         ...calendarSettings,
         customBlocked: Array.isArray(dates) ? dates : [],
-        timezone: "America/New_York",
+        timezone: "America/New_York" as any,
       };
 
       const res = await fetch("/api/calendar-settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updatedConfig),
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
         const error = await res.json().catch(() => ({}));
-        throw new Error(error.error || "Failed to update Calendar Settings.");
+        throw new Error(error.error || "Calendar Settings could not be saved.");
       }
 
       await loadDashboardData();
@@ -443,20 +442,28 @@ export default function App() {
         method: "POST",
       });
 
-      if (!res.ok) {
-        const error = await res.json().catch(() => ({}));
-        throw new Error(error.error || "Failed to disconnect Outlook.");
+      if (res.ok) {
+        await loadDashboardData();
       }
-
-      await loadDashboardData();
     } catch (err) {
       console.error("Disconnect Outlook failed:", err);
-      alert("Outlook could not be disconnected.");
     }
   };
 
   const renderTabContent = () => {
     switch (activeTab) {
+      case "dashboard":
+        return (
+          <Dashboard
+            courseDevelopments={courseDevelopments}
+            lssProjects={lssProjects}
+            standaloneTasks={standaloneTasks}
+            onOpenCourseDevelopments={() => setActiveTab("category1")}
+            onOpenProjects={() => setActiveTab("category2")}
+            onOpenTasks={() => setActiveTab("category3")}
+          />
+        );
+
       case "category1":
         return (
           <Category1CourseDev
@@ -502,7 +509,16 @@ export default function App() {
         );
 
       default:
-        return null;
+        return (
+          <Dashboard
+            courseDevelopments={courseDevelopments}
+            lssProjects={lssProjects}
+            standaloneTasks={standaloneTasks}
+            onOpenCourseDevelopments={() => setActiveTab("category1")}
+            onOpenProjects={() => setActiveTab("category2")}
+            onOpenTasks={() => setActiveTab("category3")}
+          />
+        );
     }
   };
 
@@ -534,6 +550,7 @@ export default function App() {
           </h2>
           <p className="px-2 text-sm text-slate-600">{errorMsg}</p>
           <button
+            type="button"
             onClick={loadDashboardData}
             className="mt-2 w-full rounded-lg bg-[#003E52] px-4 py-2 text-sm font-medium tracking-wide text-white hover:bg-[#073C5C]"
           >
