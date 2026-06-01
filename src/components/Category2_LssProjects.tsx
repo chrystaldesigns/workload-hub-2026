@@ -1,10 +1,17 @@
-import React, { useState } from 'react';
-import { LssProject, LssTask } from '../types';
-import { 
-  FileText, FolderGit, Plus, Printer, CheckCircle, 
-  Clock, AlertCircle, Trash2, ArrowRight, UserCheck, CheckCircle2, ChevronRight
-} from 'lucide-react';
-import { formatDate, parseDate, stepWorkingDays } from '../utils/calendarEngine';
+import React, { useMemo, useState } from "react";
+import {
+  FolderGit,
+  PlusCircle,
+  CheckCircle2,
+  Circle,
+  Trash2,
+  Pencil,
+  Save,
+  X,
+  ClipboardList,
+} from "lucide-react";
+import { LssProject, LssTask } from "../types";
+import { stepWorkingDays } from "../utils/calendarEngine";
 
 interface Category2Props {
   lssProjects: LssProject[];
@@ -14,94 +21,197 @@ interface Category2Props {
   onDeleteProject: (id: string) => Promise<void>;
 }
 
+const emptyProjectForm = {
+  title: "",
+  type: "Operational",
+  priority: "Moderate" as const,
+  alertStatus: "No Concerns" as const,
+  startDate: "",
+  targetCompletionDate: "",
+  status: "Not Started" as const,
+  projectLead: "Chrystal Wickline",
+  processOwner: "",
+  projectChampion: "",
+  stakeholders: "",
+  problemStatement: "",
+  businessCaseAndBenefits: "",
+  inScope: "",
+  outOfScope: "",
+  performanceMetrics: "",
+  risks: "",
+  voiceOfCustomer: "",
+  customerComment: "",
+  issue: "",
+  customerRequirement: "",
+  objectiveMeasure: "",
+  operationalDefinition: "",
+  timelineMethodology: "Six Sigma" as const,
+  defineDuration: 4,
+  measureDuration: 4,
+  analyzeDuration: 4,
+  improveDuration: 4,
+  controlDuration: 4,
+  timelineNotes: "",
+  notes: "",
+};
+
 export function Category2LssProjects({
   lssProjects,
   customBlocked,
   onAddProject,
   onUpdateProject,
-  onDeleteProject
+  onDeleteProject,
 }: Category2Props) {
-  const [selectedId, setSelectedId] = useState<string>(lssProjects[0]?.id || '');
-  const [showAddModal, setShowAddModal] = useState(false);
-  
-  // Custom manual task form
-  const [newTaskName, setNewTaskName] = useState('');
-  const [newTaskOwner, setNewTaskOwner] = useState('Chrystal Wickline');
-  const [newTaskDueDate, setNewTaskDueDate] = useState('');
+  const safeProjects = Array.isArray(lssProjects) ? lssProjects : [];
 
-  // SBM Form setup
-  const [formData, setFormData] = useState({
-    title: '',
-    type: 'DMAIC',
-    priority: 'Moderate' as const,
-    startDate: '2026-06-01',
-    status: 'In Progress' as const,
-    projectLead: 'Chrystal Wickline',
-    processOwner: '',
-    projectChampion: '',
-    stakeholders: '',
-    problemStatement: '',
-    businessCaseAndBenefits: '',
-    inScope: '',
-    outOfScope: '',
-    performanceMetrics: '',
-    risks: '',
-    voiceOfCustomer: '',
-    customerComment: '',
-    issue: '',
-    customerRequirement: '',
-    objectiveMeasure: '',
-    operationalDefinition: '',
-    timelineMethodology: 'Six Sigma' as const,
-    defineDuration: 4,
-    measureDuration: 4,
-    analyzeDuration: 4,
-    improveDuration: 4,
-    controlDuration: 4,
-    timelineNotes: ''
-  });
+  const [selectedId, setSelectedId] = useState<string>("");
+  const [formData, setFormData] = useState(emptyProjectForm);
+  const [editingProject, setEditingProject] = useState<LssProject | null>(null);
 
-  const activeProject = lssProjects.find(p => p.id === selectedId) || lssProjects[0];
+  const [newTaskName, setNewTaskName] = useState("");
+  const [newTaskOwner, setNewTaskOwner] = useState("Chrystal Wickline");
+  const [newTaskStartDate, setNewTaskStartDate] = useState("");
+  const [newTaskDueDate, setNewTaskDueDate] = useState("");
+  const [newTaskNotes, setNewTaskNotes] = useState("");
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  const activeProject = useMemo(() => {
+    if (!safeProjects.length) return null;
+    return safeProjects.find((project) => project.id === selectedId) || safeProjects[0];
+  }, [safeProjects, selectedId]);
+
+  const calculatePhaseDates = (startDate: string) => {
+    if (!startDate) {
+      return {
+        defineProjectedCompletion: "",
+        measureProjectedCompletion: "",
+        analyzeProjectedCompletion: "",
+        improveProjectedCompletion: "",
+        controlProjectedCompletion: "",
+        targetCompletionDate: "",
+      };
+    }
+
+    const defineDays = Number(formData.defineDuration || 0) * 5;
+    const measureDays = Number(formData.measureDuration || 0) * 5;
+    const analyzeDays = Number(formData.analyzeDuration || 0) * 5;
+    const improveDays = Number(formData.improveDuration || 0) * 5;
+    const controlDays = Number(formData.controlDuration || 0) * 5;
+
+    try {
+      const defineProjectedCompletion = stepWorkingDays(
+        startDate,
+        defineDays,
+        1,
+        customBlocked
+      );
+      const measureProjectedCompletion = stepWorkingDays(
+        defineProjectedCompletion,
+        measureDays,
+        1,
+        customBlocked
+      );
+      const analyzeProjectedCompletion = stepWorkingDays(
+        measureProjectedCompletion,
+        analyzeDays,
+        1,
+        customBlocked
+      );
+      const improveProjectedCompletion = stepWorkingDays(
+        analyzeProjectedCompletion,
+        improveDays,
+        1,
+        customBlocked
+      );
+      const controlProjectedCompletion = stepWorkingDays(
+        improveProjectedCompletion,
+        controlDays,
+        1,
+        customBlocked
+      );
+
+      return {
+        defineProjectedCompletion,
+        measureProjectedCompletion,
+        analyzeProjectedCompletion,
+        improveProjectedCompletion,
+        controlProjectedCompletion,
+        targetCompletionDate: controlProjectedCompletion,
+      };
+    } catch {
+      return {
+        defineProjectedCompletion: "",
+        measureProjectedCompletion: "",
+        analyzeProjectedCompletion: "",
+        improveProjectedCompletion: "",
+        controlProjectedCompletion: "",
+        targetCompletionDate: "",
+      };
+    }
+  };
+
+  const handleFormChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+  ) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+
+    setFormData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: [
+        "defineDuration",
+        "measureDuration",
+        "analyzeDuration",
+        "improveDuration",
+        "controlDuration",
+      ].includes(name)
+        ? Number(value)
+        : value,
     }));
+  };
+
+  const handleEditingChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+  ) => {
+    if (!editingProject) return;
+
+    const { name, value } = e.target;
+
+    setEditingProject({
+      ...editingProject,
+      [name]: [
+        "defineDuration",
+        "measureDuration",
+        "analyzeDuration",
+        "improveDuration",
+        "controlDuration",
+      ].includes(name)
+        ? Number(value)
+        : value,
+    });
   };
 
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Calculate phase Projected Completions
-    const calculatePhaseDates = (start: string) => {
-      let current = start;
-      const dDays = Number(formData.defineDuration) * 5; // approx 5 work days/week
-      const mDays = Number(formData.measureDuration) * 5;
-      const aDays = Number(formData.analyzeDuration) * 5;
-      const iDays = Number(formData.improveDuration) * 5;
-      const cDays = Number(formData.controlDuration) * 5;
+    if (!formData.title.trim()) {
+      alert("Project Title is required.");
+      return;
+    }
 
-      const dComp = stepWorkingDays(current, dDays, 1, customBlocked);
-      const mComp = stepWorkingDays(dComp, mDays, 1, customBlocked);
-      const aComp = stepWorkingDays(mComp, aDays, 1, customBlocked);
-      const iComp = stepWorkingDays(aComp, iDays, 1, customBlocked);
-      const cComp = stepWorkingDays(iComp, cDays, 1, customBlocked);
+    if (!formData.startDate) {
+      alert("Project Start Date is required.");
+      return;
+    }
 
-      return {
-        dComp, mComp, aComp, iComp, cComp
-      };
-    };
+    const phaseDates = calculatePhaseDates(formData.startDate);
 
-    const phaseComps = calculatePhaseDates(formData.startDate);
-
-    const newProj: LssProject = {
+    const newProject: LssProject = {
+      itemType: "project",
       title: formData.title,
       type: formData.type,
       priority: formData.priority,
+      alertStatus: formData.alertStatus,
       startDate: formData.startDate,
-      targetCompletionDate: phaseComps.cComp,
+      targetCompletionDate: formData.targetCompletionDate || phaseDates.targetCompletionDate,
       status: formData.status,
       projectLead: formData.projectLead,
       processOwner: formData.processOwner,
@@ -121,750 +231,712 @@ export function Category2LssProjects({
       operationalDefinition: formData.operationalDefinition,
       timelineMethodology: formData.timelineMethodology,
       defineDuration: Number(formData.defineDuration),
-      defineProjectedCompletion: phaseComps.dComp,
+      defineProjectedCompletion: phaseDates.defineProjectedCompletion,
       measureDuration: Number(formData.measureDuration),
-      measureProjectedCompletion: phaseComps.mComp,
+      measureProjectedCompletion: phaseDates.measureProjectedCompletion,
       analyzeDuration: Number(formData.analyzeDuration),
-      analyzeProjectedCompletion: phaseComps.aComp,
+      analyzeProjectedCompletion: phaseDates.analyzeProjectedCompletion,
       improveDuration: Number(formData.improveDuration),
-      improveProjectedCompletion: phaseComps.iComp,
+      improveProjectedCompletion: phaseDates.improveProjectedCompletion,
       controlDuration: Number(formData.controlDuration),
-      controlProjectedCompletion: phaseComps.cComp,
-      gateReviewDates: `Define Gate: ${phaseComps.dComp} | Measure Gate: ${phaseComps.mComp} | Analyze Gate: ${phaseComps.aComp}`,
-      estimatedDuration: Number(formData.defineDuration) + Number(formData.measureDuration) + Number(formData.analyzeDuration) + Number(formData.improveDuration) + Number(formData.controlDuration),
+      controlProjectedCompletion: phaseDates.controlProjectedCompletion,
+      estimatedDuration:
+        Number(formData.defineDuration) +
+        Number(formData.measureDuration) +
+        Number(formData.analyzeDuration) +
+        Number(formData.improveDuration) +
+        Number(formData.controlDuration),
+      gateReviewDates: `Define: ${phaseDates.defineProjectedCompletion || "TBD"} | Measure: ${
+        phaseDates.measureProjectedCompletion || "TBD"
+      } | Analyze: ${phaseDates.analyzeProjectedCompletion || "TBD"}`,
       timelineNotes: formData.timelineNotes,
-      tasks: []
+      notes: formData.notes,
+      tasks: [],
     };
 
-    await onAddProject(newProj);
-    setShowAddModal(false);
-    
-    // reset form
-    setFormData({
-      title: '',
-      type: 'DMAIC',
-      priority: 'Moderate',
-      startDate: '2026-06-01',
-      status: 'In Progress',
-      projectLead: 'Chrystal Wickline',
-      processOwner: '',
-      projectChampion: '',
-      stakeholders: '',
-      problemStatement: '',
-      businessCaseAndBenefits: '',
-      inScope: '',
-      outOfScope: '',
-      performanceMetrics: '',
-      risks: '',
-      voiceOfCustomer: '',
-      customerComment: '',
-      issue: '',
-      customerRequirement: '',
-      objectiveMeasure: '',
-      operationalDefinition: '',
-      timelineMethodology: 'Six Sigma',
-      defineDuration: 4,
-      measureDuration: 4,
-      analyzeDuration: 4,
-      improveDuration: 4,
-      controlDuration: 4,
-      timelineNotes: ''
-    });
+    await onAddProject(newProject);
+    setFormData(emptyProjectForm);
+  };
+
+  const startEditingProject = (project: LssProject) => {
+    setEditingProject({ ...project });
+  };
+
+  const cancelEditingProject = () => {
+    setEditingProject(null);
+  };
+
+  const saveEditingProject = async () => {
+    if (!editingProject) return;
+
+    if (!editingProject.title.trim()) {
+      alert("Project Title is required.");
+      return;
+    }
+
+    const updatedProject: LssProject = {
+      ...editingProject,
+      itemType: "project",
+      updatedAt: new Date().toISOString(),
+    };
+
+    await onUpdateProject(updatedProject);
+    setEditingProject(null);
+  };
+
+  const handleDeleteProject = async (project: LssProject) => {
+    if (!project.id) {
+      alert("This project is missing an ID and cannot be deleted.");
+      return;
+    }
+
+    const confirmed = window.confirm(`Delete project "${project.title}"?`);
+
+    if (confirmed) {
+      await onDeleteProject(project.id);
+      if (selectedId === project.id) setSelectedId("");
+    }
   };
 
   const handleAddTask = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!activeProject || !newTaskName || !newTaskDueDate) return;
+
+    if (!activeProject) return;
+
+    if (!newTaskName.trim()) {
+      alert("Task Title is required.");
+      return;
+    }
+
+    if (!newTaskDueDate) {
+      alert("Task Due Date is required.");
+      return;
+    }
 
     const newTask: LssTask = {
-      id: `task-${Date.now()}`,
+      id: `project-task-${Date.now()}`,
+      itemType: "projectTask",
       name: newTaskName,
       assignedTo: newTaskOwner,
+      startDate: newTaskStartDate,
       dueDate: newTaskDueDate,
-      status: 'Pending'
+      status: "Pending",
+      notes: newTaskNotes,
     };
 
-    const updatedTasks = [...(activeProject.tasks || []), newTask];
-    const updatedProject = {
+    const updatedProject: LssProject = {
       ...activeProject,
-      tasks: updatedTasks
+      tasks: [...(activeProject.tasks || []), newTask],
+      updatedAt: new Date().toISOString(),
     };
 
     await onUpdateProject(updatedProject);
-    setNewTaskName('');
-    setNewTaskDueDate('');
+
+    setNewTaskName("");
+    setNewTaskOwner("Chrystal Wickline");
+    setNewTaskStartDate("");
+    setNewTaskDueDate("");
+    setNewTaskNotes("");
   };
 
-  const handleToggleTaskStatus = async (taskIdx: number) => {
+  const handleToggleTaskStatus = async (taskIndex: number) => {
     if (!activeProject) return;
+
     const updatedTasks = [...(activeProject.tasks || [])];
-    const t = updatedTasks[taskIdx];
-    t.status = t.status === 'Completed' ? 'Pending' : 'Completed';
+    const task = updatedTasks[taskIndex];
 
-    const updatedProject = {
-      ...activeProject,
-      tasks: updatedTasks
+    updatedTasks[taskIndex] = {
+      ...task,
+      status: task.status === "Completed" ? "Pending" : "Completed",
+      completionDate:
+        task.status === "Completed" ? "" : new Date().toISOString().split("T")[0],
     };
-    await onUpdateProject(updatedProject);
+
+    await onUpdateProject({
+      ...activeProject,
+      tasks: updatedTasks,
+      updatedAt: new Date().toISOString(),
+    });
   };
 
-  const handleDeleteTask = async (taskIdx: number) => {
+  const handleDeleteTask = async (taskIndex: number) => {
     if (!activeProject) return;
-    const updatedTasks = (activeProject.tasks || []).filter((_, i) => i !== taskIdx);
-    const updatedProject = {
+
+    const updatedTasks = (activeProject.tasks || []).filter((_, index) => index !== taskIndex);
+
+    await onUpdateProject({
       ...activeProject,
-      tasks: updatedTasks
-    };
-    await onUpdateProject(updatedProject);
+      tasks: updatedTasks,
+      updatedAt: new Date().toISOString(),
+    });
   };
 
-  const triggerNativePrint = () => {
-    window.print();
-  };
-
-  const getPriorityBadge = (p: string) => {
-    switch(p) {
-      case 'Critical': return 'border-rose-400 bg-rose-50 text-rose-700 font-semibold';
-      case 'High': return 'border-amber-400 bg-amber-50 text-amber-700 font-semibold';
-      case 'Moderate': return 'border-blue-300 bg-blue-50 text-blue-700 font-semibold';
-      default: return 'border-slate-300 bg-slate-50 text-slate-700';
+  const getAlertBadgeClass = (alertStatus?: string) => {
+    switch (alertStatus) {
+      case "High Priority Concerns":
+        return "bg-red-700 text-white";
+      case "Potential Concerns":
+        return "bg-orange-700 text-white";
+      default:
+        return "bg-slate-600 text-white";
     }
   };
 
-  const calculateCompletionRate = (p: LssProject) => {
-    if (!p.tasks || p.tasks.length === 0) return 0;
-    const done = p.tasks.filter(t => t.status === 'Completed').length;
-    return Math.round((done / p.tasks.length) * 100);
+  const renderProjectFields = (
+    project: typeof formData | LssProject,
+    onChange: (
+      e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+    ) => void,
+    prefix: string
+  ) => {
+    return (
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="md:col-span-2">
+          <label htmlFor={`${prefix}-title`} className="mb-1 block text-sm font-medium text-slate-700">
+            Project Title
+          </label>
+          <input
+            id={`${prefix}-title`}
+            name="title"
+            type="text"
+            value={project.title || ""}
+            onChange={onChange}
+            className="w-full rounded-xl border border-slate-300 px-3 py-2"
+            required
+          />
+        </div>
+
+        <div>
+          <label htmlFor={`${prefix}-type`} className="mb-1 block text-sm font-medium text-slate-700">
+            Project Type
+          </label>
+          <select
+            id={`${prefix}-type`}
+            name="type"
+            value={project.type || "Operational"}
+            onChange={onChange}
+            className="w-full rounded-xl border border-slate-300 px-3 py-2"
+          >
+            <option>Ongoing</option>
+            <option>One-Time</option>
+            <option>Strategic</option>
+            <option>Operational</option>
+            <option>Compliance</option>
+            <option>IT</option>
+            <option>Event Management</option>
+            <option>Educational</option>
+            <option>Change Management</option>
+            <option>Resource Development</option>
+            <option>DMAIC</option>
+            <option>Kaizen</option>
+            <option>Lean Six Sigma</option>
+          </select>
+        </div>
+
+        <div>
+          <label htmlFor={`${prefix}-priority`} className="mb-1 block text-sm font-medium text-slate-700">
+            Priority
+          </label>
+          <select
+            id={`${prefix}-priority`}
+            name="priority"
+            value={project.priority || "Moderate"}
+            onChange={onChange}
+            className="w-full rounded-xl border border-slate-300 px-3 py-2"
+          >
+            <option>Low</option>
+            <option>Moderate</option>
+            <option>High</option>
+            <option>Critical</option>
+          </select>
+        </div>
+
+        <div>
+          <label htmlFor={`${prefix}-alertStatus`} className="mb-1 block text-sm font-medium text-slate-700">
+            ALERTS
+          </label>
+          <select
+            id={`${prefix}-alertStatus`}
+            name="alertStatus"
+            value={(project as LssProject).alertStatus || "No Concerns"}
+            onChange={onChange}
+            className="w-full rounded-xl border border-slate-300 px-3 py-2"
+          >
+            <option>No Concerns</option>
+            <option>Potential Concerns</option>
+            <option>High Priority Concerns</option>
+          </select>
+        </div>
+
+        <div>
+          <label htmlFor={`${prefix}-status`} className="mb-1 block text-sm font-medium text-slate-700">
+            Status
+          </label>
+          <select
+            id={`${prefix}-status`}
+            name="status"
+            value={project.status || "Not Started"}
+            onChange={onChange}
+            className="w-full rounded-xl border border-slate-300 px-3 py-2"
+          >
+            <option>Not Started</option>
+            <option>On Hold</option>
+            <option>In Progress</option>
+            <option>Complete</option>
+          </select>
+        </div>
+
+        <div>
+          <label htmlFor={`${prefix}-startDate`} className="mb-1 block text-sm font-medium text-slate-700">
+            Start Date
+          </label>
+          <input
+            id={`${prefix}-startDate`}
+            name="startDate"
+            type="date"
+            value={project.startDate || ""}
+            onChange={onChange}
+            className="w-full rounded-xl border border-slate-300 px-3 py-2"
+          />
+        </div>
+
+        <div>
+          <label htmlFor={`${prefix}-targetCompletionDate`} className="mb-1 block text-sm font-medium text-slate-700">
+            Target Completion Date
+          </label>
+          <input
+            id={`${prefix}-targetCompletionDate`}
+            name="targetCompletionDate"
+            type="date"
+            value={(project as LssProject).targetCompletionDate || ""}
+            onChange={onChange}
+            className="w-full rounded-xl border border-slate-300 px-3 py-2"
+          />
+        </div>
+
+        <div>
+          <label htmlFor={`${prefix}-projectLead`} className="mb-1 block text-sm font-medium text-slate-700">
+            Project Lead
+          </label>
+          <input
+            id={`${prefix}-projectLead`}
+            name="projectLead"
+            type="text"
+            value={project.projectLead || ""}
+            onChange={onChange}
+            className="w-full rounded-xl border border-slate-300 px-3 py-2"
+          />
+        </div>
+
+        <div>
+          <label htmlFor={`${prefix}-processOwner`} className="mb-1 block text-sm font-medium text-slate-700">
+            Process Owner
+          </label>
+          <input
+            id={`${prefix}-processOwner`}
+            name="processOwner"
+            type="text"
+            value={project.processOwner || ""}
+            onChange={onChange}
+            className="w-full rounded-xl border border-slate-300 px-3 py-2"
+          />
+        </div>
+
+        <div>
+          <label htmlFor={`${prefix}-projectChampion`} className="mb-1 block text-sm font-medium text-slate-700">
+            Champion / Sponsor
+          </label>
+          <input
+            id={`${prefix}-projectChampion`}
+            name="projectChampion"
+            type="text"
+            value={project.projectChampion || ""}
+            onChange={onChange}
+            className="w-full rounded-xl border border-slate-300 px-3 py-2"
+          />
+        </div>
+
+        <div>
+          <label htmlFor={`${prefix}-stakeholders`} className="mb-1 block text-sm font-medium text-slate-700">
+            Stakeholders
+          </label>
+          <input
+            id={`${prefix}-stakeholders`}
+            name="stakeholders"
+            type="text"
+            value={project.stakeholders || ""}
+            onChange={onChange}
+            className="w-full rounded-xl border border-slate-300 px-3 py-2"
+          />
+        </div>
+
+        <div className="md:col-span-2">
+          <label htmlFor={`${prefix}-problemStatement`} className="mb-1 block text-sm font-medium text-slate-700">
+            Problem Statement / Purpose
+          </label>
+          <textarea
+            id={`${prefix}-problemStatement`}
+            name="problemStatement"
+            value={project.problemStatement || ""}
+            onChange={onChange}
+            rows={3}
+            className="w-full rounded-xl border border-slate-300 px-3 py-2"
+          />
+        </div>
+
+        <div className="md:col-span-2">
+          <label htmlFor={`${prefix}-businessCaseAndBenefits`} className="mb-1 block text-sm font-medium text-slate-700">
+            Business Case and Benefits
+          </label>
+          <textarea
+            id={`${prefix}-businessCaseAndBenefits`}
+            name="businessCaseAndBenefits"
+            value={project.businessCaseAndBenefits || ""}
+            onChange={onChange}
+            rows={3}
+            className="w-full rounded-xl border border-slate-300 px-3 py-2"
+          />
+        </div>
+
+        <div className="md:col-span-2">
+          <label htmlFor={`${prefix}-notes`} className="mb-1 block text-sm font-medium text-slate-700">
+            Notes
+          </label>
+          <textarea
+            id={`${prefix}-notes`}
+            name="notes"
+            value={(project as LssProject).notes || ""}
+            onChange={onChange}
+            rows={3}
+            className="w-full rounded-xl border border-slate-300 px-3 py-2"
+          />
+        </div>
+      </div>
+    );
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto flex flex-col gap-8 print:p-0">
-      
-      {/* ACTION BLOCK */}
-      <div className="flex justify-between items-center bg-white border border-[#E0DCD8] p-4 shadow-2xs print:hidden">
-        <div>
-          <h2 className="text-lg font-semibold text-slate-800 uppercase tracking-wide">
-            Category 2: Lean Six Sigma Charters
-          </h2>
-          <p className="text-xs text-slate-500">
-            Methodology-driven business continuous improvement registers mapping collegiate processes
-          </p>
+    <section className="space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="mb-5 flex items-center gap-3">
+          <div className="rounded-xl bg-[#003E52] p-3 text-white">
+            <FolderGit className="h-6 w-6" aria-hidden="true" />
+          </div>
+          <div>
+            <h2 className="text-xl font-semibold text-slate-900">Projects</h2>
+            <p className="text-sm text-slate-600">
+              Add and manage manual projects that are not tied to the standard course development timeline.
+            </p>
+          </div>
         </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="bg-[#006282] hover:bg-[#076092] text-white px-4 py-2 text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 transition-colors cursor-pointer"
-        >
-          <Plus className="w-4 h-4" /> Create Project Charter
-        </button>
+
+        <form onSubmit={handleCreateProject} className="space-y-4">
+          {renderProjectFields(formData, handleFormChange, "new-project")}
+
+          <button
+            type="submit"
+            className="inline-flex items-center gap-2 rounded-xl bg-[#003E52] px-4 py-2 font-medium text-white hover:bg-[#073C5C]"
+          >
+            <PlusCircle className="h-5 w-5" aria-hidden="true" />
+            Create Project
+          </button>
+        </form>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        
-        {/* MANUAL SIDEBAR SELECTION */}
-        <div className="lg:col-span-4 flex flex-col gap-3 print:hidden">
-          <div className="border-b border-slate-200 pb-1.5">
-            <span className="text-[10px] text-slate-400 font-mono uppercase font-semibold">
-              Tracked Charters
-            </span>
-          </div>
+      <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h3 className="mb-4 text-lg font-semibold text-slate-900">Project List</h3>
 
-          <div className="flex flex-col gap-2 max-h-[550px] overflow-y-auto pr-1">
-            {lssProjects.length === 0 ? (
-              <div className="p-6 bg-slate-50 text-center text-slate-400 border border-dashed border-slate-200">
-                No Lean Six Sigma charter models active. Create one by clicking "+ Create Project Charter".
-              </div>
-            ) : (
-              lssProjects.map(proj => {
-                const isSelected = proj.id === (activeProject?.id || '');
-                const rate = calculateCompletionRate(proj);
-                return (
-                  <button
-                    key={proj.id}
-                    onClick={() => setSelectedId(proj.id || '')}
-                    className={`p-4 border text-left bg-white transition-all flex flex-col gap-1.5 select-none cursor-pointer outline-none ${
-                      isSelected 
-                        ? 'border-[#006282] ring-1 ring-[#006282] shadow-xs' 
-                        : 'border-slate-200 hover:border-slate-350'
-                    }`}
-                  >
-                    <div className="flex justify-between items-center text-2xs font-mono mb-0.5">
-                      <span className="text-[10px] font-bold text-[#006282] uppercase">{proj.type}</span>
-                      <span className={`px-2 py-0.5 border text-[9px] uppercase font-mono ${getPriorityBadge(proj.priority)}`}>
-                        {proj.priority}
-                      </span>
-                    </div>
-
-                    <h3 className="text-sm font-semibold text-slate-800 line-clamp-1">
-                      {proj.title}
-                    </h3>
-
-                    <div className="text-2xs text-slate-500 font-mono mt-1 flex justify-between items-center">
-                      <span>Target: {proj.targetCompletionDate}</span>
-                      <span className="font-semibold text-[#006282]">{rate}% Tasks Done</span>
-                    </div>
-                  </button>
-                );
-              })
-            )}
-          </div>
-        </div>
-
-        {/* DETAILS CHARTER SHEET */}
-        <div className="lg:col-span-8 print:w-full print:col-span-12">
-          {activeProject ? (
-            <div id="printable-charter-sheet" className="bg-white border-2 border-slate-800 shadow-sm p-6 flex flex-col gap-6 print:border-0 print:p-0">
-              
-              {/* TOP HEADER CONTROLS (PRINT ONLY IN STYLE) */}
-              <div className="border-b-4 border-slate-800 pb-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                  <span className="text-[10px] uppercase tracking-widest text-[#006282] font-semibold font-mono block">
-                    Lean Six Sigma Continuous Quality Project Charter
-                  </span>
-                  <h2 className="text-2xl font-semibold text-slate-900 mt-1 print:text-xl">
-                    {activeProject.title}
-                  </h2>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Operational Methodology: <strong>{activeProject.timelineMethodology} Timeline Framework</strong>
-                  </p>
-                </div>
-                
-                <div className="flex flex-col items-end shrink-0 print:items-start print:mt-1 font-mono text-xs">
-                  <span className={`px-2.5 py-1 text-xs uppercase font-semibold border ${getPriorityBadge(activeProject.priority)}`}>
-                    {activeProject.priority} Priority
-                  </span>
-                  <span className="text-2xs text-slate-500 mt-1 font-mono uppercase">
-                    Status: {activeProject.status}
-                  </span>
-                </div>
-              </div>
-
-              {/* ACTION TOOLBAR (PRINT HIDDEN) */}
-              <div className="flex justify-between items-center bg-[#F4F1ED]/40 border border-[#E0DCD8] p-3.5 print:hidden">
-                <span className="text-2xs font-mono text-slate-500 font-semibold uppercase">
-                  Institutional Charter Report Controls:
-                </span>
-                <div className="flex items-center gap-1.5 font-mono text-2xs">
-                  <button
-                    onClick={triggerNativePrint}
-                    className="px-3 py-1.5 border border-slate-800 text-slate-800 hover:bg-slate-50 text-2xs font-semibold uppercase flex items-center gap-1 cursor-pointer"
-                  >
-                    <Printer className="w-3.5 h-3.5 text-slate-800" /> Export / Print APA compliance Charter
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (confirm("Are you sure you want to delete this Continuous Improvement Charter?")) {
-                        onDeleteProject(activeProject.id || '');
-                      }
-                    }}
-                    className="px-2 py-1.5 text-rose-700 hover:bg-rose-50 text-2xs font-semibold uppercase cursor-pointer"
-                  >
-                    Delete Charter
-                  </button>
-                </div>
-              </div>
-
-              {/* SIBLINGS DESIGN SYSTEM STAKEHOLDERS METRICS GRID */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 border-b border-dashed border-[#E0DCD8] pb-4 text-xs font-mono">
-                <div>
-                  <span className="text-slate-400 block uppercase text-[10px]">Project Lead:</span>
-                  <strong className="text-slate-800 font-semibold">{activeProject.projectLead}</strong>
-                </div>
-                <div>
-                  <span className="text-slate-400 block uppercase text-[10px]">Process Owner:</span>
-                  <strong className="text-slate-800 font-semibold">{activeProject.processOwner || 'N/A'}</strong>
-                </div>
-                <div>
-                  <span className="text-slate-400 block uppercase text-[10px]">Project Champion:</span>
-                  <strong className="text-slate-800 font-semibold">{activeProject.projectChampion || 'N/A'}</strong>
-                </div>
-                <div>
-                  <span className="text-slate-400 block uppercase text-[10px]">Stakeholders:</span>
-                  <strong className="text-slate-800 font-semibold">{activeProject.stakeholders || 'N/A'}</strong>
-                </div>
-              </div>
-
-              {/* SIX SIGMA CHARTER CORE BLOCKS */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                
-                <div className="border border-slate-200 bg-slate-50 p-4 print:bg-white print:p-2">
-                  <h4 className="font-semibold text-[#006282] uppercase mb-1 flex items-center gap-1">
-                    Problem Statement
-                  </h4>
-                  <p className="text-slate-700 leading-relaxed font-sans">
-                    {activeProject.problemStatement || 'Problem statement review pending formal submission.'}
-                  </p>
-                </div>
-
-                <div className="border border-slate-200 bg-slate-50 p-4 print:bg-white print:p-2">
-                  <h4 className="font-semibold text-[#006282] uppercase mb-1">
-                    Business Case & Cost Benefits [Y = f(x)]
-                  </h4>
-                  <p className="text-slate-700 leading-relaxed font-sans">
-                    {activeProject.businessCaseAndBenefits || 'Quantified business benefit mappings not yet calculated.'}
-                  </p>
-                </div>
-
-                <div className="border border-slate-200 bg-slate-50 p-4 print:bg-white print:p-2">
-                  <h4 className="font-semibold text-[#006282] uppercase mb-1">
-                    In Scope Bounds
-                  </h4>
-                  <p className="text-slate-700 leading-relaxed font-sans">
-                    {activeProject.inScope || 'Roster system alignment bounds are undefined.'}
-                  </p>
-                </div>
-
-                <div className="border border-slate-200 bg-slate-50 p-4 print:bg-white print:p-2">
-                  <h4 className="font-semibold text-rose-800 uppercase mb-1">
-                    Out of Scope Exclusions
-                  </h4>
-                  <p className="text-slate-700 leading-relaxed font-sans">
-                    {activeProject.outOfScope || 'Exceptions and non-process boundaries undefined.'}
-                  </p>
-                </div>
-
-                <div className="border border-slate-200 bg-slate-50 p-4 md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 print:bg-white print:p-2">
-                  <div>
-                    <h4 className="font-semibold text-[#006282] uppercase mb-1">
-                      Cycle Metrics & Sigma Levels
-                    </h4>
-                    <p className="text-slate-700 leading-relaxed font-sans">
-                      {activeProject.performanceMetrics || 'No processing duration or defect rate data logs logged.'}
-                    </p>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-[#006282] uppercase mb-1">
-                      Voice of Customer (VOC) {"->"} CTQ Mappings
-                    </h4>
-                    <p className="text-slate-700 leading-relaxed font-sans">
-                      {activeProject.voiceOfCustomer || 'Customer statements and quality targets reviews outstanding.'}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Sibling layouts for VOC CTQ detailed segments */}
-                {(activeProject.customerComment || activeProject.issue) && (
-                  <div className="border border-slate-200 bg-[#F4F1ED]/30 p-4 md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 text-2xs font-mono">
-                    <div>
-                      <span className="text-slate-400 block uppercase text-[9px]">VOC Comment:</span>
-                      <span className="text-slate-800 font-medium font-sans leading-relaxed block">{activeProject.customerComment}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-400 block uppercase text-[9px]">Identified Quality Issue:</span>
-                      <span className="text-slate-800 font-medium font-sans leading-relaxed block">{activeProject.issue}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-400 block uppercase text-[9px]">CTQ Target:</span>
-                      <span className="text-slate-800 font-medium font-sans leading-relaxed block">{activeProject.customerRequirement}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-400 block uppercase text-[9px]">Metric Measure:</span>
-                      <span className="text-slate-800 font-medium font-sans leading-relaxed block">{activeProject.objectiveMeasure}</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* DMAIC ESTIMATED CASCADE TIMELINE */}
-              <div className="border-t border-slate-300 pt-6">
-                <h3 className="text-xs uppercase font-semibold text-slate-800 tracking-wider mb-2 font-mono">
-                  DMAIC Phase Projected Milestones
-                </h3>
-
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-xs">
-                  
-                  <div className="border p-2.5 bg-slate-50/50 flex flex-col font-mono text-[10px]">
-                    <span className="font-semibold text-slate-700 text-[9px]">1. DEFINE (Duration: {activeProject.defineDuration || 4}w)</span>
-                    <span className="text-slate-400 uppercase mt-1">Completion:</span>
-                    <span className="text-[#006282] font-semibold mt-0.5">{activeProject.defineProjectedCompletion || 'Pending'}</span>
-                  </div>
-
-                  <div className="border p-2.5 bg-slate-50/50 flex flex-col font-mono text-[10px]">
-                    <span className="font-semibold text-slate-700 text-[9px]">2. MEASURE (Duration: {activeProject.measureDuration || 4}w)</span>
-                    <span className="text-slate-400 uppercase mt-1">Completion:</span>
-                    <span className="text-[#006282] font-semibold mt-0.5">{activeProject.measureProjectedCompletion || 'Pending'}</span>
-                  </div>
-
-                  <div className="border p-2.5 bg-slate-50/50 flex flex-col font-mono text-[10px]">
-                    <span className="font-semibold text-slate-700 text-[9px]">3. ANALYZE (Duration: {activeProject.analyzeDuration || 4}w)</span>
-                    <span className="text-slate-400 uppercase mt-1">Completion:</span>
-                    <span className="text-[#006282] font-semibold mt-0.5">{activeProject.analyzeProjectedCompletion || 'Pending'}</span>
-                  </div>
-
-                  <div className="border p-2.5 bg-slate-50/50 flex flex-col font-mono text-[10px]">
-                    <span className="font-semibold text-slate-700 text-[9px]">4. IMPROVE (Duration: {activeProject.improveDuration || 4}w)</span>
-                    <span className="text-slate-400 uppercase mt-1">Completion:</span>
-                    <span className="text-[#006282] font-semibold mt-0.5">{activeProject.improveProjectedCompletion || 'Pending'}</span>
-                  </div>
-
-                  <div className="border p-2.5 bg-slate-50/50 flex flex-col font-mono text-[10px]">
-                    <span className="font-semibold text-slate-700 text-[9px]">5. CONTROL (Duration: {activeProject.controlDuration || 4}w)</span>
-                    <span className="text-slate-400 uppercase mt-1">Completion:</span>
-                    <span className="text-[#006282] font-semibold mt-0.5">{activeProject.controlProjectedCompletion || 'Pending'}</span>
-                  </div>
-
-                </div>
-
-                <div className="bg-[#F4F1ED]/40 border border-slate-200 p-2.5 text-[10px] text-slate-500 font-mono mt-3">
-                  <span><strong>Synchronized Gate Reviews Agenda:</strong> {activeProject.gateReviewDates || 'Reviews schedules are calculated dynamically.'}</span>
-                </div>
-              </div>
-
-              {/* RE-USABLE QUEUE FOR CATEGORY 2 DETAILED TASKS */}
-              <div className="border-t border-slate-300 pt-6">
-                <div className="flex justify-between items-center mb-3">
-                  <h3 className="text-xs uppercase font-semibold text-slate-800 tracking-wider font-mono">
-                    Charter Workflow Tasks Checklist
-                  </h3>
-                  
-                  {/* Task creation form inline (hidden in print) */}
-                  <form onSubmit={handleAddTask} className="flex gap-2 text-2xs font-semibold print:hidden">
-                    <input
-                      type="text"
-                      placeholder="New task name..."
-                      value={newTaskName}
-                      onChange={(e) => setNewTaskName(e.target.value)}
-                      required
-                      className="px-2 py-1 border border-slate-300 bg-white"
-                    />
-                    <input
-                      type="date"
-                      value={newTaskDueDate}
-                      onChange={(e) => setNewTaskDueDate(e.target.value)}
-                      required
-                      className="px-2 py-1 border border-slate-300 bg-white font-mono"
-                    />
-                    <button
-                      type="submit"
-                      className="bg-slate-800 hover:bg-slate-950 text-white px-2.5 py-1 text-2xs uppercase tracking-wide cursor-pointer select-none"
-                    >
-                      + Add Task
-                    </button>
-                  </form>
-                </div>
-
-                <div className="border border-slate-200">
-                  <table className="w-full text-left text-xs">
-                    <thead>
-                      <tr className="bg-slate-50 text-slate-500 font-mono text-[10px] uppercase border-b">
-                        <th className="px-3 py-2">Task Details</th>
-                        <th className="px-3 py-2">Assigned To</th>
-                        <th className="px-3 py-2 font-semibold">Due Date</th>
-                        <th className="px-3 py-2 text-center w-16">Status</th>
-                        <th className="px-3 py-2 text-center w-12 print:hidden">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 font-sans">
-                      {!activeProject.tasks || activeProject.tasks.length === 0 ? (
-                        <tr>
-                          <td colSpan={5} className="px-3 py-6 text-center text-slate-400">
-                            No manual timeline tasks defined yet. Add some using the toolbar above.
-                          </td>
-                        </tr>
-                      ) : (
-                        activeProject.tasks.map((t, idx) => {
-                          const isComp = t.status === 'Completed';
-                          const today = formatDate(new Date());
-                          const isOver = t.status === 'Pending' && t.dueDate && t.dueDate < today;
-                          return (
-                            <tr key={t.id || idx} className="hover:bg-slate-50/50">
-                              <td className="px-3 py-2 font-medium">
-                                <div className="flex items-center gap-1">
-                                  <span className={isComp ? 'line-through text-slate-400 font-normal' : 'text-slate-800 font-medium'}>
-                                    {t.name}
-                                  </span>
-                                  {isOver && (
-                                    <span className="inline-block w-2 h-2 rounded-full bg-rose-600 animate-ping" title="Overdue Alert"></span>
-                                  )}
-                                </div>
-                              </td>
-                              <td className="px-3 py-2 text-slate-600 font-medium">{t.assignedTo}</td>
-                              <td className={`px-3 py-2 font-mono font-semibold ${isOver ? 'text-rose-600' : 'text-slate-500'}`}>
-                                {t.dueDate}
-                              </td>
-                              <td className="px-3 py-2 text-center">
-                                <input
-                                  type="checkbox"
-                                  checked={isComp}
-                                  onChange={() => handleToggleTaskStatus(idx)}
-                                  className="accent-[#006282] w-4 h-4 cursor-pointer print:hidden"
-                                />
-                                <span className="hidden print:inline font-mono font-bold text-[10px]">
-                                  {isComp ? '✓ DONE' : '◯ PENDING'}
-                                </span>
-                              </td>
-                              <td className="px-3 py-2 text-center print:hidden">
-                                <button
-                                  onClick={() => handleDeleteTask(idx)}
-                                  className="text-rose-600 hover:text-rose-800 font-bold"
-                                >
-                                  ✕
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-            </div>
+          {safeProjects.length === 0 ? (
+            <p className="text-sm text-slate-600">No projects have been added yet.</p>
           ) : (
-            <div className="bg-white border border-[#E0DCD8] p-16 text-center text-slate-400 shadow-sm flex flex-col items-center justify-center">
-              <FolderGit className="w-12 h-12 text-slate-350 mb-2" />
-              <p className="font-semibold text-slate-500 text-sm font-mono uppercase">No Active Manual LSS Charter project loaded</p>
-              <p className="text-xs text-slate-400 mt-1">Input your charter details by hitting "+ Create Project Charter".</p>
+            <div className="space-y-3">
+              {safeProjects.map((project) => (
+                <button
+                  key={project.id || project.title}
+                  type="button"
+                  onClick={() => setSelectedId(project.id || "")}
+                  className={`w-full rounded-xl border p-4 text-left transition ${
+                    activeProject?.id === project.id
+                      ? "border-[#003E52] bg-[#003E52]/5"
+                      : "border-slate-200 bg-slate-50 hover:bg-slate-100"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h4 className="font-semibold text-slate-900">{project.title}</h4>
+                      <p className="mt-1 text-sm text-slate-600">
+                        {project.type || "Project"} · {project.status}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        Target: {project.targetCompletionDate || "Not set"}
+                      </p>
+                    </div>
+                    <span
+                      className={`rounded-full px-2 py-1 text-xs font-medium ${getAlertBadgeClass(
+                        project.alertStatus
+                      )}`}
+                    >
+                      {project.alertStatus || "No Concerns"}
+                    </span>
+                  </div>
+                </button>
+              ))}
             </div>
           )}
         </div>
 
-      </div>
-
-      {/* DIALOG MODAL: ADD MANUAL PROJECT CHARTER */}
-      {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 overflow-y-auto">
-          <div className="bg-[#F4F1ED] border-2 border-slate-900 p-6 max-w-xl w-full flex flex-col gap-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center border-b border-slate-900 pb-2.5">
-              <h3 className="text-md font-semibold text-slate-950 uppercase tracking-widest font-mono">
-                Launch Lean Six Sigma Charter Wizard
-              </h3>
-              <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-slate-600 font-semibold cursor-pointer">✕</button>
+        <div className="space-y-6">
+          {!activeProject ? (
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-600 shadow-sm">
+              Select a project to view details.
             </div>
-
-            <form onSubmit={handleCreateProject} className="flex flex-col gap-3 text-xs font-semibold text-slate-800">
-              
-              <div>
-                <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Project Charter Title:</label>
-                <input
-                  type="text"
-                  name="title"
-                  value={formData.title}
-                  onChange={handleInputChange}
-                  placeholder="e.g. Course Registration Pipeline Optimization"
-                  required
-                  className="w-full px-3 py-1.5 border border-slate-350 bg-white"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Sigma Tier Selection:</label>
-                  <select
-                    name="type"
-                    value={formData.type}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-1.5 border border-slate-350 bg-white"
-                  >
-                    <option value="DMAIC">DMAIC (Standard Continuous improvement)</option>
-                    <option value="Green Belt">Green Belt Validation (Medium Bounds)</option>
-                    <option value="Black Belt">Black Belt Focus (Institutional)</option>
-                    <option value="Yellow Belt">Yellow Belt Support (Tactical)</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Priority Index:</label>
-                  <select
-                    name="priority"
-                    value={formData.priority}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-1.5 border border-slate-350 bg-white"
-                  >
-                    <option value="Low">Low Priority</option>
-                    <option value="Moderate">Moderate Priority</option>
-                    <option value="High">High Priority</option>
-                    <option value="Critical">Critical Priority Status</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Initial Launch Date:</label>
-                  <input
-                    type="date"
-                    name="startDate"
-                    value={formData.startDate}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-1.5 border border-slate-350 bg-white font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Project Lead Sponsor:</label>
-                  <input
-                    type="text"
-                    name="projectLead"
-                    value={formData.projectLead}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-1.5 border border-slate-350 bg-white"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Process Owner:</label>
-                  <input
-                    type="text"
-                    name="processOwner"
-                    value={formData.processOwner}
-                    onChange={handleInputChange}
-                    placeholder="Sponsor Dean/VP"
-                    className="w-full px-3 py-1.5 border border-slate-350 bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Project Champion:</label>
-                  <input
-                    type="text"
-                    name="projectChampion"
-                    value={formData.projectChampion}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-1.5 border border-slate-350 bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Key Stakeholders:</label>
-                  <input
-                    type="text"
-                    name="stakeholders"
-                    value={formData.stakeholders}
-                    onChange={handleInputChange}
-                    placeholder="Comma separated names"
-                    className="w-full px-3 py-1.5 border border-slate-350 bg-white"
-                  />
-                </div>
-              </div>
-
-              <hr className="border-slate-300 my-1" />
-              <h4 className="text-[10px] uppercase text-slate-500 font-bold font-mono">
-                Continuous Quality Charter Matrices (Core Six Sigma Content Columns)
-              </h4>
-
-              <div className="grid grid-cols-2 gap-3 text-2xs">
-                <div>
-                  <label className="block text-[9px] uppercase font-semibold text-slate-400 mb-0.5">Problem Statement:</label>
-                  <textarea
-                    name="problemStatement"
-                    value={formData.problemStatement}
-                    onChange={handleInputChange}
-                    placeholder="What is the current business cycle failure and median loss?"
-                    rows={2}
-                    required
-                    className="w-full px-2.5 py-1.5 border border-slate-355 bg-white font-normal"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[9px] uppercase font-semibold text-slate-400 mb-0.5">Business Case & benefits:</label>
-                  <textarea
-                    name="businessCaseAndBenefits"
-                    value={formData.businessCaseAndBenefits}
-                    onChange={handleInputChange}
-                    placeholder="Specify the cost-saving metric Y = f(x)"
-                    rows={2}
-                    required
-                    className="w-full px-2.5 py-1.5 border border-slate-355 bg-white font-normal"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 text-2xs">
-                <div>
-                  <label className="block text-[9px] uppercase font-semibold text-slate-400 mb-0.5">In Scope Bounds:</label>
-                  <textarea
-                    name="inScope"
-                    value={formData.inScope}
-                    onChange={handleInputChange}
-                    rows={2}
-                    required
-                    className="w-full px-2.5 py-1.5 border border-slate-355 bg-white font-normal"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[9px] uppercase font-semibold text-slate-400 mb-0.5">Out of Scope Bounds:</label>
-                  <textarea
-                    name="outOfScope"
-                    value={formData.outOfScope}
-                    onChange={handleInputChange}
-                    rows={2}
-                    required
-                    className="w-full px-2.5 py-1.5 border border-slate-355 bg-white font-normal"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 text-2xs">
-                <div>
-                  <label className="block text-[9px] uppercase font-semibold text-slate-400 mb-0.5">Cycle Metrics & Sigma Levels:</label>
-                  <textarea
-                    name="performanceMetrics"
-                    value={formData.performanceMetrics}
-                    onChange={handleInputChange}
-                    placeholder="As-is median, target standard deviation goals"
-                    rows={2}
-                    required
-                    className="w-full px-2.5 py-1.5 border border-slate-355 bg-white font-normal"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[9px] uppercase font-semibold text-slate-400 mb-0.5">Voice of the Customer Comments:</label>
-                  <textarea
-                    name="voiceOfCustomer"
-                    value={formData.voiceOfCustomer}
-                    onChange={handleInputChange}
-                    placeholder="Customer reports, survey highlights"
-                    rows={2}
-                    required
-                    className="w-full px-2.5 py-1.5 border border-slate-355 bg-white font-normal"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-5 gap-2 text-2xs font-mono">
-                <div>
-                  <label className="block text-[8px] uppercase text-slate-400">Define (w):</label>
-                  <input type="number" name="defineDuration" value={formData.defineDuration} onChange={handleInputChange} min="1" className="w-full px-1.5 py-1 border" />
-                </div>
-                <div>
-                  <label className="block text-[8px] uppercase text-slate-400">Measure (w):</label>
-                  <input type="number" name="measureDuration" value={formData.measureDuration} onChange={handleInputChange} min="1" className="w-full px-1.5 py-1 border" />
-                </div>
-                <div>
-                  <label className="block text-[8px] uppercase text-slate-400">Analyze (w):</label>
-                  <input type="number" name="analyzeDuration" value={formData.analyzeDuration} onChange={handleInputChange} min="1" className="w-full px-1.5 py-1 border" />
-                </div>
-                <div>
-                  <label className="block text-[8px] uppercase text-slate-400">Improve (w):</label>
-                  <input type="number" name="improveDuration" value={formData.improveDuration} onChange={handleInputChange} min="1" className="w-full px-1.5 py-1 border" />
-                </div>
-                <div>
-                  <label className="block text-[8px] uppercase text-slate-400">Control (w):</label>
-                  <input type="number" name="controlDuration" value={formData.controlDuration} onChange={handleInputChange} min="1" className="w-full px-1.5 py-1 border" />
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 mt-3">
+          ) : editingProject ? (
+            <div className="rounded-2xl border border-[#33B1C8] bg-white p-6 shadow-sm">
+              <div className="mb-5 flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-slate-900">Edit Project</h3>
                 <button
                   type="button"
-                  onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 border border-slate-350 text-slate-700 bg-white hover:bg-slate-50 cursor-pointer"
+                  onClick={cancelEditingProject}
+                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
                 >
+                  <X className="h-4 w-4" aria-hidden="true" />
                   Cancel
                 </button>
+              </div>
+
+              <div className="space-y-4">
+                {renderProjectFields(editingProject, handleEditingChange, "edit-project")}
+
                 <button
-                  type="submit"
-                  className="bg-[#006282] hover:bg-[#076092] text-white px-5 py-2 cursor-pointer transition-colors"
+                  type="button"
+                  onClick={saveEditingProject}
+                  className="inline-flex items-center gap-2 rounded-xl bg-[#003E52] px-4 py-2 font-medium text-white hover:bg-[#073C5C]"
                 >
-                  Analyze & Save Charter
+                  <Save className="h-5 w-5" aria-hidden="true" />
+                  Save Project
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900">{activeProject.title}</h3>
+                  <p className="mt-1 text-sm text-slate-600">
+                    {activeProject.type} · {activeProject.status}
+                  </p>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Start: {activeProject.startDate || "Not set"} · Target:{" "}
+                    {activeProject.targetCompletionDate || "Not set"}
+                  </p>
+                </div>
 
-    </div>
+                <div className="flex flex-wrap gap-2">
+                  <span className="rounded-full bg-[#003E52] px-3 py-1 text-xs font-medium text-white">
+                    {activeProject.priority}
+                  </span>
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-medium ${getAlertBadgeClass(
+                      activeProject.alertStatus
+                    )}`}
+                  >
+                    {activeProject.alertStatus || "No Concerns"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => startEditingProject(activeProject)}
+                    className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                  >
+                    <Pencil className="h-4 w-4" aria-hidden="true" />
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteProject(activeProject)}
+                    className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-white px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-50"
+                  >
+                    <Trash2 className="h-4 w-4" aria-hidden="true" />
+                    Delete
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="rounded-xl bg-slate-50 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Project Lead
+                  </p>
+                  <p className="mt-1 text-sm text-slate-900">
+                    {activeProject.projectLead || "Not entered"}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-slate-50 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Process Owner
+                  </p>
+                  <p className="mt-1 text-sm text-slate-900">
+                    {activeProject.processOwner || "Not entered"}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-slate-50 p-4 md:col-span-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Purpose / Problem Statement
+                  </p>
+                  <p className="mt-1 whitespace-pre-wrap text-sm text-slate-900">
+                    {activeProject.problemStatement || "Not entered"}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-slate-50 p-4 md:col-span-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Notes
+                  </p>
+                  <p className="mt-1 whitespace-pre-wrap text-sm text-slate-900">
+                    {activeProject.notes || "Not entered"}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeProject && (
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="mb-5 flex items-center gap-3">
+                <ClipboardList className="h-5 w-5 text-[#003E52]" aria-hidden="true" />
+                <h3 className="text-lg font-semibold text-slate-900">Project Tasks</h3>
+              </div>
+
+              <form onSubmit={handleAddTask} className="mb-5 grid gap-4 md:grid-cols-2">
+                <div className="md:col-span-2">
+                  <label className="mb-1 block text-sm font-medium text-slate-700">
+                    Task Title
+                  </label>
+                  <input
+                    type="text"
+                    value={newTaskName}
+                    onChange={(e) => setNewTaskName(e.target.value)}
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">
+                    Owner
+                  </label>
+                  <input
+                    type="text"
+                    value={newTaskOwner}
+                    onChange={(e) => setNewTaskOwner(e.target.value)}
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">
+                    Start Date
+                  </label>
+                  <input
+                    type="date"
+                    value={newTaskStartDate}
+                    onChange={(e) => setNewTaskStartDate(e.target.value)}
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">
+                    Due Date
+                  </label>
+                  <input
+                    type="date"
+                    value={newTaskDueDate}
+                    onChange={(e) => setNewTaskDueDate(e.target.value)}
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="mb-1 block text-sm font-medium text-slate-700">
+                    Notes
+                  </label>
+                  <textarea
+                    value={newTaskNotes}
+                    onChange={(e) => setNewTaskNotes(e.target.value)}
+                    rows={3}
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <button
+                    type="submit"
+                    className="inline-flex items-center gap-2 rounded-xl bg-[#003E52] px-4 py-2 font-medium text-white hover:bg-[#073C5C]"
+                  >
+                    <PlusCircle className="h-5 w-5" aria-hidden="true" />
+                    Add Project Task
+                  </button>
+                </div>
+              </form>
+
+              {!activeProject.tasks || activeProject.tasks.length === 0 ? (
+                <p className="text-sm text-slate-600">No tasks have been added to this project.</p>
+              ) : (
+                <div className="space-y-3">
+                  {activeProject.tasks.map((task, index) => (
+                    <article
+                      key={task.id || index}
+                      className="rounded-xl border border-slate-200 bg-slate-50 p-4"
+                    >
+                      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                        <div className="flex gap-3">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleTaskStatus(index)}
+                            aria-label={`Toggle task status for ${task.name}`}
+                            className="mt-1"
+                          >
+                            {task.status === "Completed" ? (
+                              <CheckCircle2 className="h-5 w-5 text-green-700" aria-hidden="true" />
+                            ) : (
+                              <Circle className="h-5 w-5 text-slate-500" aria-hidden="true" />
+                            )}
+                          </button>
+                          <div>
+                            <h4 className="font-medium text-slate-900">{task.name}</h4>
+                            <p className="text-sm text-slate-600">
+                              Owner: {task.assignedTo || "Not entered"} · Due:{" "}
+                              {task.dueDate || "Not set"}
+                            </p>
+                            {task.notes && (
+                              <p className="mt-2 whitespace-pre-wrap text-sm text-slate-700">
+                                {task.notes}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex gap-2">
+                          <span className="rounded-full bg-slate-700 px-3 py-1 text-xs font-medium text-white">
+                            {task.status}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteTask(index)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-white px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4" aria-hidden="true" />
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
   );
 }
