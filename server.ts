@@ -6,26 +6,32 @@ import admin from "firebase-admin";
 
 dotenv.config();
 
-const FIREBASE_PROJECT_ID =
-  process.env.FIREBASE_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT || "";
+const PROJECT_ID =
+  process.env.FIREBASE_PROJECT_ID ||
+  process.env.GOOGLE_CLOUD_PROJECT ||
+  process.env.GCLOUD_PROJECT ||
+  "workload-hub-2026";
+
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
 
 let db: admin.firestore.Firestore | null = null;
 let firestoreReady = false;
+let firestoreError = "";
 
 try {
-  if (FIREBASE_PROJECT_ID && !admin.apps.length) {
+  if (!admin.apps.length) {
     admin.initializeApp({
-      projectId: FIREBASE_PROJECT_ID,
+      projectId: PROJECT_ID,
     });
-    db = admin.firestore();
-    firestoreReady = true;
-    console.log(`[Firebase] Firestore connected: ${FIREBASE_PROJECT_ID}`);
-  } else {
-    console.log("[Firebase] Firestore not configured. Using in-memory storage.");
   }
+
+  db = admin.firestore();
+  firestoreReady = true;
+  console.log(`[Firestore] Connected to project: ${PROJECT_ID}`);
 } catch (error: any) {
-  console.warn("[Firebase] Firestore connection failed. Using in-memory storage.");
-  console.warn(error?.message || error);
+  firestoreReady = false;
+  firestoreError = error?.message || String(error);
+  console.error("[Firestore] Connection failed:", firestoreError);
 }
 
 let inMemoryCourseDevelopments: any[] = [];
@@ -42,26 +48,41 @@ function makeId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-async function getCollection(collectionName: string, fallback: any[]) {
-  if (!firestoreReady || !db) return fallback;
+function requireFirestoreInProduction(res: express.Response) {
+  if (IS_PRODUCTION && (!firestoreReady || !db)) {
+    res.status(503).json({
+      error:
+        "Firestore is not connected. Data was not saved. Check Cloud Run service account permissions and Firestore setup.",
+      projectId: PROJECT_ID,
+      firestoreReady,
+      firestoreError,
+    });
+    return false;
+  }
 
-  try {
-    const snapshot = await db.collection(collectionName).get();
-    return snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
-  } catch (error) {
-    console.warn(`[Firestore] Could not read ${collectionName}. Using memory fallback.`);
+  return true;
+}
+
+async function getCollection(collectionName: string, fallback: any[], res: express.Response) {
+  if (!firestoreReady || !db) {
+    if (!requireFirestoreInProduction(res)) return null;
     return fallback;
   }
+
+  const snapshot = await db.collection(collectionName).get();
+
+  return snapshot.docs.map((doc) => ({
+    id: doc.id,
+    ...doc.data(),
+  }));
 }
 
 async function createRecord(
   collectionName: string,
   payload: any,
   fallback: any[],
-  prefix: string
+  prefix: string,
+  res: express.Response
 ) {
   const record = {
     ...payload,
@@ -70,63 +91,79 @@ async function createRecord(
     updatedAt: new Date().toISOString(),
   };
 
-  if (firestoreReady && db) {
-    await db.collection(collectionName).doc(record.id).set(record, { merge: true });
+  if (!firestoreReady || !db) {
+    if (!requireFirestoreInProduction(res)) return null;
+    fallback.push(record);
     return record;
   }
 
-  fallback.push(record);
+  await db.collection(collectionName).doc(record.id).set(record, { merge: true });
   return record;
 }
 
-async function updateRecord(collectionName: string, id: string, payload: any, fallback: any[]) {
+async function updateRecord(
+  collectionName: string,
+  id: string,
+  payload: any,
+  fallback: any[],
+  res: express.Response
+) {
   const record = {
     ...payload,
     id,
     updatedAt: new Date().toISOString(),
   };
 
-  if (firestoreReady && db) {
-    await db.collection(collectionName).doc(id).set(record, { merge: true });
-    return record;
+  if (!firestoreReady || !db) {
+    if (!requireFirestoreInProduction(res)) return null;
+
+    const index = fallback.findIndex((item) => item.id === id);
+    if (index === -1) return null;
+
+    fallback[index] = {
+      ...fallback[index],
+      ...record,
+    };
+
+    return fallback[index];
   }
 
-  const index = fallback.findIndex((item) => item.id === id);
-  if (index === -1) return null;
-
-  fallback[index] = {
-    ...fallback[index],
-    ...record,
-  };
-
-  return fallback[index];
+  await db.collection(collectionName).doc(id).set(record, { merge: true });
+  return record;
 }
 
-async function deleteRecord(collectionName: string, id: string, fallbackName: string) {
-  if (firestoreReady && db) {
-    await db.collection(collectionName).doc(id).delete();
-    return true;
+async function deleteRecord(
+  collectionName: string,
+  id: string,
+  fallbackName: string,
+  res: express.Response
+) {
+  if (!firestoreReady || !db) {
+    if (!requireFirestoreInProduction(res)) return null;
+
+    if (fallbackName === "courseDevelopments") {
+      const before = inMemoryCourseDevelopments.length;
+      inMemoryCourseDevelopments = inMemoryCourseDevelopments.filter((item) => item.id !== id);
+      return inMemoryCourseDevelopments.length !== before;
+    }
+
+    if (fallbackName === "projects") {
+      const before = inMemoryProjects.length;
+      inMemoryProjects = inMemoryProjects.filter((item) => item.id !== id);
+      return inMemoryProjects.length !== before;
+    }
+
+    if (fallbackName === "standaloneTasks") {
+      const before = inMemoryStandaloneTasks.length;
+      inMemoryStandaloneTasks = inMemoryStandaloneTasks.filter((item) => item.id !== id);
+      return inMemoryStandaloneTasks.length !== before;
+    }
+
+    return false;
   }
 
-  if (fallbackName === "courseDevelopments") {
-    const before = inMemoryCourseDevelopments.length;
-    inMemoryCourseDevelopments = inMemoryCourseDevelopments.filter((item) => item.id !== id);
-    return inMemoryCourseDevelopments.length !== before;
-  }
-
-  if (fallbackName === "projects") {
-    const before = inMemoryProjects.length;
-    inMemoryProjects = inMemoryProjects.filter((item) => item.id !== id);
-    return inMemoryProjects.length !== before;
-  }
-
-  if (fallbackName === "standaloneTasks") {
-    const before = inMemoryStandaloneTasks.length;
-    inMemoryStandaloneTasks = inMemoryStandaloneTasks.filter((item) => item.id !== id);
-    return inMemoryStandaloneTasks.length !== before;
-  }
-
-  return false;
+  await db.collection(collectionName).doc(id).delete();
+  return true;
 }
 
 async function startServer() {
@@ -139,14 +176,23 @@ async function startServer() {
   app.get("/api/health", (_req, res) => {
     res.json({
       status: "ok",
+      projectId: PROJECT_ID,
+      nodeEnv: process.env.NODE_ENV || "",
       firestoreReady,
-      storageMode: firestoreReady ? "firestore" : "in-memory",
+      firestoreError,
+      storageMode: firestoreReady ? "firestore" : IS_PRODUCTION ? "not-connected" : "in-memory-dev",
     });
   });
 
   app.get("/api/course-developments", async (_req, res) => {
-    const records = await getCollection("course-developments", inMemoryCourseDevelopments);
-    res.json(records);
+    try {
+      const records = await getCollection("course-developments", inMemoryCourseDevelopments, res);
+      if (records === null) return;
+      res.json(records);
+    } catch (error: any) {
+      console.error("[GET /api/course-developments]", error);
+      res.status(500).json({ error: error?.message || "Could not load Course Developments." });
+    }
   });
 
   app.post("/api/course-developments", async (req, res) => {
@@ -171,9 +217,11 @@ async function startServer() {
           tasks: Array.isArray(payload.tasks) ? payload.tasks : [],
         },
         inMemoryCourseDevelopments,
-        "course"
+        "course",
+        res
       );
 
+      if (record === null) return;
       res.json(record);
     } catch (error: any) {
       console.error("[POST /api/course-developments]", error);
@@ -191,12 +239,12 @@ async function startServer() {
           itemType: "courseDevelopment",
           tasks: Array.isArray(req.body.tasks) ? req.body.tasks : [],
         },
-        inMemoryCourseDevelopments
+        inMemoryCourseDevelopments,
+        res
       );
 
-      if (!record) {
-        return res.status(404).json({ error: "Course Development not found." });
-      }
+      if (record === null) return;
+      if (!record) return res.status(404).json({ error: "Course Development not found." });
 
       res.json(record);
     } catch (error: any) {
@@ -210,12 +258,12 @@ async function startServer() {
       const deleted = await deleteRecord(
         "course-developments",
         req.params.id,
-        "courseDevelopments"
+        "courseDevelopments",
+        res
       );
 
-      if (!deleted) {
-        return res.status(404).json({ error: "Course Development not found." });
-      }
+      if (deleted === null) return;
+      if (!deleted) return res.status(404).json({ error: "Course Development not found." });
 
       res.json({ success: true });
     } catch (error: any) {
@@ -225,8 +273,14 @@ async function startServer() {
   });
 
   app.get("/api/lss-projects", async (_req, res) => {
-    const records = await getCollection("lss-projects", inMemoryProjects);
-    res.json(records);
+    try {
+      const records = await getCollection("lss-projects", inMemoryProjects, res);
+      if (records === null) return;
+      res.json(records);
+    } catch (error: any) {
+      console.error("[GET /api/lss-projects]", error);
+      res.status(500).json({ error: error?.message || "Could not load Projects." });
+    }
   });
 
   app.post("/api/lss-projects", async (req, res) => {
@@ -249,9 +303,11 @@ async function startServer() {
           tasks: Array.isArray(payload.tasks) ? payload.tasks : [],
         },
         inMemoryProjects,
-        "project"
+        "project",
+        res
       );
 
+      if (record === null) return;
       res.json(record);
     } catch (error: any) {
       console.error("[POST /api/lss-projects]", error);
@@ -269,12 +325,12 @@ async function startServer() {
           itemType: "project",
           tasks: Array.isArray(req.body.tasks) ? req.body.tasks : [],
         },
-        inMemoryProjects
+        inMemoryProjects,
+        res
       );
 
-      if (!record) {
-        return res.status(404).json({ error: "Project not found." });
-      }
+      if (record === null) return;
+      if (!record) return res.status(404).json({ error: "Project not found." });
 
       res.json(record);
     } catch (error: any) {
@@ -285,11 +341,10 @@ async function startServer() {
 
   app.delete("/api/lss-projects/:id", async (req, res) => {
     try {
-      const deleted = await deleteRecord("lss-projects", req.params.id, "projects");
+      const deleted = await deleteRecord("lss-projects", req.params.id, "projects", res);
 
-      if (!deleted) {
-        return res.status(404).json({ error: "Project not found." });
-      }
+      if (deleted === null) return;
+      if (!deleted) return res.status(404).json({ error: "Project not found." });
 
       res.json({ success: true });
     } catch (error: any) {
@@ -299,8 +354,14 @@ async function startServer() {
   });
 
   app.get("/api/standalone-tasks", async (_req, res) => {
-    const records = await getCollection("standalone-tasks", inMemoryStandaloneTasks);
-    res.json(records);
+    try {
+      const records = await getCollection("standalone-tasks", inMemoryStandaloneTasks, res);
+      if (records === null) return;
+      res.json(records);
+    } catch (error: any) {
+      console.error("[GET /api/standalone-tasks]", error);
+      res.status(500).json({ error: error?.message || "Could not load Standalone Tasks." });
+    }
   });
 
   app.post("/api/standalone-tasks", async (req, res) => {
@@ -325,9 +386,11 @@ async function startServer() {
           progress: Number(payload.progress || 0),
         },
         inMemoryStandaloneTasks,
-        "task"
+        "task",
+        res
       );
 
+      if (record === null) return;
       res.json(record);
     } catch (error: any) {
       console.error("[POST /api/standalone-tasks]", error);
@@ -345,12 +408,12 @@ async function startServer() {
           itemType: "standaloneTask",
           progress: Number(req.body.progress || 0),
         },
-        inMemoryStandaloneTasks
+        inMemoryStandaloneTasks,
+        res
       );
 
-      if (!record) {
-        return res.status(404).json({ error: "Standalone Task not found." });
-      }
+      if (record === null) return;
+      if (!record) return res.status(404).json({ error: "Standalone Task not found." });
 
       res.json(record);
     } catch (error: any) {
@@ -364,12 +427,12 @@ async function startServer() {
       const deleted = await deleteRecord(
         "standalone-tasks",
         req.params.id,
-        "standaloneTasks"
+        "standaloneTasks",
+        res
       );
 
-      if (!deleted) {
-        return res.status(404).json({ error: "Standalone Task not found." });
-      }
+      if (deleted === null) return;
+      if (!deleted) return res.status(404).json({ error: "Standalone Task not found." });
 
       res.json({ success: true });
     } catch (error: any) {
@@ -379,25 +442,29 @@ async function startServer() {
   });
 
   app.get("/api/calendar-settings", async (_req, res) => {
-    if (firestoreReady && db) {
-      try {
-        const doc = await db.collection("calendar-settings").doc("settings").get();
-
-        if (doc.exists) {
-          return res.json({
-            customBlocked: [],
-            outlookConnected: false,
-            outlookEmail: "",
-            timezone: "America/New_York",
-            ...doc.data(),
-          });
-        }
-      } catch {
-        console.warn("[Firestore] Could not read calendar settings. Using memory fallback.");
+    try {
+      if (!firestoreReady || !db) {
+        if (!requireFirestoreInProduction(res)) return;
+        return res.json(inMemoryCalendarSettings);
       }
-    }
 
-    res.json(inMemoryCalendarSettings);
+      const doc = await db.collection("calendar-settings").doc("settings").get();
+
+      if (doc.exists) {
+        return res.json({
+          customBlocked: [],
+          outlookConnected: false,
+          outlookEmail: "",
+          timezone: "America/New_York",
+          ...doc.data(),
+        });
+      }
+
+      return res.json(inMemoryCalendarSettings);
+    } catch (error: any) {
+      console.error("[GET /api/calendar-settings]", error);
+      res.status(500).json({ error: error?.message || "Could not load Calendar Settings." });
+    }
   });
 
   app.post("/api/calendar-settings", async (req, res) => {
@@ -409,12 +476,13 @@ async function startServer() {
         timezone: "America/New_York",
       };
 
-      if (firestoreReady && db) {
-        await db.collection("calendar-settings").doc("settings").set(payload, { merge: true });
-      } else {
+      if (!firestoreReady || !db) {
+        if (!requireFirestoreInProduction(res)) return;
         inMemoryCalendarSettings = payload;
+        return res.json(payload);
       }
 
+      await db.collection("calendar-settings").doc("settings").set(payload, { merge: true });
       res.json(payload);
     } catch (error: any) {
       console.error("[POST /api/calendar-settings]", error);
@@ -453,16 +521,10 @@ async function startServer() {
   });
 
   app.get("/api/outlook/callback", (_req, res) => {
-    inMemoryCalendarSettings = {
-      ...inMemoryCalendarSettings,
-      outlookConnected: true,
-      outlookEmail: "Connected",
-    };
-
     res.send(`
       <html>
         <body style="font-family: Arial, sans-serif; padding: 2rem;">
-          <h1>Outlook Authorization Complete</h1>
+          <h1>Outlook Authorization Placeholder</h1>
           <p>You may close this window and return to Workload Hub.</p>
           <script>
             if (window.opener) {
@@ -476,12 +538,6 @@ async function startServer() {
   });
 
   app.post("/api/outlook/disconnect", (_req, res) => {
-    inMemoryCalendarSettings = {
-      ...inMemoryCalendarSettings,
-      outlookConnected: false,
-      outlookEmail: "",
-    };
-
     res.json({ success: true });
   });
 
@@ -503,6 +559,7 @@ async function startServer() {
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://0.0.0.0:${PORT}`);
+    console.log(`Storage mode: ${firestoreReady ? "Firestore" : IS_PRODUCTION ? "NOT CONNECTED" : "In-memory dev"}`);
   });
 }
 
