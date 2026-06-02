@@ -1141,7 +1141,7 @@ export function Category1CourseDev({
                   <button
                     key={course.id || course.courseNumber}
                     type="button"
-                    onClick={() => setSelectedId(course.id || "")}
+                    onClick={() => const nextId = course.id || ""; setSelectedId(nextId); localStorage.setItem("workloadHubSelectedCourseId", nextId);}
                     className={`w-full rounded-xl border p-4 text-left transition ${
                       isSelected
                         ? "border-[#003E52] bg-[#003E52] text-white shadow-sm"
