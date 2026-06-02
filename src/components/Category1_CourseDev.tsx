@@ -59,6 +59,13 @@ type ExtendedCourseDevelopmentTask = CourseDevelopmentTask & {
   notes?: string;
 };
 
+type TaskDraft = {
+  startDate?: string;
+  dueDate?: string;
+  status?: CourseDevelopmentTask["status"];
+  notes?: string;
+};
+
 const emptyCourseForm: CourseFormData = {
   program: "",
   courseNumber: "",
@@ -154,6 +161,7 @@ export function Category1CourseDev({
   const [editingCourse, setEditingCourse] = useState<CourseFormData | null>(null);
   const [showCompletedTasks, setShowCompletedTasks] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [taskDrafts, setTaskDrafts] = useState<Record<string, TaskDraft>>({});
 
   const activeCourse = useMemo(() => {
     if (!safeCourses.length) return null;
@@ -190,6 +198,140 @@ export function Category1CourseDev({
         behavior: "auto",
       });
     });
+  };
+
+  const getTaskKey = (task: CourseDevelopmentTask) => String(task.id);
+
+  const getTaskDraft = (task: CourseDevelopmentTask): TaskDraft => {
+    const key = getTaskKey(task);
+    const extendedTask = task as ExtendedCourseDevelopmentTask;
+
+    return {
+      startDate: taskDrafts[key]?.startDate ?? task.startDate ?? "",
+      dueDate: taskDrafts[key]?.dueDate ?? task.dueDate ?? "",
+      status: taskDrafts[key]?.status ?? task.status,
+      notes: taskDrafts[key]?.notes ?? extendedTask.notes ?? "",
+    };
+  };
+
+  const updateTaskDraft = (
+    task: CourseDevelopmentTask,
+    field: keyof TaskDraft,
+    value: string
+  ) => {
+    const key = getTaskKey(task);
+
+    setTaskDrafts((prev) => ({
+      ...prev,
+      [key]: {
+        ...getTaskDraft(task),
+        ...prev[key],
+        [field]: value,
+      },
+    }));
+  };
+
+  const hasTaskDraftChanges = (task: CourseDevelopmentTask) => {
+    const key = getTaskKey(task);
+    return !!taskDrafts[key];
+  };
+
+  const clearTaskDraft = (task: CourseDevelopmentTask) => {
+    const key = getTaskKey(task);
+
+    setTaskDrafts((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
+
+  const getWorkingDayDelta = (oldDate: string, newDate: string) => {
+    if (!oldDate || !newDate || oldDate === newDate) return 0;
+
+    try {
+      if (newDate > oldDate) {
+        return Math.max(0, countWorkingDaysBetween(oldDate, newDate, customBlocked) - 1);
+      }
+
+      return -Math.max(0, countWorkingDaysBetween(newDate, oldDate, customBlocked) - 1);
+    } catch {
+      return 0;
+    }
+  };
+
+  const shiftDateByWorkingDelta = (date: string, delta: number) => {
+    if (!date || delta === 0) return date;
+
+    try {
+      return stepWorkingDays(date, Math.abs(delta), delta > 0 ? 1 : -1, customBlocked);
+    } catch {
+      return date;
+    }
+  };
+
+  const saveTaskChanges = async (course: CourseDevelopment, task: CourseDevelopmentTask) => {
+    const draft = getTaskDraft(task);
+    const oldDueDate = task.dueDate || "";
+    const oldStartDate = task.startDate || "";
+    const newDueDate = draft.dueDate || "";
+    const newStartDate = draft.startDate || "";
+
+    const dueDateDelta = getWorkingDayDelta(oldDueDate, newDueDate);
+    const startDateDelta = getWorkingDayDelta(oldStartDate, newStartDate);
+    const cascadeDelta = dueDateDelta !== 0 ? dueDateDelta : startDateDelta;
+
+    const changedTaskStart = oldStartDate || oldDueDate || "";
+    const changedTaskId = Number(task.id || 0);
+
+    const updatedTasks = (course.tasks || []).map((item) => {
+      const isTargetTask = item.id === task.id;
+      const itemId = Number(item.id || 0);
+      const itemStart = item.startDate || item.dueDate || "";
+      const isLaterTask =
+        !isTargetTask &&
+        cascadeDelta !== 0 &&
+        (itemId > changedTaskId || (!!changedTaskStart && itemStart > changedTaskStart));
+
+      if (isTargetTask) {
+        return {
+          ...item,
+          startDate: newStartDate,
+          dueDate: newDueDate,
+          effectiveStartDate: newStartDate,
+          effectiveDueDate: newDueDate,
+          status: draft.status || item.status,
+          notes: draft.notes || "",
+        };
+      }
+
+      if (isLaterTask) {
+        return {
+          ...item,
+          startDate: shiftDateByWorkingDelta(item.startDate || "", cascadeDelta),
+          dueDate: shiftDateByWorkingDelta(item.dueDate || "", cascadeDelta),
+          effectiveStartDate: shiftDateByWorkingDelta(
+            item.effectiveStartDate || item.startDate || "",
+            cascadeDelta
+          ),
+          effectiveDueDate: shiftDateByWorkingDelta(
+            item.effectiveDueDate || item.dueDate || "",
+            cascadeDelta
+          ),
+        };
+      }
+
+      return item;
+    });
+
+    await preserveScrollAfter(async () => {
+      await onUpdateCourse({
+        ...course,
+        tasks: updatedTasks,
+      });
+    });
+
+    clearTaskDraft(task);
   };
 
   const handleInputChange = (
@@ -403,48 +545,14 @@ export function Category1CourseDev({
     });
   };
 
-  const updateTaskStatus = async (
+  const quickToggleTaskStatus = async (
     course: CourseDevelopment,
-    task: CourseDevelopmentTask,
-    status: CourseDevelopmentTask["status"]
+    task: CourseDevelopmentTask
   ) => {
+    const nextStatus = task.status === "Complete" ? "Not Started" : "Complete";
+
     const updatedTasks = (course.tasks || []).map((item) =>
-      item.id === task.id ? { ...item, status } : item
-    );
-
-    await preserveScrollAfter(async () => {
-      await onUpdateCourse({
-        ...course,
-        tasks: updatedTasks,
-      });
-    });
-  };
-
-  const updateTaskDate = async (
-    course: CourseDevelopment,
-    task: CourseDevelopmentTask,
-    field: "startDate" | "dueDate",
-    value: string
-  ) => {
-    const updatedTasks = (course.tasks || []).map((item) =>
-      item.id === task.id ? { ...item, [field]: value } : item
-    );
-
-    await preserveScrollAfter(async () => {
-      await onUpdateCourse({
-        ...course,
-        tasks: updatedTasks,
-      });
-    });
-  };
-
-  const updateTaskNotes = async (
-    course: CourseDevelopment,
-    task: CourseDevelopmentTask,
-    value: string
-  ) => {
-    const updatedTasks = (course.tasks || []).map((item) =>
-      item.id === task.id ? { ...item, notes: value } : item
+      item.id === task.id ? { ...item, status: nextStatus } : item
     );
 
     await preserveScrollAfter(async () => {
@@ -1192,7 +1300,7 @@ export function Category1CourseDev({
                       Timeline Tasks
                     </h3>
                     <p className="mt-1 text-sm text-slate-600">
-                      Tasks are sorted by start date. Dates and notes may be edited manually.
+                      Edit dates, status, and notes locally, then click Save Task Changes.
                     </p>
                   </div>
 
@@ -1214,7 +1322,8 @@ export function Category1CourseDev({
                 ) : (
                   <div className="space-y-3">
                     {visibleTasks.map((task) => {
-                      const extendedTask = task as ExtendedCourseDevelopmentTask;
+                      const draft = getTaskDraft(task);
+                      const hasChanges = hasTaskDraftChanges(task);
 
                       return (
                         <article key={task.id} className="rounded-xl border border-slate-200 p-4">
@@ -1222,13 +1331,7 @@ export function Category1CourseDev({
                             <div className="flex gap-3">
                               <button
                                 type="button"
-                                onClick={() =>
-                                  updateTaskStatus(
-                                    activeCourse,
-                                    task,
-                                    task.status === "Complete" ? "Not Started" : "Complete"
-                                  )
-                                }
+                                onClick={() => quickToggleTaskStatus(activeCourse, task)}
                                 className="mt-1"
                                 aria-label={`Toggle ${task.name}`}
                               >
@@ -1258,6 +1361,11 @@ export function Category1CourseDev({
                                   <span className="rounded-full bg-slate-200 px-2 py-1 text-xs font-medium text-slate-700">
                                     {task.durationDays} day(s)
                                   </span>
+                                  {hasChanges && (
+                                    <span className="rounded-full bg-orange-700 px-2 py-1 text-xs font-medium text-white">
+                                      Unsaved Changes
+                                    </span>
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -1269,9 +1377,9 @@ export function Category1CourseDev({
                                 </label>
                                 <input
                                   type="date"
-                                  value={task.startDate || ""}
+                                  value={draft.startDate || ""}
                                   onChange={(e) =>
-                                    updateTaskDate(activeCourse, task, "startDate", e.target.value)
+                                    updateTaskDraft(task, "startDate", e.target.value)
                                   }
                                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                                 />
@@ -1283,9 +1391,9 @@ export function Category1CourseDev({
                                 </label>
                                 <input
                                   type="date"
-                                  value={task.dueDate || ""}
+                                  value={draft.dueDate || ""}
                                   onChange={(e) =>
-                                    updateTaskDate(activeCourse, task, "dueDate", e.target.value)
+                                    updateTaskDraft(task, "dueDate", e.target.value)
                                   }
                                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                                 />
@@ -1296,13 +1404,9 @@ export function Category1CourseDev({
                                   Status
                                 </label>
                                 <select
-                                  value={task.status}
+                                  value={draft.status}
                                   onChange={(e) =>
-                                    updateTaskStatus(
-                                      activeCourse,
-                                      task,
-                                      e.target.value as CourseDevelopmentTask["status"]
-                                    )
+                                    updateTaskDraft(task, "status", e.target.value)
                                   }
                                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                                 >
@@ -1323,14 +1427,41 @@ export function Category1CourseDev({
                                   Task Notes
                                 </label>
                                 <textarea
-                                  value={extendedTask.notes || ""}
+                                  value={draft.notes || ""}
                                   onChange={(e) =>
-                                    updateTaskNotes(activeCourse, task, e.target.value)
+                                    updateTaskDraft(task, "notes", e.target.value)
                                   }
                                   rows={3}
                                   placeholder="Add task-specific notes..."
                                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                                 />
+                              </div>
+
+                              <div className="flex flex-wrap gap-2 sm:col-span-2">
+                                <button
+                                  type="button"
+                                  onClick={() => saveTaskChanges(activeCourse, task)}
+                                  disabled={!hasChanges}
+                                  className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium ${
+                                    hasChanges
+                                      ? "bg-[#003E52] text-white hover:bg-[#073C5C]"
+                                      : "bg-slate-200 text-slate-500"
+                                  }`}
+                                >
+                                  <Save className="h-4 w-4" aria-hidden="true" />
+                                  Save Task Changes
+                                </button>
+
+                                {hasChanges && (
+                                  <button
+                                    type="button"
+                                    onClick={() => clearTaskDraft(task)}
+                                    className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                                  >
+                                    <X className="h-4 w-4" aria-hidden="true" />
+                                    Cancel
+                                  </button>
+                                )}
                               </div>
                             </div>
                           </div>
