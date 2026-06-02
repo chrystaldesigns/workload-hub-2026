@@ -580,27 +580,60 @@ export function Category2LssProjects({
             Project Type
           </label>
           <select
-            id={`${prefix}-type`}
-            name="type"
-            value={project.type}
-            onChange={onChange}
-            className="w-full rounded-xl border border-slate-300 px-3 py-2"
-          >
-            <option>Ongoing</option>
-            <option>One-Time</option>
-            <option>Strategic</option>
-            <option>Operational</option>
-            <option>Compliance</option>
-            <option>IT</option>
-            <option>Event Management</option>
-            <option>Educational</option>
-            <option>Change Management</option>
-            <option>Resource Development</option>
-            <option>DMAIC</option>
-            <option>Kaizen</option>
-            <option>Lean</option>
-            <option>Lean Six Sigma</option>
-          </select>
+  id={`${prefix}-type`}
+  name="type"
+  value={project.type}
+  onChange={onChange}
+  className="w-full rounded-xl border border-slate-300 px-3 py-2"
+>
+  <option>Ongoing</option>
+  <option>One-Time</option>
+  <option>Strategic</option>
+  <option>Operational</option>
+  <option>Compliance</option>
+  <option>IT</option>
+  <option>Event Management</option>
+  <option>Educational</option>
+  <option>Change Management</option>
+  <option>Resource Development</option>
+  <option>DMAIC</option>
+  <option>Kaizen</option>
+  <option>Lean</option>
+  <option>Lean Six Sigma</option>
+</select>
+
+<div className="mt-2 rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
+  {{
+    "Ongoing":
+      "Continuous work that remains active over time and may require periodic updates, maintenance, or enhancements.",
+    "One-Time":
+      "A project with a defined beginning and end date that is completed once and then closed.",
+    "Strategic":
+      "Supports long-term organizational goals, initiatives, planning, growth, or transformation efforts.",
+    "Operational":
+      "Improves or supports day-to-day business processes, workflows, and operational efficiency.",
+    "Compliance":
+      "Required to meet regulatory, accreditation, accessibility, security, policy, or legal requirements.",
+    "IT":
+      "Technology-focused projects involving software, systems, infrastructure, integrations, automation, or data.",
+    "Event Management":
+      "Planning, coordination, and execution of conferences, meetings, workshops, training, or special events.",
+    "Educational":
+      "Course development, curriculum design, instructional materials, training programs, or learning initiatives.",
+    "Change Management":
+      "Projects focused on organizational change, adoption, communication, stakeholder engagement, and transition planning.",
+    "Resource Development":
+      "Creation of templates, guides, SOPs, documentation, toolkits, repositories, or reusable resources.",
+    "DMAIC":
+      "Formal Six Sigma improvement project following Define, Measure, Analyze, Improve, and Control phases.",
+    "Kaizen":
+      "Short-duration continuous improvement effort focused on rapid process improvements and team collaboration.",
+    "Lean":
+      "Process improvement project focused on reducing waste, improving flow, and increasing efficiency.",
+    "Lean Six Sigma":
+      "Combines Lean waste reduction with Six Sigma data-driven analysis to improve quality and efficiency."
+  }[project.type] || "Select a project type to view its description."}
+</div>
         </div>
 
         <div>
