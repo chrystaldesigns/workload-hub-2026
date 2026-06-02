@@ -2,6 +2,10 @@ import { CourseDevelopmentTask } from "../types";
 
 export const TIMEZONE = "America/New_York";
 
+/**
+ * FSCJ-specific manual closures that cannot be reliably calculated.
+ * Add future Spring Break / Winter Break dates here as needed.
+ */
 export const FSCJ_MANUAL_CLOSURES: Record<string, string[]> = {
   "2026": [
     "2026-03-09",
@@ -17,53 +21,115 @@ export const FSCJ_MANUAL_CLOSURES: Record<string, string[]> = {
   ],
 };
 
+/**
+ * Date-only helper.
+ * This avoids the common JavaScript bug where YYYY-MM-DD shifts backward
+ * because it gets interpreted as UTC.
+ */
+export function parseDate(dateStr: string): Date {
+  if (!dateStr) return new Date(Number.NaN);
+
+  const clean = dateStr.trim().slice(0, 10);
+  const parts = clean.split("-").map(Number);
+
+  if (parts.length !== 3 || parts.some((part) => Number.isNaN(part))) {
+    return new Date(Number.NaN);
+  }
+
+  const [year, month, day] = parts;
+
+  return new Date(year, month - 1, day, 12, 0, 0, 0);
+}
+
+/**
+ * Formats a Date as YYYY-MM-DD using local date parts.
+ * Do not use toISOString() for manually entered date-only values.
+ */
 export function formatDate(dateObj: Date): string {
+  if (!(dateObj instanceof Date) || Number.isNaN(dateObj.getTime())) return "";
+
   const yr = dateObj.getFullYear();
   const mo = String(dateObj.getMonth() + 1).padStart(2, "0");
   const dy = String(dateObj.getDate()).padStart(2, "0");
+
   return `${yr}-${mo}-${dy}`;
 }
 
-export function parseDate(dateStr: string): Date {
-  if (!dateStr) return new Date(Number.NaN);
-  return new Date(`${dateStr}T12:00:00`);
+/**
+ * Use this for values from <input type="date">.
+ * It returns exactly the date string entered/selected.
+ */
+export function normalizeDateOnly(dateStr: string): string {
+  if (!dateStr) return "";
+
+  const parsed = parseDate(dateStr);
+
+  if (Number.isNaN(parsed.getTime())) return "";
+
+  return formatDate(parsed);
 }
 
-function getNthWeekdayOfMonth(year: number, monthIndex: number, weekday: number, nth: number): string {
-  const date = new Date(year, monthIndex, 1, 12, 0, 0);
+function getNthWeekdayOfMonth(
+  year: number,
+  monthIndex: number,
+  weekday: number,
+  nth: number
+): string {
+  const date = new Date(year, monthIndex, 1, 12, 0, 0, 0);
   let count = 0;
+
   while (date.getMonth() === monthIndex) {
     if (date.getDay() === weekday) {
       count++;
-      if (count === nth) return formatDate(date);
+
+      if (count === nth) {
+        return formatDate(date);
+      }
     }
+
     date.setDate(date.getDate() + 1);
   }
+
   throw new Error("Unable to calculate nth weekday.");
 }
 
 function getLastWeekdayOfMonth(year: number, monthIndex: number, weekday: number): string {
-  const date = new Date(year, monthIndex + 1, 0, 12, 0, 0);
+  const date = new Date(year, monthIndex + 1, 0, 12, 0, 0, 0);
+
   while (date.getMonth() === monthIndex) {
-    if (date.getDay() === weekday) return formatDate(date);
+    if (date.getDay() === weekday) {
+      return formatDate(date);
+    }
+
     date.setDate(date.getDate() - 1);
   }
+
   throw new Error("Unable to calculate last weekday.");
 }
 
 function getObservedFixedHoliday(year: number, monthIndex: number, day: number): string {
-  const actual = new Date(year, monthIndex, day, 12, 0, 0);
-  if (actual.getDay() === 6) actual.setDate(actual.getDate() - 1);
-  if (actual.getDay() === 0) actual.setDate(actual.getDate() + 1);
+  const actual = new Date(year, monthIndex, day, 12, 0, 0, 0);
+
+  if (actual.getDay() === 6) {
+    actual.setDate(actual.getDate() - 1);
+  }
+
+  if (actual.getDay() === 0) {
+    actual.setDate(actual.getDate() + 1);
+  }
+
   return formatDate(actual);
 }
 
 export function stepCalendarDays(startDateStr: string, days: number): string {
   const date = parseDate(startDateStr);
+
   if (Number.isNaN(date.getTime())) {
     throw new Error(`Invalid date supplied to stepCalendarDays: ${startDateStr}`);
   }
+
   date.setDate(date.getDate() + days);
+
   return formatDate(date);
 }
 
@@ -98,6 +164,9 @@ export const FSCJ_HOLIDAYS = Array.from(
   new Set([
     ...getCollegeClosuresForYear(2026),
     ...getCollegeClosuresForYear(2027),
+    ...getCollegeClosuresForYear(2028),
+    ...getCollegeClosuresForYear(2029),
+    ...getCollegeClosuresForYear(2030),
   ])
 ).sort();
 
@@ -169,24 +238,36 @@ export const TASK_TEMPLATES = [
 ];
 
 export function getSummerBounds(year: number) {
-  return { start: `${year}-05-04`, end: `${year}-08-08` };
+  return {
+    start: `${year}-05-04`,
+    end: `${year}-08-08`,
+  };
 }
 
 export function isSummerDate(dateStr: string): boolean {
   const dateObj = parseDate(dateStr);
+
   if (Number.isNaN(dateObj.getTime())) return false;
+
   const { start, end } = getSummerBounds(dateObj.getFullYear());
+
   return dateStr >= start && dateStr <= end;
 }
 
 export function isCollegeClosure(dateStr: string, customBlocked: string[] = []): boolean {
   const d = parseDate(dateStr);
+
   if (Number.isNaN(d.getTime())) return false;
-  return getCollegeClosuresForYear(d.getFullYear()).includes(dateStr) || customBlocked.includes(dateStr);
+
+  return (
+    getCollegeClosuresForYear(d.getFullYear()).includes(dateStr) ||
+    customBlocked.includes(dateStr)
+  );
 }
 
 export function isWorkingDay(dateStr: string, customBlocked: string[] = []): boolean {
   const d = parseDate(dateStr);
+
   if (Number.isNaN(d.getTime())) return false;
 
   const day = d.getDay();
@@ -217,14 +298,24 @@ export function stepWorkingDays(
   while (!isWorkingDay(formatDate(dateObj), customBlocked)) {
     dateObj.setDate(dateObj.getDate() + safeDirection);
     guard++;
-    if (guard > 370) throw new Error("Unable to find working day within safe limit.");
+
+    if (guard > 370) {
+      throw new Error("Unable to find working day within safe limit.");
+    }
   }
 
   while (steps < Math.abs(days)) {
     dateObj.setDate(dateObj.getDate() + safeDirection);
-    if (isWorkingDay(formatDate(dateObj), customBlocked)) steps++;
+
+    if (isWorkingDay(formatDate(dateObj), customBlocked)) {
+      steps++;
+    }
+
     guard++;
-    if (guard > 1000) throw new Error("Business-day calculation exceeded safe limit.");
+
+    if (guard > 1000) {
+      throw new Error("Business-day calculation exceeded safe limit.");
+    }
   }
 
   return formatDate(dateObj);
@@ -246,10 +337,16 @@ export function countWorkingDaysBetween(
   let guard = 0;
 
   while (current <= end) {
-    if (isWorkingDay(formatDate(current), customBlocked)) count++;
+    if (isWorkingDay(formatDate(current), customBlocked)) {
+      count++;
+    }
+
     current.setDate(current.getDate() + 1);
     guard++;
-    if (guard > 1000) throw new Error("Working-day range calculation exceeded safe limit.");
+
+    if (guard > 1000) {
+      throw new Error("Working-day range calculation exceeded safe limit.");
+    }
   }
 
   return count;
@@ -257,10 +354,14 @@ export function countWorkingDaysBetween(
 
 export function countWorkingHoursInDay(dateStr: string, customBlocked: string[] = []): number {
   if (!isWorkingDay(dateStr, customBlocked)) return 0;
+
   return parseDate(dateStr).getDay() === 5 ? 4 : 10;
 }
 
-export function calculateDeadlineFromTermStart(termStartDate: string, customBlocked: string[] = []): string {
+export function calculateDeadlineFromTermStart(
+  termStartDate: string,
+  customBlocked: string[] = []
+): string {
   return stepWorkingDays(termStartDate, 30, -1, customBlocked);
 }
 
