@@ -115,8 +115,8 @@ function getCourseCompletionDate(course: CourseDevelopment) {
     );
 
   return (
-    course.completionDate ||
-    closeoutTask?.completionDate ||
+    (course as any).completionDate ||
+    (closeoutTask as any)?.completionDate ||
     closeoutTask?.dueDate ||
     course.termDeadline ||
     ""
@@ -160,6 +160,21 @@ export function Dashboard({
   const weekEnd = addCalendarDays(today, 7);
   const thirtyDayEnd = addCalendarDays(today, 30);
 
+  const openCourseItem = (courseId: string) => {
+    localStorage.setItem("workloadHubSelectedCourseId", courseId);
+    onOpenCourseDevelopments();
+  };
+
+  const openProjectItem = (projectId: string) => {
+    localStorage.setItem("workloadHubSelectedProjectId", projectId);
+    onOpenProjects();
+  };
+
+  const openTaskItem = (taskId: string) => {
+    localStorage.setItem("workloadHubSelectedTaskId", taskId);
+    onOpenTasks();
+  };
+
   const activeCourses = safeCourses.filter((course) =>
     course.tasks?.some((task) => task.status !== "Complete" && task.status !== "Not Applicable")
   );
@@ -168,47 +183,63 @@ export function Dashboard({
   const activeTasks = safeTasks.filter((task) => !isComplete(task.status));
 
   const courseItems: UnifiedItem[] = safeCourses
-    .map((course) => ({
-      id: String(course.id || course.courseNumber),
-      title: `${course.courseNumber}: ${course.courseTitle}`,
-      category: "Course Development" as const,
-      startDate: course.startDate || "",
-      dueDate: course.termDeadline || course.calculatedDeadline || getCourseCompletionDate(course),
-      date: course.termDeadline || course.calculatedDeadline || getCourseCompletionDate(course),
-      status: `${getCourseProgress(course)}% complete`,
-      alertStatus: course.alertStatus,
-      onOpen: onOpenCourseDevelopments,
-    }))
+    .map((course) => {
+      const courseId = String(course.id || course.courseNumber);
+      const courseDate =
+        course.termDeadline ||
+        (course as any).calculatedDeadline ||
+        getCourseCompletionDate(course);
+
+      return {
+        id: courseId,
+        title: `${course.courseNumber}: ${course.courseTitle}`,
+        category: "Course Development" as const,
+        startDate: (course as any).startDate || "",
+        dueDate: courseDate,
+        date: courseDate,
+        status: `${getCourseProgress(course)}% complete`,
+        alertStatus: course.alertStatus,
+        onOpen: () => openCourseItem(courseId),
+      };
+    })
     .filter((item) => !!item.date);
 
   const projectItems: UnifiedItem[] = safeProjects
-    .map((project) => ({
-      id: String(project.id || project.title),
-      title: project.title,
-      category: "Project" as const,
-      startDate: project.startDate || "",
-      dueDate: project.targetCompletionDate || "",
-      date: project.targetCompletionDate || project.startDate || "",
-      status: project.status,
-      alertStatus: project.alertStatus,
-      priority: project.priority,
-      onOpen: onOpenProjects,
-    }))
+    .map((project) => {
+      const projectId = String(project.id || project.title);
+
+      return {
+        id: projectId,
+        title: project.title,
+        category: "Project" as const,
+        startDate: project.startDate || "",
+        dueDate: project.targetCompletionDate || "",
+        date: project.targetCompletionDate || project.startDate || "",
+        status: project.status,
+        alertStatus: (project as any).alertStatus,
+        priority: project.priority,
+        onOpen: () => openProjectItem(projectId),
+      };
+    })
     .filter((item) => !!item.date);
 
   const taskItems: UnifiedItem[] = safeTasks
-    .map((task) => ({
-      id: String(task.id || task.title),
-      title: task.title,
-      category: "Task" as const,
-      startDate: task.startDate || "",
-      dueDate: task.dueDate || "",
-      date: task.dueDate || task.startDate || "",
-      status: task.status,
-      alertStatus: task.alertStatus,
-      priority: task.priority,
-      onOpen: onOpenTasks,
-    }))
+    .map((task) => {
+      const taskId = String(task.id || task.title);
+
+      return {
+        id: taskId,
+        title: task.title,
+        category: "Task" as const,
+        startDate: task.startDate || "",
+        dueDate: task.dueDate || "",
+        date: task.dueDate || task.startDate || "",
+        status: task.status,
+        alertStatus: (task as any).alertStatus,
+        priority: task.priority,
+        onOpen: () => openTaskItem(taskId),
+      };
+    })
     .filter((item) => !!item.date);
 
   const unifiedItems = [...courseItems, ...projectItems, ...taskItems].sort((a, b) =>
@@ -350,7 +381,10 @@ export function Dashboard({
               const Icon = item.icon;
 
               return (
-                <div key={item.label} className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
+                <div
+                  key={item.label}
+                  className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0"
+                >
                   <div className="flex items-center gap-3">
                     <Icon className={`h-5 w-5 ${item.className}`} aria-hidden="true" />
                     <span className="text-sm font-medium text-slate-700">{item.label}</span>
@@ -439,19 +473,20 @@ export function Dashboard({
             <div className="space-y-3">
               {safeCourses.slice(0, 6).map((course) => {
                 const progress = getCourseProgress(course);
+                const courseId = String(course.id || course.courseNumber);
 
                 return (
                   <button
-                    key={course.id || course.courseNumber}
+                    key={courseId}
                     type="button"
-                    onClick={onOpenCourseDevelopments}
+                    onClick={() => openCourseItem(courseId)}
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 p-4 text-left hover:bg-slate-100"
                   >
                     <h4 className="font-medium text-slate-900">
                       {course.courseNumber}: {course.courseTitle}
                     </h4>
                     <p className="mt-1 text-sm text-slate-600">
-                      Deadline: {formatDisplayDate(course.calculatedDeadline || course.termDeadline)}
+                      Deadline: {formatDisplayDate((course as any).calculatedDeadline || course.termDeadline)}
                     </p>
                     <div className="mt-3">
                       <div className="mb-1 flex justify-between text-xs text-slate-600">
@@ -490,12 +525,13 @@ export function Dashboard({
             <div className="space-y-3">
               {safeProjects.slice(0, 6).map((project) => {
                 const progress = getProjectProgress(project);
+                const projectId = String(project.id || project.title);
 
                 return (
                   <button
-                    key={project.id || project.title}
+                    key={projectId}
                     type="button"
-                    onClick={onOpenProjects}
+                    onClick={() => openProjectItem(projectId)}
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 p-4 text-left hover:bg-slate-100"
                   >
                     <h4 className="font-medium text-slate-900">{project.title}</h4>
@@ -537,27 +573,31 @@ export function Dashboard({
             <p className="text-sm text-slate-600">No standalone tasks have been added yet.</p>
           ) : (
             <div className="space-y-3">
-              {safeTasks.slice(0, 6).map((task) => (
-                <button
-                  key={task.id || task.title}
-                  type="button"
-                  onClick={onOpenTasks}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 p-4 text-left hover:bg-slate-100"
-                >
-                  <h4 className="font-medium text-slate-900">{task.title}</h4>
-                  <p className="mt-1 text-sm text-slate-600">
-                    Due: {formatDisplayDate(task.dueDate)} · {task.status}
-                  </p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <span className={`rounded-full px-2 py-1 text-xs font-medium ${getPriorityBadgeClass(task.priority)}`}>
-                      {task.priority || "Priority not set"}
-                    </span>
-                    <span className={`rounded-full px-2 py-1 text-xs font-medium ${getAlertBadgeClass(task.alertStatus)}`}>
-                      {task.alertStatus || "No Concerns"}
-                    </span>
-                  </div>
-                </button>
-              ))}
+              {safeTasks.slice(0, 6).map((task) => {
+                const taskId = String(task.id || task.title);
+
+                return (
+                  <button
+                    key={taskId}
+                    type="button"
+                    onClick={() => openTaskItem(taskId)}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 p-4 text-left hover:bg-slate-100"
+                  >
+                    <h4 className="font-medium text-slate-900">{task.title}</h4>
+                    <p className="mt-1 text-sm text-slate-600">
+                      Due: {formatDisplayDate(task.dueDate)} · {task.status}
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <span className={`rounded-full px-2 py-1 text-xs font-medium ${getPriorityBadgeClass(task.priority)}`}>
+                        {task.priority || "Priority not set"}
+                      </span>
+                      <span className={`rounded-full px-2 py-1 text-xs font-medium ${getAlertBadgeClass((task as any).alertStatus)}`}>
+                        {(task as any).alertStatus || "No Concerns"}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
