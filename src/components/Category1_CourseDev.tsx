@@ -165,7 +165,7 @@ export function Category1CourseDev({
 }: Category1Props) {
   const safeCourses = Array.isArray(courseDevelopments) ? courseDevelopments : [];
 
-  const [selectedId, setSelectedId] = useState<string>("");
+  const [selectedId, setSelectedId] = useState<string>(() => {   return localStorage.getItem("workloadHubSelectedCourseId") || ""; });
   const [formData, setFormData] = useState<CourseFormData>(emptyCourseForm);
   const [editingCourse, setEditingCourse] = useState<CourseFormData | null>(null);
   const [showCompletedTasks, setShowCompletedTasks] = useState(false);
