@@ -128,7 +128,9 @@ export function Category2LssProjects({
 }: Category2Props) {
   const safeProjects = Array.isArray(lssProjects) ? lssProjects : [];
 
-  const [selectedId, setSelectedId] = useState<string>(() => {   return localStorage.getItem("workloadHubSelectedProjectId") || ""; });
+  const [selectedId, setSelectedId] = useState<string>(() => {
+    return localStorage.getItem("workloadHubSelectedProjectId") || "";
+  });
   const [formData, setFormData] = useState<ProjectFormData>(emptyProjectForm);
   const [editingProject, setEditingProject] = useState<ProjectFormData | null>(null);
 
@@ -443,7 +445,10 @@ export function Category2LssProjects({
 
     if (confirmed) {
       await onDeleteProject(project.id);
-      if (selectedId === project.id) setSelectedId("");
+      if (selectedId === project.id) {
+        setSelectedId("");
+        localStorage.removeItem("workloadHubSelectedProjectId");
+      }
     }
   };
 
@@ -936,7 +941,11 @@ export function Category2LssProjects({
                   <button
                     key={project.id || project.title}
                     type="button"
-                    onClick={() => const nextId = project.id || ""; setSelectedId(nextId); localStorage.setItem("workloadHubSelectedProjectId", nextId);}
+                    onClick={() => {
+                      const nextId = project.id || "";
+                      setSelectedId(nextId);
+                      localStorage.setItem("workloadHubSelectedProjectId", nextId);
+                    }}
                     className={`w-full rounded-xl border p-4 text-left transition ${
                       isSelected
                         ? "border-[#003E52] bg-[#003E52] text-white shadow-sm"
