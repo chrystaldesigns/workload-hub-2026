@@ -1,14 +1,15 @@
 import React, { useMemo, useState } from "react";
 import {
-  FolderGit,
-  PlusCircle,
+  BarChart3,
   CheckCircle2,
   Circle,
-  Trash2,
-  Pencil,
-  Save,
-  X,
   ClipboardList,
+  FolderGit,
+  Pencil,
+  PlusCircle,
+  Save,
+  Trash2,
+  X,
 } from "lucide-react";
 import { LssProject, LssTask } from "../types";
 import { stepWorkingDays } from "../utils/calendarEngine";
@@ -21,14 +22,50 @@ interface Category2Props {
   onDeleteProject: (id: string) => Promise<void>;
 }
 
-const emptyProjectForm = {
+type AlertStatus = "No Concerns" | "Potential Concerns" | "High Priority Concerns";
+
+type ProjectFormData = {
+  title: string;
+  type: string;
+  priority: "Low" | "Moderate" | "High" | "Critical";
+  alertStatus: AlertStatus;
+  startDate: string;
+  targetCompletionDate: string;
+  status: "Not Started" | "On Hold" | "In Progress" | "Complete";
+  projectLead: string;
+  processOwner: string;
+  projectChampion: string;
+  stakeholders: string;
+  problemStatement: string;
+  businessCaseAndBenefits: string;
+  inScope: string;
+  outOfScope: string;
+  performanceMetrics: string;
+  risks: string;
+  voiceOfCustomer: string;
+  customerComment: string;
+  issue: string;
+  customerRequirement: string;
+  objectiveMeasure: string;
+  operationalDefinition: string;
+  timelineMethodology: "Kaizen" | "Lean" | "Six Sigma";
+  defineDuration: number;
+  measureDuration: number;
+  analyzeDuration: number;
+  improveDuration: number;
+  controlDuration: number;
+  timelineNotes: string;
+  notes: string;
+};
+
+const emptyProjectForm: ProjectFormData = {
   title: "",
-  type: "Operational",
-  priority: "Moderate" as const,
-  alertStatus: "No Concerns" as const,
+  type: "Lean Six Sigma",
+  priority: "Moderate",
+  alertStatus: "No Concerns",
   startDate: "",
   targetCompletionDate: "",
-  status: "Not Started" as const,
+  status: "Not Started",
   projectLead: "Chrystal Wickline",
   processOwner: "",
   projectChampion: "",
@@ -45,7 +82,7 @@ const emptyProjectForm = {
   customerRequirement: "",
   objectiveMeasure: "",
   operationalDefinition: "",
-  timelineMethodology: "Six Sigma" as const,
+  timelineMethodology: "Six Sigma",
   defineDuration: 4,
   measureDuration: 4,
   analyzeDuration: 4,
@@ -54,6 +91,33 @@ const emptyProjectForm = {
   timelineNotes: "",
   notes: "",
 };
+
+function getProjectAlert(project: LssProject | ProjectFormData): AlertStatus {
+  return ((project as any).alertStatus || "No Concerns") as AlertStatus;
+}
+
+function getProjectNotes(project: LssProject | ProjectFormData): string {
+  return ((project as any).notes || "") as string;
+}
+
+function calculateProgress(project: LssProject) {
+  const tasks = Array.isArray(project.tasks) ? project.tasks : [];
+
+  if (!tasks.length) {
+    return project.status === "Complete" ? 100 : project.status === "In Progress" ? 50 : 0;
+  }
+
+  const completed = tasks.filter((task) => task.status === "Completed").length;
+  return Math.round((completed / tasks.length) * 100);
+}
+
+function sortProjectTasks(tasks: LssTask[]) {
+  return [...tasks].sort((a, b) => {
+    const aDate = ((a as any).startDate || a.dueDate || "9999-12-31") as string;
+    const bDate = ((b as any).startDate || b.dueDate || "9999-12-31") as string;
+    return aDate.localeCompare(bDate);
+  });
+}
 
 export function Category2LssProjects({
   lssProjects,
@@ -65,8 +129,8 @@ export function Category2LssProjects({
   const safeProjects = Array.isArray(lssProjects) ? lssProjects : [];
 
   const [selectedId, setSelectedId] = useState<string>("");
-  const [formData, setFormData] = useState(emptyProjectForm);
-  const [editingProject, setEditingProject] = useState<LssProject | null>(null);
+  const [formData, setFormData] = useState<ProjectFormData>(emptyProjectForm);
+  const [editingProject, setEditingProject] = useState<ProjectFormData | null>(null);
 
   const [newTaskName, setNewTaskName] = useState("");
   const [newTaskOwner, setNewTaskOwner] = useState("Chrystal Wickline");
@@ -79,8 +143,8 @@ export function Category2LssProjects({
     return safeProjects.find((project) => project.id === selectedId) || safeProjects[0];
   }, [safeProjects, selectedId]);
 
-  const calculatePhaseDates = (startDate: string) => {
-    if (!startDate) {
+  const calculatePhaseDates = (projectData: ProjectFormData) => {
+    if (!projectData.startDate) {
       return {
         defineProjectedCompletion: "",
         measureProjectedCompletion: "",
@@ -91,40 +155,38 @@ export function Category2LssProjects({
       };
     }
 
-    const defineDays = Number(formData.defineDuration || 0) * 5;
-    const measureDays = Number(formData.measureDuration || 0) * 5;
-    const analyzeDays = Number(formData.analyzeDuration || 0) * 5;
-    const improveDays = Number(formData.improveDuration || 0) * 5;
-    const controlDays = Number(formData.controlDuration || 0) * 5;
-
     try {
       const defineProjectedCompletion = stepWorkingDays(
-        startDate,
-        defineDays,
+        projectData.startDate,
+        Number(projectData.defineDuration || 0) * 5,
         1,
         customBlocked
       );
+
       const measureProjectedCompletion = stepWorkingDays(
         defineProjectedCompletion,
-        measureDays,
+        Number(projectData.measureDuration || 0) * 5,
         1,
         customBlocked
       );
+
       const analyzeProjectedCompletion = stepWorkingDays(
         measureProjectedCompletion,
-        analyzeDays,
+        Number(projectData.analyzeDuration || 0) * 5,
         1,
         customBlocked
       );
+
       const improveProjectedCompletion = stepWorkingDays(
         analyzeProjectedCompletion,
-        improveDays,
+        Number(projectData.improveDuration || 0) * 5,
         1,
         customBlocked
       );
+
       const controlProjectedCompletion = stepWorkingDays(
         improveProjectedCompletion,
-        controlDays,
+        Number(projectData.controlDuration || 0) * 5,
         1,
         customBlocked
       );
@@ -202,11 +264,11 @@ export function Category2LssProjects({
       return;
     }
 
-    const phaseDates = calculatePhaseDates(formData.startDate);
+    const phaseDates = calculatePhaseDates(formData);
 
-    const newProject: LssProject = {
+    const newProject = {
       itemType: "project",
-      title: formData.title,
+      title: formData.title.trim(),
       type: formData.type,
       priority: formData.priority,
       alertStatus: formData.alertStatus,
@@ -248,18 +310,52 @@ export function Category2LssProjects({
         Number(formData.controlDuration),
       gateReviewDates: `Define: ${phaseDates.defineProjectedCompletion || "TBD"} | Measure: ${
         phaseDates.measureProjectedCompletion || "TBD"
-      } | Analyze: ${phaseDates.analyzeProjectedCompletion || "TBD"}`,
+      } | Analyze: ${phaseDates.analyzeProjectedCompletion || "TBD"} | Improve: ${
+        phaseDates.improveProjectedCompletion || "TBD"
+      } | Control: ${phaseDates.controlProjectedCompletion || "TBD"}`,
       timelineNotes: formData.timelineNotes,
       notes: formData.notes,
       tasks: [],
-    };
+    } as unknown as LssProject;
 
     await onAddProject(newProject);
     setFormData(emptyProjectForm);
   };
 
   const startEditingProject = (project: LssProject) => {
-    setEditingProject({ ...project });
+    setEditingProject({
+      title: project.title || "",
+      type: project.type || "Lean Six Sigma",
+      priority: project.priority || "Moderate",
+      alertStatus: getProjectAlert(project),
+      startDate: project.startDate || "",
+      targetCompletionDate: project.targetCompletionDate || "",
+      status: project.status || "Not Started",
+      projectLead: project.projectLead || "Chrystal Wickline",
+      processOwner: project.processOwner || "",
+      projectChampion: project.projectChampion || "",
+      stakeholders: project.stakeholders || "",
+      problemStatement: project.problemStatement || "",
+      businessCaseAndBenefits: project.businessCaseAndBenefits || "",
+      inScope: project.inScope || "",
+      outOfScope: project.outOfScope || "",
+      performanceMetrics: project.performanceMetrics || "",
+      risks: project.risks || "",
+      voiceOfCustomer: project.voiceOfCustomer || "",
+      customerComment: project.customerComment || "",
+      issue: project.issue || "",
+      customerRequirement: project.customerRequirement || "",
+      objectiveMeasure: project.objectiveMeasure || "",
+      operationalDefinition: project.operationalDefinition || "",
+      timelineMethodology: project.timelineMethodology || "Six Sigma",
+      defineDuration: Number(project.defineDuration || 4),
+      measureDuration: Number(project.measureDuration || 4),
+      analyzeDuration: Number(project.analyzeDuration || 4),
+      improveDuration: Number(project.improveDuration || 4),
+      controlDuration: Number(project.controlDuration || 4),
+      timelineNotes: project.timelineNotes || "",
+      notes: getProjectNotes(project),
+    });
   };
 
   const cancelEditingProject = () => {
@@ -267,18 +363,71 @@ export function Category2LssProjects({
   };
 
   const saveEditingProject = async () => {
-    if (!editingProject) return;
+    if (!activeProject || !editingProject) return;
 
     if (!editingProject.title.trim()) {
       alert("Project Title is required.");
       return;
     }
 
-    const updatedProject: LssProject = {
-      ...editingProject,
-      itemType: "project",
+    if (!editingProject.startDate) {
+      alert("Project Start Date is required.");
+      return;
+    }
+
+    const phaseDates = calculatePhaseDates(editingProject);
+
+    const updatedProject = {
+      ...activeProject,
+      title: editingProject.title.trim(),
+      type: editingProject.type,
+      priority: editingProject.priority,
+      alertStatus: editingProject.alertStatus,
+      startDate: editingProject.startDate,
+      targetCompletionDate: editingProject.targetCompletionDate || phaseDates.targetCompletionDate,
+      status: editingProject.status,
+      projectLead: editingProject.projectLead,
+      processOwner: editingProject.processOwner,
+      projectChampion: editingProject.projectChampion,
+      stakeholders: editingProject.stakeholders,
+      problemStatement: editingProject.problemStatement,
+      businessCaseAndBenefits: editingProject.businessCaseAndBenefits,
+      inScope: editingProject.inScope,
+      outOfScope: editingProject.outOfScope,
+      performanceMetrics: editingProject.performanceMetrics,
+      risks: editingProject.risks,
+      voiceOfCustomer: editingProject.voiceOfCustomer,
+      customerComment: editingProject.customerComment,
+      issue: editingProject.issue,
+      customerRequirement: editingProject.customerRequirement,
+      objectiveMeasure: editingProject.objectiveMeasure,
+      operationalDefinition: editingProject.operationalDefinition,
+      timelineMethodology: editingProject.timelineMethodology,
+      defineDuration: Number(editingProject.defineDuration),
+      defineProjectedCompletion: phaseDates.defineProjectedCompletion,
+      measureDuration: Number(editingProject.measureDuration),
+      measureProjectedCompletion: phaseDates.measureProjectedCompletion,
+      analyzeDuration: Number(editingProject.analyzeDuration),
+      analyzeProjectedCompletion: phaseDates.analyzeProjectedCompletion,
+      improveDuration: Number(editingProject.improveDuration),
+      improveProjectedCompletion: phaseDates.improveProjectedCompletion,
+      controlDuration: Number(editingProject.controlDuration),
+      controlProjectedCompletion: phaseDates.controlProjectedCompletion,
+      estimatedDuration:
+        Number(editingProject.defineDuration) +
+        Number(editingProject.measureDuration) +
+        Number(editingProject.analyzeDuration) +
+        Number(editingProject.improveDuration) +
+        Number(editingProject.controlDuration),
+      gateReviewDates: `Define: ${phaseDates.defineProjectedCompletion || "TBD"} | Measure: ${
+        phaseDates.measureProjectedCompletion || "TBD"
+      } | Analyze: ${phaseDates.analyzeProjectedCompletion || "TBD"} | Improve: ${
+        phaseDates.improveProjectedCompletion || "TBD"
+      } | Control: ${phaseDates.controlProjectedCompletion || "TBD"}`,
+      timelineNotes: editingProject.timelineNotes,
+      notes: editingProject.notes,
       updatedAt: new Date().toISOString(),
-    };
+    } as unknown as LssProject;
 
     await onUpdateProject(updatedProject);
     setEditingProject(null);
@@ -313,24 +462,21 @@ export function Category2LssProjects({
       return;
     }
 
-    const newTask: LssTask = {
+    const newTask = {
       id: `project-task-${Date.now()}`,
       itemType: "projectTask",
-      name: newTaskName,
-      assignedTo: newTaskOwner,
+      name: newTaskName.trim(),
+      assignedTo: newTaskOwner.trim() || "Chrystal Wickline",
       startDate: newTaskStartDate,
       dueDate: newTaskDueDate,
       status: "Pending",
       notes: newTaskNotes,
-    };
+    } as unknown as LssTask;
 
-    const updatedProject: LssProject = {
+    await onUpdateProject({
       ...activeProject,
       tasks: [...(activeProject.tasks || []), newTask],
-      updatedAt: new Date().toISOString(),
-    };
-
-    await onUpdateProject(updatedProject);
+    } as LssProject);
 
     setNewTaskName("");
     setNewTaskOwner("Chrystal Wickline");
@@ -350,13 +496,12 @@ export function Category2LssProjects({
       status: task.status === "Completed" ? "Pending" : "Completed",
       completionDate:
         task.status === "Completed" ? "" : new Date().toISOString().split("T")[0],
-    };
+    } as unknown as LssTask;
 
     await onUpdateProject({
       ...activeProject,
       tasks: updatedTasks,
-      updatedAt: new Date().toISOString(),
-    });
+    } as LssProject);
   };
 
   const handleDeleteTask = async (taskIndex: number) => {
@@ -367,8 +512,7 @@ export function Category2LssProjects({
     await onUpdateProject({
       ...activeProject,
       tasks: updatedTasks,
-      updatedAt: new Date().toISOString(),
-    });
+    } as LssProject);
   };
 
   const getAlertBadgeClass = (alertStatus?: string) => {
@@ -382,8 +526,33 @@ export function Category2LssProjects({
     }
   };
 
+  const renderTextArea = (
+    label: string,
+    name: keyof ProjectFormData,
+    value: string,
+    onChange: (
+      e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+    ) => void,
+    prefix: string,
+    rows = 3
+  ) => (
+    <div className="md:col-span-2">
+      <label htmlFor={`${prefix}-${String(name)}`} className="mb-1 block text-sm font-medium text-slate-700">
+        {label}
+      </label>
+      <textarea
+        id={`${prefix}-${String(name)}`}
+        name={String(name)}
+        value={value}
+        onChange={onChange}
+        rows={rows}
+        className="w-full rounded-xl border border-slate-300 px-3 py-2"
+      />
+    </div>
+  );
+
   const renderProjectFields = (
-    project: typeof formData | LssProject,
+    project: ProjectFormData,
     onChange: (
       e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
     ) => void,
@@ -399,7 +568,7 @@ export function Category2LssProjects({
             id={`${prefix}-title`}
             name="title"
             type="text"
-            value={project.title || ""}
+            value={project.title}
             onChange={onChange}
             className="w-full rounded-xl border border-slate-300 px-3 py-2"
             required
@@ -413,7 +582,7 @@ export function Category2LssProjects({
           <select
             id={`${prefix}-type`}
             name="type"
-            value={project.type || "Operational"}
+            value={project.type}
             onChange={onChange}
             className="w-full rounded-xl border border-slate-300 px-3 py-2"
           >
@@ -429,7 +598,25 @@ export function Category2LssProjects({
             <option>Resource Development</option>
             <option>DMAIC</option>
             <option>Kaizen</option>
+            <option>Lean</option>
             <option>Lean Six Sigma</option>
+          </select>
+        </div>
+
+        <div>
+          <label htmlFor={`${prefix}-timelineMethodology`} className="mb-1 block text-sm font-medium text-slate-700">
+            Timeline Methodology
+          </label>
+          <select
+            id={`${prefix}-timelineMethodology`}
+            name="timelineMethodology"
+            value={project.timelineMethodology}
+            onChange={onChange}
+            className="w-full rounded-xl border border-slate-300 px-3 py-2"
+          >
+            <option>Six Sigma</option>
+            <option>Lean</option>
+            <option>Kaizen</option>
           </select>
         </div>
 
@@ -440,7 +627,7 @@ export function Category2LssProjects({
           <select
             id={`${prefix}-priority`}
             name="priority"
-            value={project.priority || "Moderate"}
+            value={project.priority}
             onChange={onChange}
             className="w-full rounded-xl border border-slate-300 px-3 py-2"
           >
@@ -458,7 +645,7 @@ export function Category2LssProjects({
           <select
             id={`${prefix}-alertStatus`}
             name="alertStatus"
-            value={(project as LssProject).alertStatus || "No Concerns"}
+            value={project.alertStatus}
             onChange={onChange}
             className="w-full rounded-xl border border-slate-300 px-3 py-2"
           >
@@ -475,7 +662,7 @@ export function Category2LssProjects({
           <select
             id={`${prefix}-status`}
             name="status"
-            value={project.status || "Not Started"}
+            value={project.status}
             onChange={onChange}
             className="w-full rounded-xl border border-slate-300 px-3 py-2"
           >
@@ -494,7 +681,7 @@ export function Category2LssProjects({
             id={`${prefix}-startDate`}
             name="startDate"
             type="date"
-            value={project.startDate || ""}
+            value={project.startDate}
             onChange={onChange}
             className="w-full rounded-xl border border-slate-300 px-3 py-2"
           />
@@ -508,7 +695,7 @@ export function Category2LssProjects({
             id={`${prefix}-targetCompletionDate`}
             name="targetCompletionDate"
             type="date"
-            value={(project as LssProject).targetCompletionDate || ""}
+            value={project.targetCompletionDate}
             onChange={onChange}
             className="w-full rounded-xl border border-slate-300 px-3 py-2"
           />
@@ -522,7 +709,7 @@ export function Category2LssProjects({
             id={`${prefix}-projectLead`}
             name="projectLead"
             type="text"
-            value={project.projectLead || ""}
+            value={project.projectLead}
             onChange={onChange}
             className="w-full rounded-xl border border-slate-300 px-3 py-2"
           />
@@ -536,7 +723,7 @@ export function Category2LssProjects({
             id={`${prefix}-processOwner`}
             name="processOwner"
             type="text"
-            value={project.processOwner || ""}
+            value={project.processOwner}
             onChange={onChange}
             className="w-full rounded-xl border border-slate-300 px-3 py-2"
           />
@@ -550,7 +737,7 @@ export function Category2LssProjects({
             id={`${prefix}-projectChampion`}
             name="projectChampion"
             type="text"
-            value={project.projectChampion || ""}
+            value={project.projectChampion}
             onChange={onChange}
             className="w-full rounded-xl border border-slate-300 px-3 py-2"
           />
@@ -564,56 +751,113 @@ export function Category2LssProjects({
             id={`${prefix}-stakeholders`}
             name="stakeholders"
             type="text"
-            value={project.stakeholders || ""}
+            value={project.stakeholders}
             onChange={onChange}
             className="w-full rounded-xl border border-slate-300 px-3 py-2"
           />
         </div>
 
-        <div className="md:col-span-2">
-          <label htmlFor={`${prefix}-problemStatement`} className="mb-1 block text-sm font-medium text-slate-700">
-            Problem Statement / Purpose
+        {renderTextArea("Problem Statement / Purpose", "problemStatement", project.problemStatement, onChange, prefix)}
+        {renderTextArea("Business Case and Benefits", "businessCaseAndBenefits", project.businessCaseAndBenefits, onChange, prefix)}
+        {renderTextArea("In Scope", "inScope", project.inScope, onChange, prefix)}
+        {renderTextArea("Out of Scope", "outOfScope", project.outOfScope, onChange, prefix)}
+        {renderTextArea("Performance Metrics", "performanceMetrics", project.performanceMetrics, onChange, prefix)}
+        {renderTextArea("Risks", "risks", project.risks, onChange, prefix)}
+        {renderTextArea("Voice of Customer", "voiceOfCustomer", project.voiceOfCustomer, onChange, prefix)}
+        {renderTextArea("Customer Comment", "customerComment", project.customerComment, onChange, prefix)}
+        {renderTextArea("Issue", "issue", project.issue, onChange, prefix)}
+        {renderTextArea("Customer Requirement", "customerRequirement", project.customerRequirement, onChange, prefix)}
+        {renderTextArea("Objective Measure", "objectiveMeasure", project.objectiveMeasure, onChange, prefix)}
+        {renderTextArea("Operational Definition", "operationalDefinition", project.operationalDefinition, onChange, prefix)}
+
+        <div>
+          <label htmlFor={`${prefix}-defineDuration`} className="mb-1 block text-sm font-medium text-slate-700">
+            Define Duration
           </label>
-          <textarea
-            id={`${prefix}-problemStatement`}
-            name="problemStatement"
-            value={project.problemStatement || ""}
+          <input
+            id={`${prefix}-defineDuration`}
+            name="defineDuration"
+            type="number"
+            min={0}
+            value={project.defineDuration}
             onChange={onChange}
-            rows={3}
             className="w-full rounded-xl border border-slate-300 px-3 py-2"
           />
+          <p className="mt-1 text-xs text-slate-500">Weeks</p>
         </div>
 
-        <div className="md:col-span-2">
-          <label htmlFor={`${prefix}-businessCaseAndBenefits`} className="mb-1 block text-sm font-medium text-slate-700">
-            Business Case and Benefits
+        <div>
+          <label htmlFor={`${prefix}-measureDuration`} className="mb-1 block text-sm font-medium text-slate-700">
+            Measure Duration
           </label>
-          <textarea
-            id={`${prefix}-businessCaseAndBenefits`}
-            name="businessCaseAndBenefits"
-            value={project.businessCaseAndBenefits || ""}
+          <input
+            id={`${prefix}-measureDuration`}
+            name="measureDuration"
+            type="number"
+            min={0}
+            value={project.measureDuration}
             onChange={onChange}
-            rows={3}
             className="w-full rounded-xl border border-slate-300 px-3 py-2"
           />
+          <p className="mt-1 text-xs text-slate-500">Weeks</p>
         </div>
 
-        <div className="md:col-span-2">
-          <label htmlFor={`${prefix}-notes`} className="mb-1 block text-sm font-medium text-slate-700">
-            Notes
+        <div>
+          <label htmlFor={`${prefix}-analyzeDuration`} className="mb-1 block text-sm font-medium text-slate-700">
+            Analyze Duration
           </label>
-          <textarea
-            id={`${prefix}-notes`}
-            name="notes"
-            value={(project as LssProject).notes || ""}
+          <input
+            id={`${prefix}-analyzeDuration`}
+            name="analyzeDuration"
+            type="number"
+            min={0}
+            value={project.analyzeDuration}
             onChange={onChange}
-            rows={3}
             className="w-full rounded-xl border border-slate-300 px-3 py-2"
           />
+          <p className="mt-1 text-xs text-slate-500">Weeks</p>
         </div>
+
+        <div>
+          <label htmlFor={`${prefix}-improveDuration`} className="mb-1 block text-sm font-medium text-slate-700">
+            Improve Duration
+          </label>
+          <input
+            id={`${prefix}-improveDuration`}
+            name="improveDuration"
+            type="number"
+            min={0}
+            value={project.improveDuration}
+            onChange={onChange}
+            className="w-full rounded-xl border border-slate-300 px-3 py-2"
+          />
+          <p className="mt-1 text-xs text-slate-500">Weeks</p>
+        </div>
+
+        <div>
+          <label htmlFor={`${prefix}-controlDuration`} className="mb-1 block text-sm font-medium text-slate-700">
+            Control Duration
+          </label>
+          <input
+            id={`${prefix}-controlDuration`}
+            name="controlDuration"
+            type="number"
+            min={0}
+            value={project.controlDuration}
+            onChange={onChange}
+            className="w-full rounded-xl border border-slate-300 px-3 py-2"
+          />
+          <p className="mt-1 text-xs text-slate-500">Weeks</p>
+        </div>
+
+        {renderTextArea("Timeline Notes", "timelineNotes", project.timelineNotes, onChange, prefix)}
+        {renderTextArea("General Notes", "notes", project.notes, onChange, prefix)}
       </div>
     );
   };
+
+  const selectedProgress = activeProject ? calculateProgress(activeProject) : 0;
+  const selectedTasks = activeProject ? sortProjectTasks(activeProject.tasks || []) : [];
 
   return (
     <section className="space-y-6 px-4 py-6 sm:px-6 lg:px-8">
@@ -625,7 +869,7 @@ export function Category2LssProjects({
           <div>
             <h2 className="text-xl font-semibold text-slate-900">Projects</h2>
             <p className="text-sm text-slate-600">
-              Add and manage manual projects that are not tied to the standard course development timeline.
+              Add and manage manual projects, including full Lean Six Sigma charter details.
             </p>
           </div>
         </div>
@@ -651,37 +895,58 @@ export function Category2LssProjects({
             <p className="text-sm text-slate-600">No projects have been added yet.</p>
           ) : (
             <div className="space-y-3">
-              {safeProjects.map((project) => (
-                <button
-                  key={project.id || project.title}
-                  type="button"
-                  onClick={() => setSelectedId(project.id || "")}
-                  className={`w-full rounded-xl border p-4 text-left transition ${
-                    activeProject?.id === project.id
-                      ? "border-[#003E52] bg-[#003E52]/5"
-                      : "border-slate-200 bg-slate-50 hover:bg-slate-100"
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <h4 className="font-semibold text-slate-900">{project.title}</h4>
-                      <p className="mt-1 text-sm text-slate-600">
-                        {project.type || "Project"} · {project.status}
-                      </p>
-                      <p className="mt-1 text-xs text-slate-500">
-                        Target: {project.targetCompletionDate || "Not set"}
-                      </p>
+              {safeProjects.map((project) => {
+                const isSelected = activeProject?.id === project.id;
+                const progress = calculateProgress(project);
+
+                return (
+                  <button
+                    key={project.id || project.title}
+                    type="button"
+                    onClick={() => setSelectedId(project.id || "")}
+                    className={`w-full rounded-xl border p-4 text-left transition ${
+                      isSelected
+                        ? "border-[#003E52] bg-[#003E52] text-white shadow-sm"
+                        : "border-slate-200 bg-white text-slate-900 hover:bg-slate-50"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h4 className={`font-semibold ${isSelected ? "text-white" : "text-slate-900"}`}>
+                          {project.title}
+                        </h4>
+                        <p className={`mt-1 text-sm ${isSelected ? "text-slate-100" : "text-slate-600"}`}>
+                          {project.type || "Project"} · {project.status}
+                        </p>
+                        <p className={`mt-1 text-xs ${isSelected ? "text-slate-100" : "text-slate-500"}`}>
+                          Target: {project.targetCompletionDate || "Not set"}
+                        </p>
+                      </div>
+
+                      <span
+                        className={`rounded-full px-2 py-1 text-xs font-medium ${getAlertBadgeClass(
+                          getProjectAlert(project)
+                        )}`}
+                      >
+                        {getProjectAlert(project)}
+                      </span>
                     </div>
-                    <span
-                      className={`rounded-full px-2 py-1 text-xs font-medium ${getAlertBadgeClass(
-                        project.alertStatus
-                      )}`}
-                    >
-                      {project.alertStatus || "No Concerns"}
-                    </span>
-                  </div>
-                </button>
-              ))}
+
+                    <div className="mt-3">
+                      <div className={`mb-1 flex justify-between text-xs ${isSelected ? "text-slate-100" : "text-slate-600"}`}>
+                        <span>Progress</span>
+                        <span>{progress}%</span>
+                      </div>
+                      <div className="h-2 rounded-full bg-slate-200">
+                        <div
+                          className="h-2 rounded-full bg-[#33B1C8]"
+                          style={{ width: `${progress}%` }}
+                        />
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
@@ -719,84 +984,155 @@ export function Category2LssProjects({
               </div>
             </div>
           ) : (
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-              <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold text-slate-900">{activeProject.title}</h3>
-                  <p className="mt-1 text-sm text-slate-600">
-                    {activeProject.type} · {activeProject.status}
-                  </p>
-                  <p className="mt-1 text-sm text-slate-600">
-                    Start: {activeProject.startDate || "Not set"} · Target:{" "}
-                    {activeProject.targetCompletionDate || "Not set"}
-                  </p>
+            <>
+              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold text-slate-900">{activeProject.title}</h3>
+                    <p className="mt-1 text-sm text-slate-600">
+                      {activeProject.type} · {activeProject.status}
+                    </p>
+                    <p className="mt-1 text-sm text-slate-600">
+                      Start: {activeProject.startDate || "Not set"} · Target:{" "}
+                      {activeProject.targetCompletionDate || "Not set"}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <span className="rounded-full bg-[#003E52] px-3 py-1 text-xs font-medium text-white">
+                      {activeProject.priority}
+                    </span>
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-medium ${getAlertBadgeClass(
+                        getProjectAlert(activeProject)
+                      )}`}
+                    >
+                      {getProjectAlert(activeProject)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => startEditingProject(activeProject)}
+                      className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                    >
+                      <Pencil className="h-4 w-4" aria-hidden="true" />
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteProject(activeProject)}
+                      className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-white px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-50"
+                    >
+                      <Trash2 className="h-4 w-4" aria-hidden="true" />
+                      Delete
+                    </button>
+                  </div>
                 </div>
 
-                <div className="flex flex-wrap gap-2">
-                  <span className="rounded-full bg-[#003E52] px-3 py-1 text-xs font-medium text-white">
-                    {activeProject.priority}
-                  </span>
-                  <span
-                    className={`rounded-full px-3 py-1 text-xs font-medium ${getAlertBadgeClass(
-                      activeProject.alertStatus
-                    )}`}
-                  >
-                    {activeProject.alertStatus || "No Concerns"}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => startEditingProject(activeProject)}
-                    className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                  >
-                    <Pencil className="h-4 w-4" aria-hidden="true" />
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteProject(activeProject)}
-                    className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-white px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-50"
-                  >
-                    <Trash2 className="h-4 w-4" aria-hidden="true" />
-                    Delete
-                  </button>
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="rounded-xl bg-slate-50 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Progress
+                    </p>
+                    <p className="mt-1 text-lg font-semibold text-slate-900">{selectedProgress}%</p>
+                  </div>
+                  <div className="rounded-xl bg-slate-50 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Estimated Duration
+                    </p>
+                    <p className="mt-1 text-lg font-semibold text-slate-900">
+                      {activeProject.estimatedDuration || 0} weeks
+                    </p>
+                  </div>
+                  <div className="rounded-xl bg-slate-50 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Methodology
+                    </p>
+                    <p className="mt-1 text-lg font-semibold text-slate-900">
+                      {activeProject.timelineMethodology || "Six Sigma"}
+                    </p>
+                  </div>
                 </div>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="rounded-xl bg-slate-50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Project Lead
-                  </p>
-                  <p className="mt-1 text-sm text-slate-900">
-                    {activeProject.projectLead || "Not entered"}
-                  </p>
+              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div className="mb-4 flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5 text-[#003E52]" aria-hidden="true" />
+                  <h3 className="text-lg font-semibold text-slate-900">DMAIC Timeline</h3>
                 </div>
-                <div className="rounded-xl bg-slate-50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Process Owner
-                  </p>
-                  <p className="mt-1 text-sm text-slate-900">
-                    {activeProject.processOwner || "Not entered"}
-                  </p>
+
+                <div className="grid gap-4 md:grid-cols-5">
+                  {[
+                    ["Define", activeProject.defineProjectedCompletion],
+                    ["Measure", activeProject.measureProjectedCompletion],
+                    ["Analyze", activeProject.analyzeProjectedCompletion],
+                    ["Improve", activeProject.improveProjectedCompletion],
+                    ["Control", activeProject.controlProjectedCompletion],
+                  ].map(([label, date]) => (
+                    <div key={label} className="rounded-xl bg-slate-50 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        {label}
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-slate-900">
+                        {date || "TBD"}
+                      </p>
+                    </div>
+                  ))}
                 </div>
-                <div className="rounded-xl bg-slate-50 p-4 md:col-span-2">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Purpose / Problem Statement
+
+                {activeProject.timelineNotes && (
+                  <p className="mt-4 whitespace-pre-wrap rounded-xl bg-slate-50 p-4 text-sm text-slate-700">
+                    {activeProject.timelineNotes}
                   </p>
-                  <p className="mt-1 whitespace-pre-wrap text-sm text-slate-900">
-                    {activeProject.problemStatement || "Not entered"}
-                  </p>
-                </div>
-                <div className="rounded-xl bg-slate-50 p-4 md:col-span-2">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Notes
-                  </p>
-                  <p className="mt-1 whitespace-pre-wrap text-sm text-slate-900">
-                    {activeProject.notes || "Not entered"}
-                  </p>
+                )}
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <h3 className="mb-4 text-lg font-semibold text-slate-900">Project Charter</h3>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  {[
+                    ["Project Lead", activeProject.projectLead],
+                    ["Process Owner", activeProject.processOwner],
+                    ["Champion / Sponsor", activeProject.projectChampion],
+                    ["Stakeholders", activeProject.stakeholders],
+                  ].map(([label, value]) => (
+                    <div key={label} className="rounded-xl bg-slate-50 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        {label}
+                      </p>
+                      <p className="mt-1 whitespace-pre-wrap text-sm text-slate-900">
+                        {value || "Not entered"}
+                      </p>
+                    </div>
+                  ))}
+
+                  {[
+                    ["Problem Statement / Purpose", activeProject.problemStatement],
+                    ["Business Case and Benefits", activeProject.businessCaseAndBenefits],
+                    ["In Scope", activeProject.inScope],
+                    ["Out of Scope", activeProject.outOfScope],
+                    ["Performance Metrics", activeProject.performanceMetrics],
+                    ["Risks", activeProject.risks],
+                    ["Voice of Customer", activeProject.voiceOfCustomer],
+                    ["Customer Comment", activeProject.customerComment],
+                    ["Issue", activeProject.issue],
+                    ["Customer Requirement", activeProject.customerRequirement],
+                    ["Objective Measure", activeProject.objectiveMeasure],
+                    ["Operational Definition", activeProject.operationalDefinition],
+                    ["General Notes", getProjectNotes(activeProject)],
+                  ].map(([label, value]) => (
+                    <div key={label} className="rounded-xl bg-slate-50 p-4 md:col-span-2">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        {label}
+                      </p>
+                      <p className="mt-1 whitespace-pre-wrap text-sm text-slate-900">
+                        {value || "Not entered"}
+                      </p>
+                    </div>
+                  ))}
                 </div>
               </div>
-            </div>
+            </>
           )}
 
           {activeProject && (
@@ -878,11 +1214,11 @@ export function Category2LssProjects({
                 </div>
               </form>
 
-              {!activeProject.tasks || activeProject.tasks.length === 0 ? (
+              {selectedTasks.length === 0 ? (
                 <p className="text-sm text-slate-600">No tasks have been added to this project.</p>
               ) : (
                 <div className="space-y-3">
-                  {activeProject.tasks.map((task, index) => (
+                  {selectedTasks.map((task, index) => (
                     <article
                       key={task.id || index}
                       className="rounded-xl border border-slate-200 bg-slate-50 p-4"
@@ -904,12 +1240,13 @@ export function Category2LssProjects({
                           <div>
                             <h4 className="font-medium text-slate-900">{task.name}</h4>
                             <p className="text-sm text-slate-600">
-                              Owner: {task.assignedTo || "Not entered"} · Due:{" "}
+                              Owner: {task.assignedTo || "Not entered"} · Start:{" "}
+                              {((task as any).startDate as string) || "Not set"} · Due:{" "}
                               {task.dueDate || "Not set"}
                             </p>
-                            {task.notes && (
+                            {(task as any).notes && (
                               <p className="mt-2 whitespace-pre-wrap text-sm text-slate-700">
-                                {task.notes}
+                                {(task as any).notes}
                               </p>
                             )}
                           </div>
