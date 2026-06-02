@@ -57,6 +57,10 @@ type CourseFormData = {
 
 type ExtendedCourseDevelopmentTask = CourseDevelopmentTask & {
   notes?: string;
+  autoStartDate?: string;
+  autoDueDate?: string;
+  effectiveStartDate?: string;
+  effectiveDueDate?: string;
 };
 
 type TaskDraft = {
@@ -122,6 +126,7 @@ function sortTasksByStartDate(tasks: CourseDevelopmentTask[]) {
 
 function normalizeGeneratedTasks(tasks: CourseDevelopmentTask[], fallbackDate: string) {
   return tasks.map((task) => {
+    const extendedTask = task as ExtendedCourseDevelopmentTask;
     const isStartCompensation =
       String(task.name || "").toLowerCase().includes("start compensation") ||
       Number(task.id) === 1;
@@ -136,13 +141,17 @@ function normalizeGeneratedTasks(tasks: CourseDevelopmentTask[], fallbackDate: s
         effectiveStartDate: fallbackDate,
         effectiveDueDate: fallbackDate,
         status: task.status === "Not Applicable" ? "Not Started" : task.status,
-        notes: (task as ExtendedCourseDevelopmentTask).notes || "",
+        notes: extendedTask.notes || "",
       };
     }
 
     return {
       ...task,
-      notes: (task as ExtendedCourseDevelopmentTask).notes || "",
+      autoStartDate: extendedTask.autoStartDate || task.startDate || "",
+      autoDueDate: extendedTask.autoDueDate || task.dueDate || "",
+      effectiveStartDate: extendedTask.effectiveStartDate || task.startDate || "",
+      effectiveDueDate: extendedTask.effectiveDueDate || task.dueDate || "",
+      notes: extendedTask.notes || "",
     };
   });
 }
@@ -272,56 +281,19 @@ export function Category1CourseDev({
 
   const saveTaskChanges = async (course: CourseDevelopment, task: CourseDevelopmentTask) => {
     const draft = getTaskDraft(task);
-    const oldDueDate = task.dueDate || "";
-    const oldStartDate = task.startDate || "";
-    const newDueDate = draft.dueDate || "";
-    const newStartDate = draft.startDate || "";
-
-    const dueDateDelta = getWorkingDayDelta(oldDueDate, newDueDate);
-    const startDateDelta = getWorkingDayDelta(oldStartDate, newStartDate);
-    const cascadeDelta = dueDateDelta !== 0 ? dueDateDelta : startDateDelta;
-
-    const changedTaskStart = oldStartDate || oldDueDate || "";
-    const changedTaskId = Number(task.id || 0);
 
     const updatedTasks = (course.tasks || []).map((item) => {
-      const isTargetTask = item.id === task.id;
-      const itemId = Number(item.id || 0);
-      const itemStart = item.startDate || item.dueDate || "";
-      const isLaterTask =
-        !isTargetTask &&
-        cascadeDelta !== 0 &&
-        (itemId > changedTaskId || (!!changedTaskStart && itemStart > changedTaskStart));
+      if (item.id !== task.id) return item;
 
-      if (isTargetTask) {
-        return {
-          ...item,
-          startDate: newStartDate,
-          dueDate: newDueDate,
-          effectiveStartDate: newStartDate,
-          effectiveDueDate: newDueDate,
-          status: draft.status || item.status,
-          notes: draft.notes || "",
-        };
-      }
-
-      if (isLaterTask) {
-        return {
-          ...item,
-          startDate: shiftDateByWorkingDelta(item.startDate || "", cascadeDelta),
-          dueDate: shiftDateByWorkingDelta(item.dueDate || "", cascadeDelta),
-          effectiveStartDate: shiftDateByWorkingDelta(
-            item.effectiveStartDate || item.startDate || "",
-            cascadeDelta
-          ),
-          effectiveDueDate: shiftDateByWorkingDelta(
-            item.effectiveDueDate || item.dueDate || "",
-            cascadeDelta
-          ),
-        };
-      }
-
-      return item;
+      return {
+        ...item,
+        startDate: draft.startDate || "",
+        dueDate: draft.dueDate || "",
+        effectiveStartDate: draft.startDate || "",
+        effectiveDueDate: draft.dueDate || "",
+        status: draft.status || item.status,
+        notes: draft.notes || "",
+      };
     });
 
     await preserveScrollAfter(async () => {
@@ -332,6 +304,94 @@ export function Category1CourseDev({
     });
 
     clearTaskDraft(task);
+  };
+
+  const recalculateRemainingTimeline = async (
+    course: CourseDevelopment,
+    anchorTask: CourseDevelopmentTask
+  ) => {
+    const confirmed = window.confirm(
+      "Recalculate remaining timeline from this task? Tasks before this task will stay unchanged. This task will keep its current edited dates. Later incomplete tasks will shift based on this task."
+    );
+
+    if (!confirmed) return;
+
+    const anchor = anchorTask as ExtendedCourseDevelopmentTask;
+    const anchorBaselineDate =
+      anchor.autoDueDate ||
+      anchor.effectiveDueDate ||
+      anchor.dueDate ||
+      anchor.autoStartDate ||
+      anchor.effectiveStartDate ||
+      anchor.startDate ||
+      "";
+
+    const anchorCurrentDate =
+      anchor.dueDate ||
+      anchor.effectiveDueDate ||
+      anchor.startDate ||
+      anchor.effectiveStartDate ||
+      "";
+
+    const delta = getWorkingDayDelta(anchorBaselineDate, anchorCurrentDate);
+
+    if (delta === 0) {
+      alert("No timeline shift was detected for this task.");
+      return;
+    }
+
+    const anchorId = Number(anchorTask.id || 0);
+    const anchorStart = anchorTask.startDate || anchorTask.dueDate || "";
+
+    const updatedTasks = (course.tasks || []).map((item) => {
+      const extendedItem = item as ExtendedCourseDevelopmentTask;
+      const itemId = Number(item.id || 0);
+      const itemStart = item.startDate || item.dueDate || "";
+
+      const isAnchor = item.id === anchorTask.id;
+      const isBeforeAnchor =
+        !isAnchor &&
+        ((itemId > 0 && itemId < anchorId) ||
+          (!!anchorStart && !!itemStart && itemStart < anchorStart));
+
+      const isCompletedHistorical =
+        item.status === "Complete" || item.status === "Not Applicable";
+
+      if (isAnchor || isBeforeAnchor || isCompletedHistorical) {
+        return item;
+      }
+
+      const baseStart =
+        extendedItem.autoStartDate ||
+        extendedItem.effectiveStartDate ||
+        item.startDate ||
+        "";
+      const baseDue =
+        extendedItem.autoDueDate ||
+        extendedItem.effectiveDueDate ||
+        item.dueDate ||
+        "";
+
+      const shiftedStart = shiftDateByWorkingDelta(baseStart, delta);
+      const shiftedDue = shiftDateByWorkingDelta(baseDue, delta);
+
+      return {
+        ...item,
+        startDate: shiftedStart,
+        dueDate: shiftedDue,
+        effectiveStartDate: shiftedStart,
+        effectiveDueDate: shiftedDue,
+      };
+    });
+
+    await preserveScrollAfter(async () => {
+      await onUpdateCourse({
+        ...course,
+        tasks: updatedTasks,
+      });
+    });
+
+    alert("Remaining timeline recalculated.");
   };
 
   const handleInputChange = (
@@ -1406,7 +1466,11 @@ export function Category1CourseDev({
                                 <select
                                   value={draft.status}
                                   onChange={(e) =>
-                                    updateTaskDraft(task, "status", e.target.value)
+                                    updateTaskDraft(
+                                      task,
+                                      "status",
+                                      e.target.value as CourseDevelopmentTask["status"]
+                                    )
                                   }
                                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                                 >
@@ -1450,6 +1514,15 @@ export function Category1CourseDev({
                                 >
                                   <Save className="h-4 w-4" aria-hidden="true" />
                                   Save Task Changes
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => recalculateRemainingTimeline(activeCourse, task)}
+                                  className="inline-flex items-center gap-2 rounded-lg border border-[#003E52] bg-white px-3 py-2 text-sm font-medium text-[#003E52] hover:bg-slate-50"
+                                >
+                                  <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                                  Recalculate Remaining Timeline
                                 </button>
 
                                 {hasChanges && (
