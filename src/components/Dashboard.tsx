@@ -7,7 +7,6 @@ import {
   CheckSquare,
   Clock,
   FolderGit,
-  RefreshCw,
 } from "lucide-react";
 import { CourseDevelopment, LssProject, StandaloneTask } from "../types";
 
@@ -24,6 +23,8 @@ type UnifiedItem = {
   id: string;
   title: string;
   category: "Course Development" | "Project" | "Task";
+  startDate?: string;
+  dueDate?: string;
   date: string;
   status?: string;
   alertStatus?: string;
@@ -42,16 +43,18 @@ function todayLocal() {
 function addCalendarDays(dateStr: string, days: number) {
   const date = new Date(`${dateStr}T12:00:00`);
   date.setDate(date.getDate() + days);
+
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
+
   return `${year}-${month}-${day}`;
 }
 
 function formatDisplayDate(dateStr?: string) {
   if (!dateStr) return "Not set";
 
-  const date = new Date(`${dateStr}T12:00:00`);
+  const date = new Date(`${dateStr.slice(0, 10)}T12:00:00`);
 
   if (Number.isNaN(date.getTime())) return dateStr;
 
@@ -62,8 +65,17 @@ function formatDisplayDate(dateStr?: string) {
   });
 }
 
-function isIncomplete(status?: string) {
-  return status !== "Complete" && status !== "Completed";
+function isComplete(status?: string) {
+  return status === "Complete" || status === "Completed" || status === "100% complete";
+}
+
+function isActiveStatus(status?: string) {
+  return (
+    status === "In Progress" ||
+    status === "Developing (Content)" ||
+    status === "Developing (Canvas)" ||
+    status === "Scheduled"
+  );
 }
 
 function getAlertBadgeClass(alertStatus?: string) {
@@ -132,10 +144,6 @@ function getProjectProgress(project: LssProject) {
   return Math.round((complete / tasks.length) * 100);
 }
 
-function getUpdatedDate(item: any) {
-  return item.updatedAt || item.createdAt || "";
-}
-
 export function Dashboard({
   courseDevelopments,
   lssProjects,
@@ -157,13 +165,15 @@ export function Dashboard({
   );
 
   const activeProjects = safeProjects.filter((project) => project.status !== "Complete");
-  const activeTasks = safeTasks.filter((task) => isIncomplete(task.status));
+  const activeTasks = safeTasks.filter((task) => !isComplete(task.status));
 
   const courseItems: UnifiedItem[] = safeCourses
     .map((course) => ({
       id: String(course.id || course.courseNumber),
       title: `${course.courseNumber}: ${course.courseTitle}`,
       category: "Course Development" as const,
+      startDate: course.startDate || "",
+      dueDate: course.termDeadline || course.calculatedDeadline || getCourseCompletionDate(course),
       date: course.termDeadline || course.calculatedDeadline || getCourseCompletionDate(course),
       status: `${getCourseProgress(course)}% complete`,
       alertStatus: course.alertStatus,
@@ -176,6 +186,8 @@ export function Dashboard({
       id: String(project.id || project.title),
       title: project.title,
       category: "Project" as const,
+      startDate: project.startDate || "",
+      dueDate: project.targetCompletionDate || "",
       date: project.targetCompletionDate || project.startDate || "",
       status: project.status,
       alertStatus: project.alertStatus,
@@ -189,6 +201,8 @@ export function Dashboard({
       id: String(task.id || task.title),
       title: task.title,
       category: "Task" as const,
+      startDate: task.startDate || "",
+      dueDate: task.dueDate || "",
       date: task.dueDate || task.startDate || "",
       status: task.status,
       alertStatus: task.alertStatus,
@@ -202,69 +216,82 @@ export function Dashboard({
   );
 
   const overdueItems = unifiedItems.filter(
-    (item) =>
-      item.date < today &&
-      item.status !== "Complete" &&
-      item.status !== "Completed" &&
-      item.status !== "100% complete"
-  );
-
-  const dueTodayItems = unifiedItems.filter(
-    (item) =>
-      item.date === today &&
-      item.status !== "Complete" &&
-      item.status !== "Completed" &&
-      item.status !== "100% complete"
+    (item) => item.date < today && !isComplete(item.status)
   );
 
   const dueThisWeekItems = unifiedItems.filter(
-    (item) =>
-      item.date >= today &&
-      item.date <= weekEnd &&
-      item.status !== "Complete" &&
-      item.status !== "Completed" &&
-      item.status !== "100% complete"
+    (item) => item.date >= today && item.date <= weekEnd && !isComplete(item.status)
   );
 
   const upcomingThirtyDays = unifiedItems.filter(
-    (item) =>
-      item.date >= today &&
-      item.date <= thirtyDayEnd &&
-      item.status !== "Complete" &&
-      item.status !== "Completed" &&
-      item.status !== "100% complete"
+    (item) => item.date >= today && item.date <= thirtyDayEnd && !isComplete(item.status)
   );
 
   const highConcernItems = unifiedItems.filter(
     (item) => item.alertStatus === "High Priority Concerns"
   );
 
-  const recentlyUpdated = [
-    ...safeCourses.map((course) => ({
-      id: String(course.id || course.courseNumber),
-      title: `${course.courseNumber}: ${course.courseTitle}`,
-      category: "Course Development" as const,
-      date: getUpdatedDate(course),
-      onOpen: onOpenCourseDevelopments,
-    })),
-    ...safeProjects.map((project) => ({
-      id: String(project.id || project.title),
-      title: project.title,
-      category: "Project" as const,
-      date: getUpdatedDate(project),
-      onOpen: onOpenProjects,
-    })),
-    ...safeTasks.map((task) => ({
-      id: String(task.id || task.title),
-      title: task.title,
-      category: "Task" as const,
-      date: getUpdatedDate(task),
-      onOpen: onOpenTasks,
-    })),
-  ]
-    .filter((item) => !!item.date)
-    .sort((a, b) => b.date.localeCompare(a.date))
-    .slice(0, 8);
+  const todaysFocusItems = unifiedItems
+    .filter((item) => {
+      const startsToday = item.startDate === today;
+      const dueToday = item.dueDate === today || item.date === today;
+      const active = isActiveStatus(item.status);
+      return !isComplete(item.status) && (startsToday || dueToday || active);
+    })
+    .sort((a, b) => {
+      const aOverdueActive = a.date < today && isActiveStatus(a.status) ? 0 : 1;
+      const bOverdueActive = b.date < today && isActiveStatus(b.status) ? 0 : 1;
+      if (aOverdueActive !== bOverdueActive) return aOverdueActive - bOverdueActive;
+
+      const aDueToday = a.dueDate === today || a.date === today ? 0 : 1;
+      const bDueToday = b.dueDate === today || b.date === today ? 0 : 1;
+      if (aDueToday !== bDueToday) return aDueToday - bDueToday;
+
+      const aStartsToday = a.startDate === today ? 0 : 1;
+      const bStartsToday = b.startDate === today ? 0 : 1;
+      if (aStartsToday !== bStartsToday) return aStartsToday - bStartsToday;
+
+      return a.date.localeCompare(b.date);
+    });
+
+  const summaryItems = [
+    {
+      label: "Courses",
+      count: activeCourses.length,
+      icon: BookOpen,
+      className: "text-[#003E52]",
+    },
+    {
+      label: "Projects",
+      count: activeProjects.length,
+      icon: FolderGit,
+      className: "text-[#003E52]",
+    },
+    {
+      label: "Tasks",
+      count: activeTasks.length,
+      icon: CheckSquare,
+      className: "text-[#003E52]",
+    },
+    {
+      label: "Overdue",
+      count: overdueItems.length,
+      icon: AlertTriangle,
+      className: "text-red-700",
+    },
+    {
+      label: "Due This Week",
+      count: dueThisWeekItems.length,
+      icon: CalendarDays,
+      className: "text-orange-700",
+    },
+    {
+      label: "High Concerns",
+      count: highConcernItems.length,
+      icon: AlertTriangle,
+      className: "text-red-700",
+    },
+  ];
 
   const renderUnifiedItem = (item: UnifiedItem) => (
     <button
@@ -273,7 +300,7 @@ export function Dashboard({
       onClick={item.onOpen}
       className="w-full rounded-xl border border-slate-200 bg-slate-50 p-4 text-left hover:bg-slate-100"
     >
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex flex-col gap-2">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
             {item.category}
@@ -314,144 +341,82 @@ export function Dashboard({
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <BookOpen className="mb-3 h-5 w-5 text-[#003E52]" aria-hidden="true" />
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Courses
-          </p>
-          <p className="mt-1 text-3xl font-semibold text-slate-900">{activeCourses.length}</p>
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <FolderGit className="mb-3 h-5 w-5 text-[#003E52]" aria-hidden="true" />
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Projects
-          </p>
-          <p className="mt-1 text-3xl font-semibold text-slate-900">{activeProjects.length}</p>
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <CheckSquare className="mb-3 h-5 w-5 text-[#003E52]" aria-hidden="true" />
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Tasks
-          </p>
-          <p className="mt-1 text-3xl font-semibold text-slate-900">{activeTasks.length}</p>
-        </div>
-
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-5 shadow-sm">
-          <AlertTriangle className="mb-3 h-5 w-5 text-red-700" aria-hidden="true" />
-          <p className="text-xs font-semibold uppercase tracking-wide text-red-800">
-            Overdue
-          </p>
-          <p className="mt-1 text-3xl font-semibold text-red-900">{overdueItems.length}</p>
-        </div>
-
-        <div className="rounded-2xl border border-orange-200 bg-orange-50 p-5 shadow-sm">
-          <CalendarDays className="mb-3 h-5 w-5 text-orange-700" aria-hidden="true" />
-          <p className="text-xs font-semibold uppercase tracking-wide text-orange-800">
-            Due This Week
-          </p>
-          <p className="mt-1 text-3xl font-semibold text-orange-900">{dueThisWeekItems.length}</p>
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <AlertTriangle className="mb-3 h-5 w-5 text-[#003E52]" aria-hidden="true" />
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            High Concerns
-          </p>
-          <p className="mt-1 text-3xl font-semibold text-slate-900">{highConcernItems.length}</p>
-        </div>
-      </div>
-
-      <div className="grid gap-6 xl:grid-cols-2">
+      <div className="grid gap-6 xl:grid-cols-[320px_1fr]">
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="mb-4 flex items-center gap-2">
-            <CalendarDays className="h-5 w-5 text-[#003E52]" aria-hidden="true" />
-            <h3 className="text-lg font-semibold text-slate-900">Due Today</h3>
+          <h3 className="mb-4 text-lg font-semibold text-slate-900">Workload Summary</h3>
+
+          <div className="divide-y divide-slate-100">
+            {summaryItems.map((item) => {
+              const Icon = item.icon;
+
+              return (
+                <div key={item.label} className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
+                  <div className="flex items-center gap-3">
+                    <Icon className={`h-5 w-5 ${item.className}`} aria-hidden="true" />
+                    <span className="text-sm font-medium text-slate-700">{item.label}</span>
+                  </div>
+                  <span className="text-lg font-semibold text-slate-900">{item.count}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="grid gap-6 xl:grid-cols-3">
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="mb-4 flex items-center gap-2">
+              <CalendarDays className="h-5 w-5 text-[#003E52]" aria-hidden="true" />
+              <h3 className="text-lg font-semibold text-slate-900">Today&apos;s Focus</h3>
+            </div>
+
+            {todaysFocusItems.length === 0 ? (
+              <p className="text-sm text-slate-600">No active focus items for today.</p>
+            ) : (
+              <div className="space-y-3">{todaysFocusItems.slice(0, 8).map(renderUnifiedItem)}</div>
+            )}
           </div>
 
-          {dueTodayItems.length === 0 ? (
-            <p className="text-sm text-slate-600">Nothing is due today.</p>
-          ) : (
-            <div className="space-y-3">{dueTodayItems.map(renderUnifiedItem)}</div>
-          )}
-        </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="mb-4 flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-700" aria-hidden="true" />
+              <h3 className="text-lg font-semibold text-slate-900">Needs Attention</h3>
+            </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="mb-4 flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-red-700" aria-hidden="true" />
-            <h3 className="text-lg font-semibold text-slate-900">Needs Attention</h3>
+            {overdueItems.length === 0 && highConcernItems.length === 0 ? (
+              <p className="text-sm text-slate-600">No overdue items or high-priority concerns.</p>
+            ) : (
+              <div className="space-y-3">
+                {[...overdueItems, ...highConcernItems]
+                  .filter(
+                    (item, index, array) =>
+                      array.findIndex(
+                        (candidate) =>
+                          candidate.id === item.id && candidate.category === item.category
+                      ) === index
+                  )
+                  .slice(0, 8)
+                  .map(renderUnifiedItem)}
+              </div>
+            )}
           </div>
 
-          {overdueItems.length === 0 && highConcernItems.length === 0 ? (
-            <p className="text-sm text-slate-600">No overdue items or high-priority concerns.</p>
-          ) : (
-            <div className="space-y-3">
-              {[...overdueItems, ...highConcernItems]
-                .filter(
-                  (item, index, array) =>
-                    array.findIndex(
-                      (candidate) =>
-                        candidate.id === item.id && candidate.category === item.category
-                    ) === index
-                )
-                .slice(0, 10)
-                .map(renderUnifiedItem)}
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Clock className="h-5 w-5 text-[#003E52]" aria-hidden="true" />
+                <h3 className="text-lg font-semibold text-slate-900">Upcoming 30 Days</h3>
+              </div>
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+                {upcomingThirtyDays.length}
+              </span>
             </div>
-          )}
-        </div>
-      </div>
 
-      <div className="grid gap-6 xl:grid-cols-[2fr_1fr]">
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-[#003E52]" aria-hidden="true" />
-              <h3 className="text-lg font-semibold text-slate-900">Upcoming 30 Days</h3>
-            </div>
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
-              {upcomingThirtyDays.length} item(s)
-            </span>
+            {upcomingThirtyDays.length === 0 ? (
+              <p className="text-sm text-slate-600">No upcoming workload items in the next 30 days.</p>
+            ) : (
+              <div className="space-y-3">{upcomingThirtyDays.slice(0, 8).map(renderUnifiedItem)}</div>
+            )}
           </div>
-
-          {upcomingThirtyDays.length === 0 ? (
-            <p className="text-sm text-slate-600">No upcoming workload items in the next 30 days.</p>
-          ) : (
-            <div className="space-y-3">
-              {upcomingThirtyDays.slice(0, 15).map(renderUnifiedItem)}
-            </div>
-          )}
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="mb-4 flex items-center gap-2">
-            <RefreshCw className="h-5 w-5 text-[#003E52]" aria-hidden="true" />
-            <h3 className="text-lg font-semibold text-slate-900">Recently Updated</h3>
-          </div>
-
-          {recentlyUpdated.length === 0 ? (
-            <p className="text-sm text-slate-600">No recent updates are available yet.</p>
-          ) : (
-            <div className="space-y-3">
-              {recentlyUpdated.map((item) => (
-                <button
-                  key={`${item.category}-${item.id}`}
-                  type="button"
-                  onClick={item.onOpen}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 p-4 text-left hover:bg-slate-100"
-                >
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    {item.category}
-                  </p>
-                  <h4 className="mt-1 font-medium text-slate-900">{item.title}</h4>
-                  <p className="mt-1 text-sm text-slate-600">
-                    Updated: {formatDisplayDate(item.date.slice(0, 10))}
-                  </p>
-                </button>
-              ))}
-            </div>
-          )}
         </div>
       </div>
 
@@ -472,7 +437,7 @@ export function Dashboard({
             <p className="text-sm text-slate-600">No course developments have been added yet.</p>
           ) : (
             <div className="space-y-3">
-              {safeCourses.slice(0, 8).map((course) => {
+              {safeCourses.slice(0, 6).map((course) => {
                 const progress = getCourseProgress(course);
 
                 return (
@@ -523,7 +488,7 @@ export function Dashboard({
             <p className="text-sm text-slate-600">No projects have been added yet.</p>
           ) : (
             <div className="space-y-3">
-              {safeProjects.slice(0, 8).map((project) => {
+              {safeProjects.slice(0, 6).map((project) => {
                 const progress = getProjectProgress(project);
 
                 return (
@@ -572,7 +537,7 @@ export function Dashboard({
             <p className="text-sm text-slate-600">No standalone tasks have been added yet.</p>
           ) : (
             <div className="space-y-3">
-              {safeTasks.slice(0, 8).map((task) => (
+              {safeTasks.slice(0, 6).map((task) => (
                 <button
                   key={task.id || task.title}
                   type="button"
