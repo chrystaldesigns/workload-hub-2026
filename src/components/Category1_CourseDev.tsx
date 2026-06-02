@@ -1156,10 +1156,10 @@ export function Category1CourseDev({
                             </button>
 
                             <div>
-                              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                {task.phase}
-                              </p>
-                              <h5 className="font-medium text-slate-900">{task.name}</h5>
+<h5 className="font-medium text-slate-900">{task.name}</h5>
+<p className="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+  {task.phase}
+</p>
                               <div className="mt-2 flex flex-wrap gap-2">
                                 <span
                                   className={`rounded-full px-2 py-1 text-xs font-semibold ${
