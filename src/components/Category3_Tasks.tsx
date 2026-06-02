@@ -102,7 +102,9 @@ export function Category3Tasks({
     ? (standaloneTasks as ExtendedStandaloneTask[])
     : [];
 
-  const [selectedId, setSelectedId] = useState<string>(() => {   return localStorage.getItem("workloadHubSelectedTaskId") || ""; });
+  const [selectedId, setSelectedId] = useState<string>(() => {
+    return localStorage.getItem("workloadHubSelectedTaskId") || "";
+  });
   const [newTask, setNewTask] = useState<ExtendedStandaloneTask>(emptyTask);
   const [editingTask, setEditingTask] = useState<ExtendedStandaloneTask | null>(null);
 
@@ -248,7 +250,10 @@ export function Category3Tasks({
 
     if (confirmed) {
       onDeleteTask(task.id);
-      if (selectedId === task.id) setSelectedId("");
+      if (selectedId === task.id) {
+        setSelectedId("");
+        localStorage.removeItem("workloadHubSelectedTaskId");
+      }
     }
   };
 
@@ -511,7 +516,11 @@ export function Category3Tasks({
                   <button
                     key={task.id || task.title}
                     type="button"
-                    onClick={() => const nextId = task.id || ""; setSelectedId(nextId); localStorage.setItem("workloadHubSelectedTaskId", nextId);}
+                    onClick={() => {
+                      const nextId = task.id || "";
+                      setSelectedId(nextId);
+                      localStorage.setItem("workloadHubSelectedTaskId", nextId);
+                    }}
                     className={`w-full rounded-xl border p-4 text-left transition ${
                       isSelected
                         ? "border-[#003E52] bg-[#003E52] text-white shadow-sm"
