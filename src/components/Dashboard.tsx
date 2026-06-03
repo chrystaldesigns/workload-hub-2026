@@ -622,8 +622,22 @@ export function Dashboard({
 
   return (
     <section className="space-y-6 px-4 py-6 sm:px-6 lg:px-8">
-{renderHeatMap()}
-      <div className="grid gap-6 md:grid-cols-2">
+      {renderHeatMap()}
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="mb-4 flex items-center gap-2">
+            <CalendarDays className="h-5 w-5 text-[#003E52]" aria-hidden="true" />
+            <h3 className="text-lg font-semibold text-slate-900">Today&apos;s Focus</h3>
+          </div>
+
+          {todaysFocusItems.length === 0 ? (
+            <p className="text-sm text-slate-600">No active focus items for today.</p>
+          ) : (
+            <div className="space-y-3">{todaysFocusItems.slice(0, 8).map(renderUnifiedItem)}</div>
+          )}
+        </div>
+
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <h3 className="mb-4 text-lg font-semibold text-slate-900">Workload Summary</h3>
 
@@ -632,7 +646,10 @@ export function Dashboard({
               const Icon = item.icon;
 
               return (
-                <div key={item.label} className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
+                <div
+                  key={item.label}
+                  className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0"
+                >
                   <div className="flex items-center gap-3">
                     <Icon className={`h-5 w-5 ${item.className}`} aria-hidden="true" />
                     <span className="text-sm font-medium text-slate-700">{item.label}</span>
@@ -643,65 +660,54 @@ export function Dashboard({
             })}
           </div>
         </div>
+      </div>
 
-        <div className="grid gap-6 xl:grid-cols-2">
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="mb-4 flex items-center gap-2">
-              <CalendarDays className="h-5 w-5 text-[#003E52]" aria-hidden="true" />
-              <h3 className="text-lg font-semibold text-slate-900">Today&apos;s Focus</h3>
-            </div>
-
-            {todaysFocusItems.length === 0 ? (
-              <p className="text-sm text-slate-600">No active focus items for today.</p>
-            ) : (
-              <div className="space-y-3">{todaysFocusItems.slice(0, 8).map(renderUnifiedItem)}</div>
-            )}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="mb-4 flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 text-red-700" aria-hidden="true" />
+            <h3 className="text-lg font-semibold text-slate-900">Needs Attention</h3>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="mb-4 flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-red-700" aria-hidden="true" />
-              <h3 className="text-lg font-semibold text-slate-900">Needs Attention</h3>
+          {overdueItems.length === 0 && highConcernItems.length === 0 ? (
+            <p className="text-sm text-slate-600">No overdue items or high-priority concerns.</p>
+          ) : (
+            <div className="space-y-3">
+              {[...overdueItems, ...highConcernItems]
+                .filter(
+                  (item, index, array) =>
+                    array.findIndex(
+                      (candidate) =>
+                        candidate.id === item.id && candidate.category === item.category
+                    ) === index
+                )
+                .slice(0, 8)
+                .map(renderUnifiedItem)}
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Clock className="h-5 w-5 text-[#003E52]" aria-hidden="true" />
+              <h3 className="text-lg font-semibold text-slate-900">Upcoming 30 Days</h3>
             </div>
 
-            {overdueItems.length === 0 && highConcernItems.length === 0 ? (
-              <p className="text-sm text-slate-600">No overdue items or high-priority concerns.</p>
-            ) : (
-              <div className="space-y-3">
-                {[...overdueItems, ...highConcernItems]
-                  .filter(
-                    (item, index, array) =>
-                      array.findIndex(
-                        (candidate) =>
-                          candidate.id === item.id && candidate.category === item.category
-                      ) === index
-                  )
-                  .slice(0, 8)
-                  .map(renderUnifiedItem)}
-              </div>
-            )}
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+              {upcomingThirtyDays.length}
+            </span>
           </div>
 
-                    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <Clock className="h-5 w-5 text-[#003E52]" aria-hidden="true" />
-                <h3 className="text-lg font-semibold text-slate-900">Upcoming 30 Days</h3>
-              </div>
+          {upcomingThirtyDays.length === 0 ? (
+            <p className="text-sm text-slate-600">No upcoming workload items in the next 30 days.</p>
+          ) : (
+            <div className="space-y-3">{upcomingThirtyDays.slice(0, 8).map(renderUnifiedItem)}</div>
+          )}
+        </div>
+      </div>
 
-              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
-                {upcomingThirtyDays.length}
-              </span>
-            </div>
-
-            {upcomingThirtyDays.length === 0 ? (
-              <p className="text-sm text-slate-600">No upcoming workload items in the next 30 days.</p>
-            ) : (
-              <div className="space-y-3">{upcomingThirtyDays.slice(0, 8).map(renderUnifiedItem)}</div>
-            )}
-          </div>
-      
-      <div className="grid gap-6 xl:grid-cols-2">
+      <div className="grid gap-6 lg:grid-cols-2">
         {renderForecastCard(
           "Capacity Forecast: Next 7 Days",
           next7Total,
@@ -719,7 +725,8 @@ export function Dashboard({
           next30TaskCount,
           next30Capacity
         )}
-      </div> 
+      </div>
+
       <div className="grid gap-6 xl:grid-cols-3">
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="mb-4 flex items-center justify-between gap-3">
@@ -868,7 +875,6 @@ export function Dashboard({
           )}
         </div>
       </div>
-    </div>
-  </section>
+    </section>
   );
 }
