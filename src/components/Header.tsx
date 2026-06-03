@@ -33,26 +33,29 @@ export function Header({ outlookConnected, alertCount }: HeaderProps) {
     <header className="bg-[#006282] text-white border-b border-[#076092] px-6 py-5">
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <div className="flex items-center gap-2 mb-1.5 animate-fade-in">
-            <span className="text-[10px] uppercase font-semibold tracking-widest bg-[#33B1C8]/25 text-[#33B1C8] px-2 py-0.5 rounded border border-[#33B1C8]/30 font-mono">
-              Academic Operations Suite
-            </span>
-            <span className="flex items-center gap-1 text-[10px] font-mono text-emerald-400">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-              Live Firestore Active
-            </span>
-          </div>
-          <h1 className="text-3xl font-semibold tracking-tight uppercase">
-            FSCJ Workload Dispatcher Hub
-          </h1>
-          <p className="text-xs text-[#33B1C8] mt-1 tracking-wide font-sans">
-            Institutional Calendar Analytics & Schedule Cascade Pipeline Management
-          </p>
+          <h1 className="text-3xl font-semibold tracking-tight">
+  Workload Hub Dashboard
+</h1>
         </div>
 
         <div className="flex flex-wrap items-center gap-4 font-mono text-xs">
           {/* Real-time Eastern Time Clock */}
           <div className="bg-[#076092]/40 border border-[#33B1C8]/20 px-3 py-1.5 text-[#33B1C8]">
+  <span className="text-[9px] uppercase block opacity-60">
+    System Clock (Eastern)
+  </span>
+
+  <span className="font-semibold text-white tracking-wide">
+    {new Date().toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      timeZone: 'America/New_York'
+    })}
+    {" • "}
+    {time || 'Loading Clock...'}
+  </span>
+</div>
             <span className="text-[9px] uppercase block opacity-60">System Clock (Eastern):</span>
             <span className="font-semibold text-white tracking-wide">{time || 'Loading Clock...'}</span>
           </div>
