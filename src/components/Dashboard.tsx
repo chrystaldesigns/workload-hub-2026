@@ -682,13 +682,13 @@ export function Dashboard({
             )}
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="mb-4 flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <Clock className="h-5 w-5 text-[#003E52]" aria-hidden="true" />
                 <h3 className="text-lg font-semibold text-slate-900">Upcoming 30 Days</h3>
               </div>
-              </div>
+
               <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
                 {upcomingThirtyDays.length}
               </span>
@@ -700,7 +700,6 @@ export function Dashboard({
               <div className="space-y-3">{upcomingThirtyDays.slice(0, 8).map(renderUnifiedItem)}</div>
             )}
           </div>
-        </div>
       
       <div className="grid gap-6 xl:grid-cols-2">
         {renderForecastCard(
