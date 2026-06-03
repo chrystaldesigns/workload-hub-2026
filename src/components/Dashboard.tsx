@@ -7,6 +7,7 @@ import {
   CheckSquare,
   Clock,
   FolderGit,
+  TrendingUp,
 } from "lucide-react";
 import { CourseDevelopment, LssProject, StandaloneTask } from "../types";
 
@@ -100,6 +101,13 @@ function getPriorityBadgeClass(priority?: string) {
     default:
       return "bg-slate-600 text-white";
   }
+}
+
+function getCapacityLabel(total: number) {
+  if (total >= 30) return { label: "Very heavy workload", className: "text-red-700" };
+  if (total >= 15) return { label: "Heavy workload", className: "text-orange-700" };
+  if (total >= 6) return { label: "Moderate workload", className: "text-[#003E52]" };
+  return { label: "Light workload", className: "text-green-700" };
 }
 
 function getCourseCompletionDate(course: CourseDevelopment) {
@@ -285,6 +293,36 @@ export function Dashboard({
       return a.date.localeCompare(b.date);
     });
 
+  const next7CourseCount = courseItems.filter(
+    (item) => item.date >= today && item.date <= weekEnd && !isComplete(item.status)
+  ).length;
+
+  const next7ProjectCount = projectItems.filter(
+    (item) => item.date >= today && item.date <= weekEnd && !isComplete(item.status)
+  ).length;
+
+  const next7TaskCount = taskItems.filter(
+    (item) => item.date >= today && item.date <= weekEnd && !isComplete(item.status)
+  ).length;
+
+  const next30CourseCount = courseItems.filter(
+    (item) => item.date >= today && item.date <= thirtyDayEnd && !isComplete(item.status)
+  ).length;
+
+  const next30ProjectCount = projectItems.filter(
+    (item) => item.date >= today && item.date <= thirtyDayEnd && !isComplete(item.status)
+  ).length;
+
+  const next30TaskCount = taskItems.filter(
+    (item) => item.date >= today && item.date <= thirtyDayEnd && !isComplete(item.status)
+  ).length;
+
+  const next7Total = next7CourseCount + next7ProjectCount + next7TaskCount;
+  const next30Total = next30CourseCount + next30ProjectCount + next30TaskCount;
+
+  const next7Capacity = getCapacityLabel(next7Total);
+  const next30Capacity = getCapacityLabel(next30Total);
+
   const summaryItems = [
     {
       label: "Courses",
@@ -356,6 +394,58 @@ export function Dashboard({
     </button>
   );
 
+  const renderForecastCard = (
+    title: string,
+    total: number,
+    courseCount: number,
+    projectCount: number,
+    taskCount: number,
+    capacity: { label: string; className: string }
+  ) => (
+    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="mb-4 flex items-center gap-2">
+        <TrendingUp className="h-5 w-5 text-[#003E52]" aria-hidden="true" />
+        <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
+      </div>
+
+      <div className="rounded-xl bg-slate-50 p-4">
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          Total Upcoming Work
+        </p>
+        <p className="mt-1 text-3xl font-semibold text-slate-900">{total}</p>
+        <p className={`mt-1 text-sm font-semibold ${capacity.className}`}>
+          {capacity.label}
+        </p>
+      </div>
+
+      <div className="mt-4 divide-y divide-slate-100">
+        <div className="flex items-center justify-between gap-4 py-3 first:pt-0">
+          <div className="flex items-center gap-3">
+            <BookOpen className="h-5 w-5 text-[#003E52]" aria-hidden="true" />
+            <span className="text-sm font-medium text-slate-700">Course Developments</span>
+          </div>
+          <span className="text-lg font-semibold text-slate-900">{courseCount}</span>
+        </div>
+
+        <div className="flex items-center justify-between gap-4 py-3">
+          <div className="flex items-center gap-3">
+            <FolderGit className="h-5 w-5 text-[#003E52]" aria-hidden="true" />
+            <span className="text-sm font-medium text-slate-700">Projects</span>
+          </div>
+          <span className="text-lg font-semibold text-slate-900">{projectCount}</span>
+        </div>
+
+        <div className="flex items-center justify-between gap-4 py-3 last:pb-0">
+          <div className="flex items-center gap-3">
+            <CheckSquare className="h-5 w-5 text-[#003E52]" aria-hidden="true" />
+            <span className="text-sm font-medium text-slate-700">Tasks</span>
+          </div>
+          <span className="text-lg font-semibold text-slate-900">{taskCount}</span>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <section className="space-y-6 px-4 py-6 sm:px-6 lg:px-8">
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -381,10 +471,7 @@ export function Dashboard({
               const Icon = item.icon;
 
               return (
-                <div
-                  key={item.label}
-                  className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0"
-                >
+                <div key={item.label} className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
                   <div className="flex items-center gap-3">
                     <Icon className={`h-5 w-5 ${item.className}`} aria-hidden="true" />
                     <span className="text-sm font-medium text-slate-700">{item.label}</span>
@@ -452,6 +539,26 @@ export function Dashboard({
             )}
           </div>
         </div>
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-2">
+        {renderForecastCard(
+          "Capacity Forecast: Next 7 Days",
+          next7Total,
+          next7CourseCount,
+          next7ProjectCount,
+          next7TaskCount,
+          next7Capacity
+        )}
+
+        {renderForecastCard(
+          "Capacity Forecast: Next 30 Days",
+          next30Total,
+          next30CourseCount,
+          next30ProjectCount,
+          next30TaskCount,
+          next30Capacity
+        )}
       </div>
 
       <div className="grid gap-6 xl:grid-cols-3">
