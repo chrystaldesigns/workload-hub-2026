@@ -4,6 +4,8 @@ import {
   CheckCircle2,
   Circle,
   ClipboardList,
+  ChevronDown,
+  ChevronRight,
   FolderGit,
   Pencil,
   PlusCircle,
@@ -133,6 +135,7 @@ export function Category2LssProjects({
   });
   const [formData, setFormData] = useState<ProjectFormData>(emptyProjectForm);
   const [editingProject, setEditingProject] = useState<ProjectFormData | null>(null);
+  const [showCreateForm, setShowCreateForm] = useState(false);
 
   const [newTaskName, setNewTaskName] = useState("");
   const [newTaskOwner, setNewTaskOwner] = useState("Chrystal Wickline");
@@ -322,6 +325,7 @@ export function Category2LssProjects({
 
     await onAddProject(newProject);
     setFormData(emptyProjectForm);
+    setShowCreateForm(false);
   };
 
   const startEditingProject = (project: LssProject) => {
@@ -897,36 +901,70 @@ export function Category2LssProjects({
   const selectedProgress = activeProject ? calculateProgress(activeProject) : 0;
   const selectedTasks = activeProject ? sortProjectTasks(activeProject.tasks || []) : [];
 
+  const renderCreateProjectPanel = () => {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <button
+          type="button"
+          onClick={() => setShowCreateForm((prev) => !prev)}
+          className="flex w-full items-center justify-between gap-4 p-6 text-left"
+        >
+          <div className="flex items-center gap-3">
+            <div className="rounded-xl bg-[#003E52] p-3 text-white">
+              <FolderGit className="h-6 w-6" aria-hidden="true" />
+            </div>
+            <div>
+              <h2 className="text-xl font-semibold text-slate-900">Create Project</h2>
+              <p className="text-sm text-slate-600">
+                Open this panel only when creating a new project.
+              </p>
+            </div>
+          </div>
+
+          {showCreateForm ? (
+            <ChevronDown className="h-5 w-5 text-slate-500" aria-hidden="true" />
+          ) : (
+            <ChevronRight className="h-5 w-5 text-slate-500" aria-hidden="true" />
+          )}
+        </button>
+
+        {showCreateForm && (
+          <div className="border-t border-slate-200 p-6">
+            <form onSubmit={handleCreateProject} className="space-y-4">
+              {renderProjectFields(formData, handleFormChange, "new-project")}
+
+              <button
+                type="submit"
+                className="inline-flex items-center gap-2 rounded-xl bg-[#003E52] px-4 py-2 font-medium text-white hover:bg-[#073C5C]"
+              >
+                <PlusCircle className="h-5 w-5" aria-hidden="true" />
+                Create Project
+              </button>
+            </form>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <section className="space-y-6 px-4 py-6 sm:px-6 lg:px-8">
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="mb-5 flex items-center gap-3">
+        <div className="flex items-center gap-3">
           <div className="rounded-xl bg-[#003E52] p-3 text-white">
             <FolderGit className="h-6 w-6" aria-hidden="true" />
           </div>
           <div>
-            <h2 className="text-xl font-semibold text-slate-900">Projects</h2>
+            <h1 className="text-2xl font-semibold text-slate-900">Projects</h1>
             <p className="text-sm text-slate-600">
-              Add and manage manual projects, including full Lean Six Sigma charter details.
+              View active projects first. Create new projects from the collapsible panel below.
             </p>
           </div>
         </div>
-
-        <form onSubmit={handleCreateProject} className="space-y-4">
-          {renderProjectFields(formData, handleFormChange, "new-project")}
-
-          <button
-            type="submit"
-            className="inline-flex items-center gap-2 rounded-xl bg-[#003E52] px-4 py-2 font-medium text-white hover:bg-[#073C5C]"
-          >
-            <PlusCircle className="h-5 w-5" aria-hidden="true" />
-            Create Project
-          </button>
-        </form>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:sticky lg:top-24 lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto">
           <h3 className="mb-4 text-lg font-semibold text-slate-900">Project List</h3>
 
           {safeProjects.length === 0 ? (
@@ -1316,6 +1354,8 @@ export function Category2LssProjects({
           )}
         </div>
       </div>
+
+      {renderCreateProjectPanel()}
     </section>
   );
 }
