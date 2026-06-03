@@ -312,27 +312,36 @@ export function Dashboard({
   );
 
   const todaysFocusItems = unifiedItems
-    .filter((item) => {
-      const startsToday = item.startDate === today;
-      const dueToday = item.dueDate === today || item.date === today;
-      const active = isActiveStatus(item.status);
-      return !isComplete(item.status) && (startsToday || dueToday || active);
-    })
-    .sort((a, b) => {
-      const aOverdueActive = a.date < today && isActiveStatus(a.status) ? 0 : 1;
-      const bOverdueActive = b.date < today && isActiveStatus(b.status) ? 0 : 1;
-      if (aOverdueActive !== bOverdueActive) return aOverdueActive - bOverdueActive;
+  .filter((item) => {
+    return (
+      !isComplete(item.status) &&
+      item.startDate &&
+      item.startDate === today
+    );
+  })
+  .sort((a, b) => {
+    const priorityRank = (priority?: string) => {
+      switch (priority) {
+        case "Critical":
+          return 1;
+        case "High":
+          return 2;
+        case "Moderate":
+          return 3;
+        default:
+          return 4;
+      }
+    };
 
-      const aDueToday = a.dueDate === today || a.date === today ? 0 : 1;
-      const bDueToday = b.dueDate === today || b.date === today ? 0 : 1;
-      if (aDueToday !== bDueToday) return aDueToday - bDueToday;
+    const priorityDifference =
+      priorityRank(a.priority) - priorityRank(b.priority);
 
-      const aStartsToday = a.startDate === today ? 0 : 1;
-      const bStartsToday = b.startDate === today ? 0 : 1;
-      if (aStartsToday !== bStartsToday) return aStartsToday - bStartsToday;
+    if (priorityDifference !== 0) {
+      return priorityDifference;
+    }
 
-      return a.date.localeCompare(b.date);
-    });
+    return (a.dueDate || a.date).localeCompare(b.dueDate || b.date);
+  });
 
   const next7CourseCount = courseItems.filter(
     (item) => item.date >= today && item.date <= weekEnd && !isComplete(item.status)
