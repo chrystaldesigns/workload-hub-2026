@@ -1,5 +1,5 @@
 // =====================================================
-// Dashboard Capacity Forecast Complete
+// Dashboard Capacity Forecast + Workload Heat Map
 // Restore Point - June 3, 2026
 // =====================================================
 import React from "react";
@@ -112,6 +112,42 @@ function getCapacityLabel(total: number) {
   if (total >= 15) return { label: "Heavy workload", className: "text-orange-700" };
   if (total >= 6) return { label: "Moderate workload", className: "text-[#003E52]" };
   return { label: "Light workload", className: "text-green-700" };
+}
+
+function getHeatMapLevel(count: number) {
+  if (count >= 9) {
+    return {
+      label: "Very Heavy",
+      badgeClass: "bg-red-700 text-white",
+      barClass: "bg-red-700",
+      rowClass: "border-red-200 bg-red-50",
+    };
+  }
+
+  if (count >= 6) {
+    return {
+      label: "Heavy",
+      badgeClass: "bg-orange-700 text-white",
+      barClass: "bg-orange-700",
+      rowClass: "border-orange-200 bg-orange-50",
+    };
+  }
+
+  if (count >= 3) {
+    return {
+      label: "Moderate",
+      badgeClass: "bg-[#003E52] text-white",
+      barClass: "bg-[#003E52]",
+      rowClass: "border-slate-200 bg-slate-50",
+    };
+  }
+
+  return {
+    label: "Light",
+    badgeClass: "bg-green-700 text-white",
+    barClass: "bg-green-700",
+    rowClass: "border-green-200 bg-green-50",
+  };
 }
 
 function getCourseCompletionDate(course: CourseDevelopment) {
@@ -327,6 +363,32 @@ export function Dashboard({
   const next7Capacity = getCapacityLabel(next7Total);
   const next30Capacity = getCapacityLabel(next30Total);
 
+  const heatMapByDate = upcomingThirtyDays.reduce<Record<string, UnifiedItem[]>>(
+    (acc, item) => {
+      const dueDate = item.dueDate || item.date;
+
+      if (!dueDate || dueDate < today || dueDate > thirtyDayEnd || isComplete(item.status)) {
+        return acc;
+      }
+
+      if (!acc[dueDate]) acc[dueDate] = [];
+      acc[dueDate].push(item);
+
+      return acc;
+    },
+    {}
+  );
+
+  const heatMapDays = Object.entries(heatMapByDate)
+    .map(([date, items]) => ({
+      date,
+      items,
+      count: items.length,
+    }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  const maxHeatCount = Math.max(...heatMapDays.map((day) => day.count), 1);
+
   const summaryItems = [
     {
       label: "Courses",
@@ -450,6 +512,104 @@ export function Dashboard({
     </div>
   );
 
+  const renderHeatMap = () => (
+    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <CalendarDays className="h-5 w-5 text-[#003E52]" aria-hidden="true" />
+            <h3 className="text-lg font-semibold text-slate-900">
+              Workload Heat Map: Next 30 Days
+            </h3>
+          </div>
+          <p className="mt-1 text-sm text-slate-600">
+            Due-date congestion across Course Developments, Projects, and Tasks.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap gap-2 text-xs">
+          <span className="rounded-full bg-green-700 px-2 py-1 font-medium text-white">
+            1–2 Light
+          </span>
+          <span className="rounded-full bg-[#003E52] px-2 py-1 font-medium text-white">
+            3–5 Moderate
+          </span>
+          <span className="rounded-full bg-orange-700 px-2 py-1 font-medium text-white">
+            6–8 Heavy
+          </span>
+          <span className="rounded-full bg-red-700 px-2 py-1 font-medium text-white">
+            9+ Very Heavy
+          </span>
+        </div>
+      </div>
+
+      {heatMapDays.length === 0 ? (
+        <p className="text-sm text-slate-600">
+          No due-date workload is scheduled in the next 30 days.
+        </p>
+      ) : (
+        <div className="space-y-3">
+          {heatMapDays.map((day) => {
+            const heat = getHeatMapLevel(day.count);
+            const widthPercent = Math.max(8, Math.round((day.count / maxHeatCount) * 100));
+
+            return (
+              <div
+                key={day.date}
+                className={`rounded-xl border p-4 ${heat.rowClass}`}
+              >
+                <div className="grid gap-3 md:grid-cols-[140px_1fr_120px] md:items-center">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">
+                      {formatDisplayDate(day.date)}
+                    </p>
+                    <p className="text-xs text-slate-600">
+                      {day.count} item{day.count === 1 ? "" : "s"}
+                    </p>
+                  </div>
+
+                  <div className="h-3 rounded-full bg-white">
+                    <div
+                      className={`h-3 rounded-full ${heat.barClass}`}
+                      style={{ width: `${widthPercent}%` }}
+                    />
+                  </div>
+
+                  <div className="flex md:justify-end">
+                    <span className={`rounded-full px-2 py-1 text-xs font-medium ${heat.badgeClass}`}>
+                      {heat.label}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {day.items.slice(0, 6).map((item) => (
+                    <button
+                      key={`${day.date}-${item.category}-${item.id}`}
+                      type="button"
+                      onClick={item.onOpen}
+                      className="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                    >
+                      {item.category === "Course Development"
+                        ? "Course"
+                        : item.category}
+                    </button>
+                  ))}
+
+                  {day.items.length > 6 && (
+                    <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-600">
+                      +{day.items.length - 6} more
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <section className="space-y-6 px-4 py-6 sm:px-6 lg:px-8">
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -564,6 +724,8 @@ export function Dashboard({
           next30Capacity
         )}
       </div>
+
+      {renderHeatMap()}
 
       <div className="grid gap-6 xl:grid-cols-3">
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
