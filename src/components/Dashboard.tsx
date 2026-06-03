@@ -1,3 +1,7 @@
+// =====================================================
+// Dashboard Capacity Forecast Complete
+// Restore Point - June 3, 2026
+// =====================================================
 import React from "react";
 import {
   AlertTriangle,
