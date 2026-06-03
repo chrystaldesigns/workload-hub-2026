@@ -625,7 +625,7 @@ export function Dashboard({
 
       <div className="grid gap-6 xl:grid-cols-2">
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h3 className="mb-4 text-lg font-semibold text-slate-900">Today's Focus</h3>
+          <h3 className="mb-4 text-lg font-semibold text-slate-900">Workload Summary</h3>
 
           <div className="divide-y divide-slate-100">
             {summaryItems.map((item) => {
