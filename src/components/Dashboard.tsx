@@ -701,7 +701,7 @@ export function Dashboard({
             )}
           </div>
         </div>
-      </div>
+      
       <div className="grid gap-6 xl:grid-cols-2">
         {renderForecastCard(
           "Capacity Forecast: Next 7 Days",
