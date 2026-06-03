@@ -868,6 +868,7 @@ export function Dashboard({
           )}
         </div>
       </div>
-    </section>
+    </div>
+  </section>
   );
 }
