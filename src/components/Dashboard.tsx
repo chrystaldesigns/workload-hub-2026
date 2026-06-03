@@ -623,9 +623,9 @@ export function Dashboard({
   return (
     <section className="space-y-6 px-4 py-6 sm:px-6 lg:px-8">
 
-      <div className="grid gap-6 xl:grid-cols-[320px_1fr]">
+      <div className="grid gap-6 xl:grid-cols-2">
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h3 className="mb-4 text-lg font-semibold text-slate-900">Workload Summary</h3>
+          <h3 className="mb-4 text-lg font-semibold text-slate-900">Today's Focus</h3>
 
           <div className="divide-y divide-slate-100">
             {summaryItems.map((item) => {
@@ -644,7 +644,7 @@ export function Dashboard({
           </div>
         </div>
 
-        <div className="grid gap-6 xl:grid-cols-3">
+        <div className="grid gap-6 xl:grid-cols-2">
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="mb-4 flex items-center gap-2">
               <CalendarDays className="h-5 w-5 text-[#003E52]" aria-hidden="true" />
@@ -701,7 +701,7 @@ export function Dashboard({
           </div>
         </div>
       </div>
-
+{renderHeatMap()}
       <div className="grid gap-6 xl:grid-cols-2">
         {renderForecastCard(
           "Capacity Forecast: Next 7 Days",
@@ -722,7 +722,7 @@ export function Dashboard({
         )}
       </div>
 
-      {renderHeatMap()}
+      
 
       <div className="grid gap-6 xl:grid-cols-3">
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
