@@ -612,19 +612,6 @@ export function Dashboard({
 
   return (
     <section className="space-y-6 px-4 py-6 sm:px-6 lg:px-8">
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-          <div>
-            <h2 className="text-2xl font-semibold text-slate-900">Dashboard</h2>
-            <p className="mt-1 text-sm text-slate-600">
-              Unified workload summary for Course Developments, Projects, and Tasks.
-            </p>
-          </div>
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-            Today: {formatDisplayDate(today)}
-          </p>
-        </div>
-      </div>
 
       <div className="grid gap-6 xl:grid-cols-[320px_1fr]">
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
