@@ -3,6 +3,8 @@ import {
   AlertTriangle,
   CheckCircle2,
   CheckSquare,
+  ChevronDown,
+  ChevronRight,
   Circle,
   Clock,
   Pencil,
@@ -107,6 +109,7 @@ export function Category3Tasks({
   });
   const [newTask, setNewTask] = useState<ExtendedStandaloneTask>(emptyTask);
   const [editingTask, setEditingTask] = useState<ExtendedStandaloneTask | null>(null);
+  const [showCreateForm, setShowCreateForm] = useState(false);
 
   const sortedTasks = useMemo(() => sortTasksByDueDate(safeTasks), [safeTasks]);
 
@@ -114,6 +117,52 @@ export function Category3Tasks({
     if (!sortedTasks.length) return null;
     return sortedTasks.find((task) => task.id === selectedId) || sortedTasks[0];
   }, [sortedTasks, selectedId]);
+
+  const renderCreateTaskPanel = () => {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <button
+          type="button"
+          onClick={() => setShowCreateForm((prev) => !prev)}
+          className="flex w-full items-center justify-between gap-4 p-6 text-left"
+        >
+          <div className="flex items-center gap-3">
+            <div className="rounded-xl bg-[#003E52] p-3 text-white">
+              <CheckSquare className="h-6 w-6" aria-hidden="true" />
+            </div>
+            <div>
+              <h2 className="text-xl font-semibold text-slate-900">Create Task</h2>
+              <p className="text-sm text-slate-600">
+                Open this panel only when creating a new standalone task.
+              </p>
+            </div>
+          </div>
+
+          {showCreateForm ? (
+            <ChevronDown className="h-5 w-5 text-slate-500" aria-hidden="true" />
+          ) : (
+            <ChevronRight className="h-5 w-5 text-slate-500" aria-hidden="true" />
+          )}
+        </button>
+
+        {showCreateForm && (
+          <div className="border-t border-slate-200 p-6">
+            <form onSubmit={handleCreateTask} className="space-y-4">
+              {renderTaskFields(newTask, handleNewTaskChange, "new-task")}
+
+              <button
+                type="submit"
+                className="inline-flex items-center gap-2 rounded-xl bg-[#003E52] px-4 py-2 font-medium text-white hover:bg-[#073C5C]"
+              >
+                <PlusCircle className="h-5 w-5" aria-hidden="true" />
+                Create Task
+              </button>
+            </form>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const handleNewTaskChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -177,6 +226,7 @@ export function Category3Tasks({
 
     onAddTask(taskToSave as StandaloneTask);
     setNewTask(emptyTask);
+    setShowCreateForm(false);
   };
 
   const startEditing = (task: ExtendedStandaloneTask) => {
@@ -474,33 +524,21 @@ export function Category3Tasks({
   return (
     <section className="space-y-6 px-4 py-6 sm:px-6 lg:px-8">
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="mb-5 flex items-center gap-3">
+        <div className="flex items-center gap-3">
           <div className="rounded-xl bg-[#003E52] p-3 text-white">
             <CheckSquare className="h-6 w-6" aria-hidden="true" />
           </div>
           <div>
-            <h2 className="text-xl font-semibold text-slate-900">Tasks</h2>
+            <h1 className="text-2xl font-semibold text-slate-900">Tasks</h1>
             <p className="text-sm text-slate-600">
-              Add and manage standalone tasks that are not tied to Course Developments or Projects.
+              View active standalone tasks first. Create new tasks from the collapsible panel below.
             </p>
           </div>
         </div>
-
-        <form onSubmit={handleCreateTask} className="space-y-4">
-          {renderTaskFields(newTask, handleNewTaskChange, "new-task")}
-
-          <button
-            type="submit"
-            className="inline-flex items-center gap-2 rounded-xl bg-[#003E52] px-4 py-2 font-medium text-white hover:bg-[#073C5C]"
-          >
-            <PlusCircle className="h-5 w-5" aria-hidden="true" />
-            Create Task
-          </button>
-        </form>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:sticky lg:top-24 lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto">
           <h3 className="mb-4 text-lg font-semibold text-slate-900">Task List</h3>
 
           {sortedTasks.length === 0 ? (
@@ -715,6 +753,8 @@ export function Category3Tasks({
           )}
         </div>
       </div>
+
+      {renderCreateTaskPanel()}
     </section>
   );
 }
