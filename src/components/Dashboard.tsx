@@ -1,6 +1,7 @@
 // =====================================================
 // Dashboard Capacity Forecast + Workload Heat Map
 // Restore Point - June 3, 2026
+// Dashboard Header Cleanup Complete
 // =====================================================
 import React from "react";
 import {
