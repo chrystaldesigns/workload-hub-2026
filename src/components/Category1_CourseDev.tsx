@@ -561,7 +561,9 @@ export function Category1CourseDev({
     });
 
     const to = course.deptTeam.smeEmail || "";
-    const cc = [course.deptTeam.deanEmail, course.deptTeam.managerEmail].filter(Boolean).join(",");
+    const cc = [course.deptTeam.deanEmail, course.deptTeam.managerEmail]
+  .filter(Boolean)
+  .join(",");
     const subject = `${course.courseNumber} Course Development Status ${today}`;
     const statusReport = generateWeeklyStatusReport(course);
 
@@ -572,11 +574,22 @@ export function Category1CourseDev({
 
     navigator.clipboard?.writeText(body).catch(() => undefined);
 
-const outlookUrl =
-  `https://outlook.office.com/mail/deeplink/compose` +
-  `?to=${encodeURIComponent(to)}` +
-  `&cc=${encodeURIComponent(cc)}` +
-  `&subject=${encodeURIComponent(subject)}`;
+const params = new URLSearchParams();
+
+if (to) params.set("to", to);
+if (cc) params.set("cc", cc);
+params.set("subject", subject);
+
+const outlookUrl = `https://outlook.office.com/mail/deeplink/compose?${params.toString()}`;
+
+navigator.clipboard?.writeText(body).catch(() => undefined);
+
+window.open(outlookUrl, "_blank", "noopener,noreferrer");
+
+alert(
+  "Outlook draft opened. The full status report has been copied to your clipboard. Paste it into the email body with Cmd + V."
+);
+return;
 
 window.open(outlookUrl, "_blank", "noopener,noreferrer");
 
