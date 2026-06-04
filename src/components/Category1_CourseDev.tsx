@@ -418,7 +418,7 @@ export function Category1CourseDev({
       <div className="flex justify-between items-center bg-white border border-[#E0DCD8] p-4 shadow-2xs">
         <div>
           <h2 className="text-lg font-semibold text-slate-800 uppercase tracking-wide">
-            Category 1: Academic Course Developments
+            Academic Course Developments
           </h2>
           <p className="text-xs text-slate-500">
             Backward-staggered course creation calendars tracking collegiate accreditation
