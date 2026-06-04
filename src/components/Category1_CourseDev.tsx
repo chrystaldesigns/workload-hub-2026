@@ -32,8 +32,6 @@ export function Category1CourseDev({
   const [selectedId, setSelectedId] = useState<string>(courseDevelopments[0]?.id || '');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState<CourseDevelopmentTask | null>(null);
-  const [showWeeklyStatusModal, setShowWeeklyStatusModal] = useState(false);
-  const [weeklyStatusText, setWeeklyStatusText] = useState('');
 
   // Form states for new Course
   const [formData, setFormData] = useState({
@@ -267,11 +265,13 @@ export function Category1CourseDev({
     window.open(`mailto:${mailTo}?subject=${encodeURIComponent(mailSub)}&body=${encodeURIComponent(mailBody)}`);
   };
 
-  // Weekly course development status report helpers
+  // Course Development Weekly Status automation
   const formatStatusDate = (date?: string) => {
     if (!date) return 'TBD';
+
     const parsed = new Date(`${date.slice(0, 10)}T12:00:00`);
     if (Number.isNaN(parsed.getTime())) return date;
+
     return parsed.toLocaleDateString('en-US', {
       month: '2-digit',
       day: '2-digit',
@@ -288,14 +288,19 @@ export function Category1CourseDev({
     });
   };
 
-  const getTaskStatusLine = (task: CourseDevelopmentTask) => {
-    const notes = (task as any).notes ? ` Notes: ${(task as any).notes}` : '';
-    return `- ${task.name}: ${task.status} (Start: ${formatStatusDate(task.startDate)}; Due: ${formatStatusDate(task.dueDate)}).${notes}`;
+  const formatTaskSummaryLine = (task: CourseDevelopmentTask) => {
+    const notes = ((task as any).notes || '').trim();
+
+    if (notes) {
+      return `- ${task.name}: ${notes}`;
+    }
+
+    return `- ${task.name}`;
   };
 
   const getSectionText = (tasks: CourseDevelopmentTask[], fallback: string) => {
     if (!tasks.length) return fallback;
-    return tasks.map(getTaskStatusLine).join('\n');
+    return tasks.map(formatTaskSummaryLine).join('\n');
   };
 
   const getCourseMilestone = (course: CourseDevelopment, label: string, keywords: string[]) => {
@@ -305,34 +310,58 @@ export function Category1CourseDev({
     });
 
     if (!task) return `${label}: TBD, Not Started`;
+
     return `${label}: ${formatStatusDate(task.dueDate || task.startDate)}, ${task.status}`;
   };
 
-  const generateCourseWeeklyStatusText = (course: CourseDevelopment, includeMilestones = false) => {
-    const activeTasks = course.tasks.filter(
-      (task) => task.status !== 'Complete' && task.status !== 'Not Applicable'
-    );
+  const getBlockedDatesText = () => {
+    if (!customBlocked.length) return 'No college-closed or out-of-office dates entered.';
+
+    return customBlocked
+      .slice()
+      .sort()
+      .map((date) => `- ${formatStatusDate(date)}`)
+      .join('\n');
+  };
+
+  const getCourseWeeklyStatusText = (course: CourseDevelopment, includeMilestones = false) => {
     const completedTasks = course.tasks.filter((task) => task.status === 'Complete');
-    const smeTasks = activeTasks.filter((task) => task.assignedTo === 'Subject Matter Expert');
-    const idTasks = activeTasks.filter(
-      (task) => task.assignedTo === 'Instructional Designer' || task.assignedTo === 'Learning Experience Architect'
+
+    const inProgressTasks = course.tasks.filter((task) => task.status === 'In Progress');
+
+    const smeTasks = inProgressTasks.filter(
+      (task) => task.assignedTo === 'Subject Matter Expert'
     );
-    const multimediaTasks = activeTasks.filter((task) => task.assignedTo === 'Multimedia');
-    const qaTasks = activeTasks.filter((task) => task.assignedTo === 'Quality Assurance');
+
+    const idTasks = inProgressTasks.filter(
+      (task) =>
+        task.assignedTo === 'Instructional Designer' ||
+        task.assignedTo === 'Learning Experience Architect'
+    );
+
+    const multimediaTasks = inProgressTasks.filter(
+      (task) => task.assignedTo === 'Multimedia'
+    );
+
+    const qaTasks = inProgressTasks.filter(
+      (task) => task.assignedTo === 'Quality Assurance'
+    );
 
     const taskNotes = course.tasks
       .map((task) => ({ task, notes: ((task as any).notes || '').trim() }))
       .filter((item) => item.notes)
       .map((item) => `- ${item.task.name}: ${item.notes}`);
 
-    const notes = [course.courseNotes?.trim(), ...taskNotes].filter(Boolean).join('\n');
+    const notes = [course.courseNotes?.trim(), ...taskNotes]
+      .filter(Boolean)
+      .join('\n');
 
     const statusSections = [
-      `COMPLETE:\n${getSectionText(completedTasks, 'No completed tasks recorded yet.')}`,
-      `SUBJECT MATTER EXPERT:\n${getSectionText(smeTasks, 'No active SME tasks at this time.')}`,
-      `INSTRUCTIONAL DESIGNER:\n${getSectionText(idTasks, 'No active Instructional Designer tasks at this time.')}`,
-      `MULTIMEDIA:\n${getSectionText(multimediaTasks, 'No active Multimedia tasks at this time.')}`,
-      `CEL QUALITY ASSURANCE:\n${getSectionText(qaTasks, 'No active CeL Quality Assurance tasks at this time.')}`,
+      `COMPLETE:\n${getSectionText(completedTasks, 'No completed major milestones recorded yet.')}`,
+      `SUBJECT MATTER EXPERT:\n${getSectionText(smeTasks, 'No SME items are currently marked In Progress.')}`,
+      `INSTRUCTIONAL DESIGNER:\n${getSectionText(idTasks, 'No Instructional Designer items are currently marked In Progress.')}`,
+      `MULTIMEDIA:\n${getSectionText(multimediaTasks, 'No Multimedia items are currently marked In Progress.')}`,
+      `CEL QUALITY ASSURANCE:\n${getSectionText(qaTasks, 'No CeL Quality Assurance items are currently marked In Progress.')}`,
       `NOTES:\n${notes || 'No special notes at this time.'}`,
       `ALERTS: ${course.alertStatus || 'No Concerns'}`
     ];
@@ -347,31 +376,102 @@ export function Category1CourseDev({
       getCourseMilestone(course, 'KICKOFF', ['kickoff', 'kick off']),
       getCourseMilestone(course, 'MIDPOINT REVIEW', ['midpoint']),
       getCourseMilestone(course, 'FINAL REVIEW', ['final review']),
-      getCourseMilestone(course, 'SME DELIVERABLES COMPLETE', ['sme deliverables', 'deliverables complete']),
-      getCourseMilestone(course, 'DEVELOPMENT COMPLETION', ['development completion', 'project completion', 'course completion', 'code check', 'archive']),
+      getCourseMilestone(course, 'SME DELIVERABLES COMPLETE', ['sme deliverables', 'deliverables complete', 'sme complete']),
+      getCourseMilestone(course, 'DEVELOPMENT COMPLETION', ['development completion', 'project completion', 'course completion']),
       '',
-      customBlocked.length
-        ? `COLLEGE-CLOSED DATES / OUT-OF-OFFICE:\n${[...customBlocked].sort().map((date) => `- ${formatStatusDate(date)}`).join('\n')}`
-        : 'COLLEGE-CLOSED DATES / OUT-OF-OFFICE:\nNo college-closed dates or out-of-office dates entered.'
+      'COLLEGE-CLOSED / VACATION / OUT-OF-OFFICE:',
+      getBlockedDatesText()
     ];
 
     return `${statusSections.join('\n\n')}\n\n${milestoneSections.join('\n')}`;
   };
 
-  const openWeeklyStatusQuickBox = (course: CourseDevelopment) => {
-    setWeeklyStatusText(generateCourseWeeklyStatusText(course, false));
-    setShowWeeklyStatusModal(true);
+  const openCourseWeeklyStatusQuickBox = (course: CourseDevelopment) => {
+    const statusText = getCourseWeeklyStatusText(course, false);
+
+    const popup = window.open('', '_blank', 'width=900,height=700');
+
+    if (!popup) {
+      navigator.clipboard.writeText(statusText);
+      alert('Pop-up was blocked. Weekly status text was copied to your clipboard instead.');
+      return;
+    }
+
+    popup.document.write(`
+      <html>
+        <head>
+          <title>${course.courseNumber} Weekly Status QB</title>
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              margin: 24px;
+              background: #f8fafc;
+              color: #0f172a;
+            }
+            h1 {
+              font-size: 18px;
+              margin-bottom: 8px;
+            }
+            p {
+              color: #475569;
+              font-size: 13px;
+            }
+            textarea {
+              width: 100%;
+              height: 520px;
+              margin-top: 12px;
+              padding: 14px;
+              font-family: Arial, sans-serif;
+              font-size: 14px;
+              line-height: 1.5;
+              border: 1px solid #cbd5e1;
+              border-radius: 8px;
+              box-sizing: border-box;
+              white-space: pre-wrap;
+            }
+            button {
+              margin-top: 12px;
+              padding: 10px 14px;
+              border: 0;
+              background: #003E52;
+              color: white;
+              border-radius: 8px;
+              cursor: pointer;
+              font-weight: 600;
+            }
+          </style>
+        </head>
+        <body>
+          <h1>${course.courseNumber} Weekly Status QB</h1>
+          <p>Plain text status summary. Copy, edit, or paste as needed.</p>
+          <textarea id="weeklyStatusText">${statusText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
+          <br />
+          <button onclick="navigator.clipboard.writeText(document.getElementById('weeklyStatusText').value); alert('Copied to clipboard.');">
+            Copy Text
+          </button>
+        </body>
+      </html>
+    `);
+
+    popup.document.close();
   };
 
-  const openWeeklyStatusEmail = (course: CourseDevelopment) => {
-    const to = course.deptTeam.smeEmail || '';
-    const cc = [course.deptTeam.deanEmail, course.deptTeam.managerEmail].filter(Boolean).join(';');
-    const subject = `${course.courseNumber} Course Development Status ${getTodayStatusDate()}`;
-    const body = `This is a friendly update on the status of the course development. You do not need to take any action or respond to this email. It is for your information only.\n\n${generateCourseWeeklyStatusText(course, true)}`;
-    const mailtoParts = [`subject=${encodeURIComponent(subject)}`, `body=${encodeURIComponent(body)}`];
-    if (cc) mailtoParts.unshift(`cc=${encodeURIComponent(cc)}`);
+  const openCourseWeeklyStatusEmail = (course: CourseDevelopment) => {
+    const subjectDate = getTodayStatusDate();
+    const to = course.deptTeam?.smeEmail || '';
+    const cc = [course.deptTeam?.deanEmail, course.deptTeam?.managerEmail]
+      .filter(Boolean)
+      .join(';');
 
-    window.location.href = `mailto:${encodeURIComponent(to)}?${mailtoParts.join('&')}`;
+    const subject = `${course.courseNumber} Course Development Status ${subjectDate}`;
+
+    const body = `This is a friendly update on the status of the course development. You do not need to take any action or respond to this email. It is for your information only.
+
+${getCourseWeeklyStatusText(course, true)}`;
+
+    const mailtoUrl = `mailto:${encodeURIComponent(to)}?cc=${encodeURIComponent(cc)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+    window.open(mailtoUrl, '_blank');
   };
 
   // Compliance business rule calculation: check if Closeout is >= 30 days
@@ -618,22 +718,22 @@ export function Category1CourseDev({
 
                 <div className="flex flex-wrap justify-end items-center gap-2 ml-auto">
                   <button
-                    onClick={() => openWeeklyStatusQuickBox(activeCourse)}
+                    onClick={() => openCourseWeeklyStatusQuickBox(activeCourse)}
                     className="px-3 py-1.5 border border-[#006282] text-slate-800 hover:bg-slate-50 text-2xs font-semibold uppercase tracking-wider flex items-center gap-1 cursor-pointer"
                   >
                     <Clipboard className="w-3.5 h-3.5 text-[#006282]" /> Course Dev. Weekly Status QB
                   </button>
                   <button
-                    onClick={() => openWeeklyStatusEmail(activeCourse)}
+                    onClick={() => openCourseWeeklyStatusEmail(activeCourse)}
                     className="px-3 py-1.5 border border-[#087834] text-slate-800 hover:bg-slate-50 text-2xs font-semibold uppercase tracking-wider flex items-center gap-1 cursor-pointer"
                   >
                     <Mail className="w-3.5 h-3.5 text-[#087834]" /> Course Dev. Weekly Status Email
                   </button>
                   <button
                     onClick={() => triggerCompensationDraft(activeCourse)}
-                    className="px-3 py-1.5 border border-slate-300 text-slate-800 hover:bg-slate-50 text-2xs font-semibold uppercase tracking-wider flex items-center gap-1 cursor-pointer"
+                    className="px-3 py-1.5 border border-[#087834] text-slate-800 hover:bg-slate-50 text-2xs font-semibold uppercase tracking-wider flex items-center gap-1 cursor-pointer"
                   >
-                    <Mail className="w-3.5 h-3.5 text-slate-600" /> SME compensation notification
+                    <Mail className="w-3.5 h-3.5 text-[#087834]" /> SME compensation notification
                   </button>
                   <button
                     onClick={() => {
@@ -737,55 +837,6 @@ export function Category1CourseDev({
       </div>
 
       {/* DIALOG MODAL: ADD COURSE TRACK */}
-      {showWeeklyStatusModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
-            <div className="p-4 border-b border-slate-200 flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-900">
-                  Course Dev. Weekly Status QB
-                </h3>
-                <p className="text-xs text-slate-500 mt-1">
-                  Plain-text weekly status. Edit, copy, and paste as needed.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowWeeklyStatusModal(false)}
-                className="text-slate-500 hover:text-slate-900 text-sm font-semibold"
-              >
-                Close
-              </button>
-            </div>
-
-            <div className="p-4 flex-1 overflow-hidden">
-              <textarea
-                value={weeklyStatusText}
-                onChange={(e) => setWeeklyStatusText(e.target.value)}
-                className="w-full h-[55vh] border border-slate-300 p-3 font-mono text-xs leading-5 text-slate-900"
-              />
-
-              <div className="mt-3 flex gap-2 justify-end">
-                <button
-                  type="button"
-                  onClick={() => navigator.clipboard.writeText(weeklyStatusText)}
-                  className="bg-[#006282] hover:bg-[#076092] text-white px-4 py-2 text-2xs font-semibold uppercase tracking-wider cursor-pointer"
-                >
-                  Copy Text
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowWeeklyStatusModal(false)}
-                  className="px-4 py-2 border border-slate-300 text-slate-700 bg-white text-2xs font-semibold uppercase hover:bg-slate-50 cursor-pointer"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
           <div className="bg-[#F4F1ED] border-2 border-slate-900 p-6 max-w-xl w-full flex flex-col gap-4 max-h-[85vh] overflow-y-auto">
