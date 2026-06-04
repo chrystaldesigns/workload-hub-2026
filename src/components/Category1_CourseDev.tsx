@@ -1237,7 +1237,7 @@ style={{ color: "white" }}
           <div className="bg-[#F4F1ED] border-2 border-slate-900 p-6 max-w-xl w-full flex flex-col gap-4 max-h-[85vh] overflow-y-auto">
             <div className="flex justify-between items-center border-b border-slate-900 pb-2.5">
               <h3 className="text-md font-semibold text-slate-900 uppercase tracking-widest flex items-center gap-1.5">
-                <Sparkles className="w-5 h-5 text-[#33B1C8]" /> Dispatcher Course creation Wizard
+                <Sparkles className="w-5 h-5 text-[#33B1C8]" /> Course Information Creator
               </h3>
               <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-slate-600 font-semibold cursor-pointer select-none">✕</button>
             </div>
@@ -1246,7 +1246,7 @@ style={{ color: "white" }}
               
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Division program:</label>
+                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Program:</label>
                   <input
                     type="text"
                     name="program"
@@ -1273,7 +1273,7 @@ style={{ color: "white" }}
               </div>
 
               <div>
-                <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Course Title Name:</label>
+                <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Course Title:</label>
                 <input
                   type="text"
                   name="courseTitle"
@@ -1287,7 +1287,7 @@ style={{ color: "white" }}
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Type Design Mode:</label>
+                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Development Type:</label>
                   <select
                     name="devType"
                     value={formData.devType}
@@ -1303,7 +1303,7 @@ style={{ color: "white" }}
                 <div>
                   <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Version Number:</label>
                   <input
-                    type="number"
+                    type="text"
                     name="versionNumber"
                     value={formData.versionNumber}
                     onChange={handleInputChange}
@@ -1335,7 +1335,7 @@ style={{ color: "white" }}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Term Deadline (Anchor):</label>
+                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Term Start Date (Anchor):</label>
                   <input
                     type="date"
                     name="termDeadline"
@@ -1361,7 +1361,7 @@ style={{ color: "white" }}
                   />
                 </div>
                 <div>
-                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Onboarding Sequence?</label>
+                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Onboarding Needed?</label>
                   <div className="flex items-center gap-4 py-2">
                     <label className="flex items-center gap-1.5 text-xs font-normal cursor-pointer select-none">
                       <input
@@ -1392,7 +1392,7 @@ style={{ color: "white" }}
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Subject Matter Expert (Left):</label>
+                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Subject Matter Expert:</label>
                   <input
                     type="text"
                     name="smeName"
@@ -1404,7 +1404,7 @@ style={{ color: "white" }}
                   />
                 </div>
                 <div>
-                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">SME Email Address (Right):</label>
+                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">SME Email Address:</label>
                   <input
                     type="email"
                     name="smeEmail"
@@ -1419,7 +1419,7 @@ style={{ color: "white" }}
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Division Dean (Left):</label>
+                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Dean:</label>
                   <input
                     type="text"
                     name="deanName"
@@ -1431,7 +1431,7 @@ style={{ color: "white" }}
                   />
                 </div>
                 <div>
-                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Dean Email Address (Right):</label>
+                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Dean Email Address:</label>
                   <input
                     type="email"
                     name="deanEmail"
@@ -1446,7 +1446,7 @@ style={{ color: "white" }}
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Academic PM (Left, Optional):</label>
+                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Academic PM (Optional):</label>
                   <input
                     type="text"
                     name="managerName"
@@ -1457,7 +1457,7 @@ style={{ color: "white" }}
                   />
                 </div>
                 <div>
-                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">PM Email Address (Right):</label>
+                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">PM Email Address:</label>
                   <input
                     type="email"
                     name="managerEmail"
@@ -1470,7 +1470,7 @@ style={{ color: "white" }}
               </div>
 
               <div>
-                <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Notes / Accreditation context:</label>
+                <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Notes:</label>
                 <textarea
                   name="courseNotes"
                   value={formData.courseNotes}
