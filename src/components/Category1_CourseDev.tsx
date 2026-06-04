@@ -596,19 +596,27 @@ ${getCourseWeeklyStatusText(course, true)}`;
                   </h2>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <span className="text-2xs uppercase text-slate-400 font-semibold font-mono">Alert Alignment:</span>
-                  <select
-                    value={activeCourse.alertStatus}
-                    onChange={(e) => handleAlertStatusChange(e.target.value as any)}
-                    className="text-xs px-2.5 py-1.5 border border-slate-300 bg-white font-semibold focus:outline-none"
-                  >
-                    <option value="No Concerns">No Concerns (Green)</option>
-                    <option value="Potential Concerns">Potential Concerns (Orange)</option>
-                    <option value="High Priority Concerns">High Priority (Red)</option>
-                  </select>
-                </div>
-              </div>
+<div className="flex items-center gap-2">
+  <span className="text-2xs uppercase text-slate-400 font-semibold font-mono">
+    Alerts:
+  </span>
+
+  <select
+    value={activeCourse.alertStatus}
+    onChange={(e) => handleAlertStatusChange(e.target.value as any)}
+    className={`text-xs px-2.5 py-1.5 font-semibold border focus:outline-none ${
+      activeCourse.alertStatus === "High Priority Concerns"
+        ? "bg-red-700 text-white border-red-700"
+        : activeCourse.alertStatus === "Potential Concerns"
+        ? "bg-orange-600 text-white border-orange-600"
+        : "bg-green-700 text-white border-green-700"
+    }`}
+  >
+    <option value="No Concerns">No Concerns</option>
+    <option value="Potential Concerns">Potential Concerns</option>
+    <option value="High Priority Concerns">High Priority Concerns</option>
+  </select>
+</div>
 
               {/* COMPLIANCE WARNING BLOCK */}
               {!complianceRule(activeCourse, customBlocked) && (
