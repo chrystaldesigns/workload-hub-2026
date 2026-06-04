@@ -1,6 +1,3 @@
-=================================================
-Stable Restore Point - Course Development Editing Restored
-=================================================
 import React, { useState } from 'react';
 import { CourseDevelopment, CourseDevelopmentTask } from '../types';
 import { 
