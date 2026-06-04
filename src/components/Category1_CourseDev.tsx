@@ -265,213 +265,136 @@ export function Category1CourseDev({
     window.open(`mailto:${mailTo}?subject=${encodeURIComponent(mailSub)}&body=${encodeURIComponent(mailBody)}`);
   };
 
-  // Course Development Weekly Status automation
-  const formatStatusDate = (date?: string) => {
-    if (!date) return 'TBD';
-
-    const parsed = new Date(`${date.slice(0, 10)}T12:00:00`);
-    if (Number.isNaN(parsed.getTime())) return date;
-
-    return parsed.toLocaleDateString('en-US', {
-      month: '2-digit',
-      day: '2-digit',
-      year: '2-digit'
+  // Weekly academic status report
+  const formatShortDate = (dateStr?: string) => {
+    if (!dateStr) return "TBD";
+    const parsed = new Date(`${dateStr}T12:00:00`);
+    if (Number.isNaN(parsed.getTime())) return dateStr;
+    return parsed.toLocaleDateString("en-US", {
+      month: "2-digit",
+      day: "2-digit",
+      year: "2-digit",
     });
   };
 
-  const getTodayStatusDate = () => {
-    const today = new Date();
-    return today.toLocaleDateString('en-US', {
-      month: '2-digit',
-      day: '2-digit',
-      year: '2-digit'
-    });
+  const formatTaskList = (tasks: CourseDevelopmentTask[]) => {
+    if (!tasks.length) return "None at this time.";
+    return tasks
+      .map((task) => `- ${task.name}${task.dueDate ? ` (${formatShortDate(task.dueDate)})` : ""}`)
+      .join("\n");
   };
 
-  const formatTaskSummaryLine = (task: CourseDevelopmentTask) => {
-    const notes = ((task as any).notes || '').trim();
+  const roleMatches = (assignedTo: string | undefined, role: "SME" | "ID" | "MULTIMEDIA" | "QA") => {
+    const owner = (assignedTo || "").toLowerCase();
 
-    if (notes) {
-      return `- ${task.name}: ${notes}`;
+    if (role === "SME") {
+      return owner.includes("sme") || owner.includes("subject matter") || owner.includes("faculty");
     }
 
-    return `- ${task.name}`;
+    if (role === "ID") {
+      return owner.includes("instructional") || owner.includes("designer") || owner.includes("id") || owner.includes("chrystal");
+    }
+
+    if (role === "MULTIMEDIA") {
+      return owner.includes("multimedia") || owner.includes("mmt") || owner.includes("media");
+    }
+
+    return owner.includes("qa") || owner.includes("quality") || owner.includes("assurance");
   };
 
-  const getSectionText = (tasks: CourseDevelopmentTask[], fallback: string) => {
-    if (!tasks.length) return fallback;
-    return tasks.map(formatTaskSummaryLine).join('\n');
+  const getRoleInProgressTasks = (course: CourseDevelopment, role: "SME" | "ID" | "MULTIMEDIA" | "QA") => {
+    return (course.tasks || []).filter(
+      (task) => task.status === "In Progress" && roleMatches(task.assignedTo, role)
+    );
   };
 
-  const getCourseMilestone = (course: CourseDevelopment, label: string, keywords: string[]) => {
-    const task = course.tasks.find((item) => {
-      const searchable = `${item.phase || ''} ${item.name || ''}`.toLowerCase();
-      return keywords.some((keyword) => searchable.includes(keyword));
+  const findMilestoneTask = (course: CourseDevelopment, keywords: string[]) => {
+    return (course.tasks || []).find((task) => {
+      const name = (task.name || "").toLowerCase();
+      const phase = (task.phase || "").toLowerCase();
+      return keywords.some((keyword) => name.includes(keyword) || phase.includes(keyword));
     });
+  };
 
+  const formatMilestoneLine = (label: string, task?: CourseDevelopmentTask) => {
     if (!task) return `${label}: TBD, Not Started`;
-
-    return `${label}: ${formatStatusDate(task.dueDate || task.startDate)}, ${task.status}`;
+    return `${label}: ${formatShortDate(task.dueDate || task.startDate)}, ${task.status || "Not Started"}`;
   };
 
-  const getBlockedDatesText = () => {
-    if (!customBlocked.length) return 'No college-closed or out-of-office dates entered.';
+  const generateWeeklyStatusReport = (course: CourseDevelopment) => {
+    const completeTasks = (course.tasks || []).filter((task) => task.status === "Complete");
+    const smeTasks = getRoleInProgressTasks(course, "SME");
+    const idTasks = getRoleInProgressTasks(course, "ID");
+    const multimediaTasks = getRoleInProgressTasks(course, "MULTIMEDIA");
+    const qaTasks = getRoleInProgressTasks(course, "QA");
 
-    return customBlocked
-      .slice()
-      .sort()
-      .map((date) => `- ${formatStatusDate(date)}`)
-      .join('\n');
-  };
-
-  const getCourseWeeklyStatusText = (course: CourseDevelopment, includeMilestones = false) => {
-    const completedTasks = course.tasks.filter((task) => task.status === 'Complete');
-
-    const inProgressTasks = course.tasks.filter((task) => task.status === 'In Progress');
-
-    const smeTasks = inProgressTasks.filter(
-      (task) => task.assignedTo === 'Subject Matter Expert'
-    );
-
-    const idTasks = inProgressTasks.filter(
-      (task) =>
-        task.assignedTo === 'Instructional Designer' ||
-        task.assignedTo === 'Learning Experience Architect'
-    );
-
-    const multimediaTasks = inProgressTasks.filter(
-      (task) => task.assignedTo === 'Multimedia'
-    );
-
-    const qaTasks = inProgressTasks.filter(
-      (task) => task.assignedTo === 'Quality Assurance'
-    );
-
-    const taskNotes = course.tasks
-      .map((task) => ({ task, notes: ((task as any).notes || '').trim() }))
-      .filter((item) => item.notes)
-      .map((item) => `- ${item.task.name}: ${item.notes}`);
-
-    const notes = [course.courseNotes?.trim(), ...taskNotes]
-      .filter(Boolean)
-      .join('\n');
-
-    const statusSections = [
-      `COMPLETE:\n${getSectionText(completedTasks, 'No completed major milestones recorded yet.')}`,
-      `SUBJECT MATTER EXPERT:\n${getSectionText(smeTasks, 'No SME items are currently marked In Progress.')}`,
-      `INSTRUCTIONAL DESIGNER:\n${getSectionText(idTasks, 'No Instructional Designer items are currently marked In Progress.')}`,
-      `MULTIMEDIA:\n${getSectionText(multimediaTasks, 'No Multimedia items are currently marked In Progress.')}`,
-      `CEL QUALITY ASSURANCE:\n${getSectionText(qaTasks, 'No CeL Quality Assurance items are currently marked In Progress.')}`,
-      `NOTES:\n${notes || 'No special notes at this time.'}`,
-      `ALERTS: ${course.alertStatus || 'No Concerns'}`
+    const milestones = [
+      formatMilestoneLine("ONBOARDING", findMilestoneTask(course, ["onboarding"])),
+      formatMilestoneLine("INITIAL MEETING", findMilestoneTask(course, ["initial meeting"])),
+      formatMilestoneLine("COURSE DESIGN PLAN DUE", findMilestoneTask(course, ["course design plan", "design plan"])),
+      formatMilestoneLine("KICKOFF", findMilestoneTask(course, ["kickoff", "kick-off"])),
+      formatMilestoneLine("MIDPOINT REVIEW", findMilestoneTask(course, ["midpoint", "mid-point"])),
+      formatMilestoneLine("FINAL REVIEW", findMilestoneTask(course, ["final review"])),
+      formatMilestoneLine("SME DELIVERABLES COMPLETE", findMilestoneTask(course, ["sme deliverables", "deliverables complete"])),
+      formatMilestoneLine("DEVELOPMENT COMPLETION", findMilestoneTask(course, ["development completion", "project completion", "course completion"])),
     ];
 
-    if (!includeMilestones) return statusSections.join('\n\n');
+    const offTime = customBlocked.length
+      ? customBlocked.map((date) => `- ${formatShortDate(date)}`).join("\n")
+      : "None listed.";
 
-    const milestoneSections = [
-      'MILESTONES & OFF-TIME',
-      getCourseMilestone(course, 'ONBOARDING', ['onboarding']),
-      getCourseMilestone(course, 'INITIAL MEETING', ['initial meeting', 'initial', 'meeting']),
-      getCourseMilestone(course, 'COURSE DESIGN PLAN DUE', ['course design plan', 'design plan']),
-      getCourseMilestone(course, 'KICKOFF', ['kickoff', 'kick off']),
-      getCourseMilestone(course, 'MIDPOINT REVIEW', ['midpoint']),
-      getCourseMilestone(course, 'FINAL REVIEW', ['final review']),
-      getCourseMilestone(course, 'SME DELIVERABLES COMPLETE', ['sme deliverables', 'deliverables complete', 'sme complete']),
-      getCourseMilestone(course, 'DEVELOPMENT COMPLETION', ['development completion', 'project completion', 'course completion']),
-      '',
-      'COLLEGE-CLOSED / VACATION / OUT-OF-OFFICE:',
-      getBlockedDatesText()
-    ];
-
-    return `${statusSections.join('\n\n')}\n\n${milestoneSections.join('\n')}`;
+    return `COMPLETE:\n${formatTaskList(completeTasks)}\n\nSUBJECT MATTER EXPERT:\n${formatTaskList(smeTasks)}\n\nINSTRUCTIONAL DESIGNER:\n${formatTaskList(idTasks)}\n\nMULTIMEDIA:\n${formatTaskList(multimediaTasks)}\n\nCEL QUALITY ASSURANCE:\n${formatTaskList(qaTasks)}\n\nNOTES:\n${course.courseNotes || "None at this time."}\n\nALERTS: ${course.alertStatus || "No Concerns"}\n\nMILESTONES & OFF-TIME\n${milestones.join("\n")}\n\nCollege Closed / Vacation / Out-of-Office Dates:\n${offTime}`;
   };
 
-  const openCourseWeeklyStatusQuickBox = (course: CourseDevelopment) => {
-    const statusText = getCourseWeeklyStatusText(course, false);
+  const handleCopyStatusReport = (course: CourseDevelopment) => {
+    const blockText = generateWeeklyStatusReport(course);
+    navigator.clipboard.writeText(blockText);
 
-    const popup = window.open('', '_blank', 'width=900,height=700');
+    const statusWindow = window.open("", "_blank", "width=800,height=700,scrollbars=yes,resizable=yes");
 
-    if (!popup) {
-      navigator.clipboard.writeText(statusText);
-      alert('Pop-up was blocked. Weekly status text was copied to your clipboard instead.');
-      return;
+    if (statusWindow) {
+      statusWindow.document.write(`
+        <html>
+          <head>
+            <title>${course.courseNumber} Weekly Status QB</title>
+            <style>
+              body { font-family: Arial, sans-serif; padding: 24px; background: #f8fafc; color: #0f172a; }
+              textarea { width: 100%; height: 560px; padding: 16px; font-family: Arial, sans-serif; font-size: 14px; line-height: 1.5; border: 1px solid #cbd5e1; border-radius: 8px; }
+              h1 { font-size: 20px; margin-bottom: 8px; }
+              p { color: #475569; }
+            </style>
+          </head>
+          <body>
+            <h1>${course.courseNumber}: ${course.courseTitle}</h1>
+            <p>Weekly status summary copied to clipboard. You may also copy/edit from the text box below.</p>
+            <textarea>${blockText.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</textarea>
+          </body>
+        </html>
+      `);
+      statusWindow.document.close();
+    } else {
+      alert("Weekly status summary copied to clipboard. Pop-up was blocked by the browser.");
     }
-
-    popup.document.write(`
-      <html>
-        <head>
-          <title>${course.courseNumber} Weekly Status QB</title>
-          <style>
-            body {
-              font-family: Arial, sans-serif;
-              margin: 24px;
-              background: #f8fafc;
-              color: #0f172a;
-            }
-            h1 {
-              font-size: 18px;
-              margin-bottom: 8px;
-            }
-            p {
-              color: #475569;
-              font-size: 13px;
-            }
-            textarea {
-              width: 100%;
-              height: 520px;
-              margin-top: 12px;
-              padding: 14px;
-              font-family: Arial, sans-serif;
-              font-size: 14px;
-              line-height: 1.5;
-              border: 1px solid #cbd5e1;
-              border-radius: 8px;
-              box-sizing: border-box;
-              white-space: pre-wrap;
-            }
-            button {
-              margin-top: 12px;
-              padding: 10px 14px;
-              border: 0;
-              background: #003E52;
-              color: white;
-              border-radius: 8px;
-              cursor: pointer;
-              font-weight: 600;
-            }
-          </style>
-        </head>
-        <body>
-          <h1>${course.courseNumber} Weekly Status QB</h1>
-          <p>Plain text status summary. Copy, edit, or paste as needed.</p>
-          <textarea id="weeklyStatusText">${statusText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
-          <br />
-          <button onclick="navigator.clipboard.writeText(document.getElementById('weeklyStatusText').value); alert('Copied to clipboard.');">
-            Copy Text
-          </button>
-        </body>
-      </html>
-    `);
-
-    popup.document.close();
   };
 
-  const openCourseWeeklyStatusEmail = (course: CourseDevelopment) => {
-    const subjectDate = getTodayStatusDate();
-    const to = course.deptTeam?.smeEmail || '';
-    const cc = [course.deptTeam?.deanEmail, course.deptTeam?.managerEmail]
-      .filter(Boolean)
-      .join(';');
+  const triggerWeeklyStatusEmailDraft = (course: CourseDevelopment) => {
+    const today = new Date().toLocaleDateString("en-US", {
+      month: "2-digit",
+      day: "2-digit",
+      year: "2-digit",
+    });
 
-    const subject = `${course.courseNumber} Course Development Status ${subjectDate}`;
+    const to = course.deptTeam.smeEmail || "";
+    const cc = [course.deptTeam.deanEmail, course.deptTeam.managerEmail].filter(Boolean).join(";");
+    const subject = `${course.courseNumber} Course Development Status ${today}`;
+    const statusReport = generateWeeklyStatusReport(course);
 
-    const body = `This is a friendly update on the status of the course development. You do not need to take any action or respond to this email. It is for your information only.
+    const body = `This is a friendly update on the status of the course development. You do not need to take any action or respond to this email. It is for your information only.\n\n${statusReport}`;
 
-${getCourseWeeklyStatusText(course, true)}`;
-
-    const mailtoUrl = `mailto:${encodeURIComponent(to)}?cc=${encodeURIComponent(cc)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-
-    window.open(mailtoUrl, '_blank');
+    window.open(
+      `mailto:${encodeURIComponent(to)}?cc=${encodeURIComponent(cc)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`,
+      "_blank"
+    );
   };
 
   // Compliance business rule calculation: check if Closeout is >= 30 days
@@ -596,27 +519,27 @@ ${getCourseWeeklyStatusText(course, true)}`;
                   </h2>
                 </div>
 
-<div className="flex items-center gap-2">
-  <span className="text-2xs uppercase text-slate-400 font-semibold font-mono">
-    Alerts:
-  </span>
-
-  <select
-    value={activeCourse.alertStatus}
-    onChange={(e) => handleAlertStatusChange(e.target.value as any)}
-    className={`text-xs px-2.5 py-1.5 font-semibold border focus:outline-none ${
-      activeCourse.alertStatus === "High Priority Concerns"
-        ? "bg-red-700 text-white border-red-700"
-        : activeCourse.alertStatus === "Potential Concerns"
-        ? "bg-orange-600 text-white border-orange-600"
-        : "bg-green-700 text-white border-green-700"
-    }`}
-  >
-    <option value="No Concerns">No Concerns</option>
-    <option value="Potential Concerns">Potential Concerns</option>
-    <option value="High Priority Concerns">High Priority Concerns</option>
-  </select>
-</div>
+                <div className="flex items-center gap-2">
+                  <span className="text-2xs uppercase text-slate-400 font-semibold font-mono">
+                    Alerts:
+                  </span>
+                  <select
+                    value={activeCourse.alertStatus}
+                    onChange={(e) => handleAlertStatusChange(e.target.value as any)}
+                    className={`text-xs px-2.5 py-1.5 font-semibold border focus:outline-none ${
+                      activeCourse.alertStatus === "High Priority Concerns"
+                        ? "bg-red-700 text-white border-red-700"
+                        : activeCourse.alertStatus === "Potential Concerns"
+                        ? "bg-orange-600 text-white border-orange-600"
+                        : "bg-green-700 text-white border-green-700"
+                    }`}
+                  >
+                    <option value="No Concerns">No Concerns</option>
+                    <option value="Potential Concerns">Potential Concerns</option>
+                    <option value="High Priority Concerns">High Priority Concerns</option>
+                  </select>
+                </div>
+              </div>
 
               {/* COMPLIANCE WARNING BLOCK */}
               {!complianceRule(activeCourse, customBlocked) && (
@@ -654,69 +577,38 @@ ${getCourseWeeklyStatusText(course, true)}`;
                 </div>
               </div>
 
-              {/* STAKEHOLDERS PANEL WRITER */}
-              <div className="bg-slate-5 * p-4 border border-[#E0DCD8]">
-                <h4 className="text-xs uppercase font-semibold text-slate-700 mb-2 border-b pb-1">
-                  CeL & Academic Division Sibling Contacts Map
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3 text-xs md:font-mono">
-                  <div>
-                    <span className="text-slate-500 uppercase text-[10px] block font-semibold mb-0.5">Subject Matter Expert:</span>
-                    <div className="flex justify-between items-center">
-                      <span className="font-medium text-slate-800">{activeCourse.deptTeam.smeName}</span>
-                      <span className="text-slate-500 font-normal">{activeCourse.deptTeam.smeEmail}</span>
-                    </div>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 uppercase text-[10px] block font-semibold mb-0.5">Division ID:</span>
-                    <div className="flex justify-between items-center">
-                      <span className="font-medium text-slate-800">Chrystal Wickline</span>
-                      <span className="text-slate-500 font-normal">wickline@fscj.edu</span>
-                    </div>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 uppercase text-[10px] block font-semibold mb-0.5">Academic Dean:</span>
-                    <div className="flex justify-between items-center">
-                      <span className="font-medium text-slate-800">{activeCourse.deptTeam.deanName}</span>
-                      <span className="text-slate-500 font-normal">{activeCourse.deptTeam.deanEmail}</span>
-                    </div>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 uppercase text-[10px] block font-semibold mb-0.5">Academic Program Manager:</span>
-                    <div className="flex justify-between items-center">
-                      <span className="font-medium text-slate-800">{activeCourse.deptTeam.managerName || 'None assigned'}</span>
-                      <span className="text-slate-500 font-normal">{activeCourse.deptTeam.managerEmail || 'N/A'}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              {/* CONTACTS + OPERATIONAL CONTROLS */}
+              <div className="grid grid-cols-1 xl:grid-cols-[minmax(300px,420px)_1fr] gap-4">
+                {/* OPERATIONAL DATES */}
+                <div className="bg-[#F4F1ED]/20 p-4 border border-[#E0DCD8]/80">
+                  <h4 className="text-xs font-semibold text-slate-800 uppercase tracking-wide mb-3">
+                    Operational Dates
+                  </h4>
 
-              {/* INTERACTIVE CONTROLS SHELF */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-[#F4F1ED]/20 p-4 border border-[#E0DCD8]/80">
-                <div className="flex flex-col gap-2">
-                  <h4 className="text-xs font-semibold text-slate-800 uppercase">Operational Dates Controllers</h4>
-                  
-                  <div className="flex items-center gap-2">
-                    <span className="text-2xs text-slate-500 uppercase font-mono">Anchor Deadline:</span>
-                    <input
-                      type="date"
-                      value={activeCourse.termDeadline}
-                      onChange={(e) => handleRecalculateTimeline(e.target.value)}
-                      className="text-2xs px-2 py-1 border border-slate-300 bg-white focus:outline-none"
-                    />
-                  </div>
-                  
-                  <div className="flex items-center gap-4 mt-1.5 text-2xs">
+                  <div className="flex flex-col gap-3 text-xs">
+                    <label className="flex flex-col gap-1">
+                      <span className="text-[10px] text-slate-500 uppercase font-semibold font-mono">
+                        Anchor Deadline
+                      </span>
+                      <input
+                        type="date"
+                        value={activeCourse.termDeadline}
+                        onChange={(e) => handleRecalculateTimeline(e.target.value)}
+                        className="w-full max-w-[180px] text-xs px-2 py-1.5 border border-slate-300 bg-white focus:outline-none"
+                      />
+                    </label>
+
                     <button
                       onClick={handleToggleOnboarding}
-                      className="text-slate-600 hover:text-slate-900 font-semibold uppercase flex items-center gap-1 cursor-pointer select-none"
+                      className="text-left text-slate-600 hover:text-slate-900 font-semibold uppercase flex items-center gap-1 cursor-pointer select-none"
                     >
                       <Sparkles className="w-3.5 h-3.5 text-[#33B1C8]" />
                       <span>Onboarding: {activeCourse.onboarding ? 'Active (28 Tasks)' : 'Bypassed (23 Tasks)'}</span>
                     </button>
+
                     <button
                       onClick={handleToggleHideCompleted}
-                      className="text-slate-600 hover:text-slate-900 font-semibold uppercase flex items-center gap-1 cursor-pointer select-none"
+                      className="text-left text-slate-600 hover:text-slate-900 font-semibold uppercase flex items-center gap-1 cursor-pointer select-none"
                     >
                       <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
                       <span>{activeCourse.hideCompletedTasks ? 'Showing All Tasks' : 'Hide Completed Tasks'}</span>
@@ -724,36 +616,89 @@ ${getCourseWeeklyStatusText(course, true)}`;
                   </div>
                 </div>
 
-                <div className="flex flex-wrap justify-end items-center gap-2 ml-auto">
-                  <button
-                    onClick={() => openCourseWeeklyStatusQuickBox(activeCourse)}
-                    className="px-3 py-1.5 border border-[#006282] text-slate-800 hover:bg-slate-50 text-2xs font-semibold uppercase tracking-wider flex items-center gap-1 cursor-pointer"
-                  >
-                    <Clipboard className="w-3.5 h-3.5 text-[#006282]" /> Course Dev. Weekly Status QB
-                  </button>
-                  <button
-                    onClick={() => openCourseWeeklyStatusEmail(activeCourse)}
-                    className="px-3 py-1.5 border border-[#087834] text-slate-800 hover:bg-slate-50 text-2xs font-semibold uppercase tracking-wider flex items-center gap-1 cursor-pointer"
-                  >
-                    <Mail className="w-3.5 h-3.5 text-[#087834]" /> Course Dev. Weekly Status Email
-                  </button>
-                  <button
-                    onClick={() => triggerCompensationDraft(activeCourse)}
-                    className="px-3 py-1.5 border border-[#087834] text-slate-800 hover:bg-slate-50 text-2xs font-semibold uppercase tracking-wider flex items-center gap-1 cursor-pointer"
-                  >
-                    <Mail className="w-3.5 h-3.5 text-[#087834]" /> SME compensation notification
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (confirm("Are you sure you want to delete this course schedule from Firestore permanently?")) {
-                        onDeleteCourse(activeCourse.id || '');
-                      }
-                    }}
-                    className="px-2.5 py-1.5 text-rose-700 hover:bg-rose-50 text-2xs font-semibold uppercase flex items-center gap-1 cursor-pointer outline-none"
-                  >
-                    <Trash2 className="w-3.5 h-3.5 text-rose-600" /> Delete Project
-                  </button>
+                {/* CONTACT MAP */}
+                <div className="bg-slate-50 p-4 border border-[#E0DCD8]">
+                  <h4 className="text-xs uppercase font-semibold text-slate-700 mb-3 border-b pb-1">
+                    CeL & Academic Division Contacts
+                  </h4>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3 text-xs md:font-mono">
+                    <div>
+                      <span className="text-slate-500 uppercase text-[10px] block font-semibold mb-0.5">
+                        Subject Matter Expert
+                      </span>
+                      <div className="flex flex-col gap-0.5">
+                        <span className="font-medium text-slate-800">{activeCourse.deptTeam.smeName || 'Not entered'}</span>
+                        <span className="text-slate-500 font-normal break-all">{activeCourse.deptTeam.smeEmail || 'N/A'}</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <span className="text-slate-500 uppercase text-[10px] block font-semibold mb-0.5">
+                        Division ID
+                      </span>
+                      <div className="flex flex-col gap-0.5">
+                        <span className="font-medium text-slate-800">Chrystal Wickline</span>
+                        <span className="text-slate-500 font-normal break-all">wickline@fscj.edu</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <span className="text-slate-500 uppercase text-[10px] block font-semibold mb-0.5">
+                        Academic Dean
+                      </span>
+                      <div className="flex flex-col gap-0.5">
+                        <span className="font-medium text-slate-800">{activeCourse.deptTeam.deanName || 'Not entered'}</span>
+                        <span className="text-slate-500 font-normal break-all">{activeCourse.deptTeam.deanEmail || 'N/A'}</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <span className="text-slate-500 uppercase text-[10px] block font-semibold mb-0.5">
+                        Academic Program Manager
+                      </span>
+                      <div className="flex flex-col gap-0.5">
+                        <span className="font-medium text-slate-800">{activeCourse.deptTeam.managerName || 'None assigned'}</span>
+                        <span className="text-slate-500 font-normal break-all">{activeCourse.deptTeam.managerEmail || 'N/A'}</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
+              </div>
+
+              {/* COURSE ACTIONS */}
+              <div className="flex flex-wrap justify-end items-center gap-2 bg-white p-3 border border-[#E0DCD8]/80">
+                <button
+                  onClick={() => handleCopyStatusReport(activeCourse)}
+                  className="px-3 py-1.5 border border-[#006282] text-slate-800 hover:bg-slate-50 text-2xs font-semibold uppercase tracking-wider flex items-center gap-1 cursor-pointer"
+                >
+                  <Clipboard className="w-3.5 h-3.5 text-[#006282]" /> Course Dev. Weekly Status QB
+                </button>
+
+                <button
+                  onClick={() => triggerWeeklyStatusEmailDraft(activeCourse)}
+                  className="px-3 py-1.5 border border-[#087834] text-slate-800 hover:bg-slate-50 text-2xs font-semibold uppercase tracking-wider flex items-center gap-1 cursor-pointer"
+                >
+                  <Mail className="w-3.5 h-3.5 text-[#087834]" /> Course Dev. Weekly Status Email
+                </button>
+
+                <button
+                  onClick={() => triggerCompensationDraft(activeCourse)}
+                  className="px-3 py-1.5 border border-[#087834] text-slate-800 hover:bg-slate-50 text-2xs font-semibold uppercase tracking-wider flex items-center gap-1 cursor-pointer"
+                >
+                  <Mail className="w-3.5 h-3.5 text-[#087834]" /> SME Compensation Notification
+                </button>
+
+                <button
+                  onClick={() => {
+                    if (confirm("Are you sure you want to delete this course schedule from Firestore permanently?")) {
+                      onDeleteCourse(activeCourse.id || '');
+                    }
+                  }}
+                  className="px-2.5 py-1.5 text-rose-700 hover:bg-rose-50 text-2xs font-semibold uppercase flex items-center gap-1 cursor-pointer outline-none"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-600" /> Delete Project
+                </button>
               </div>
 
               {/* TASKS TABLE MATRIX */}
