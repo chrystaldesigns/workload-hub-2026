@@ -225,11 +225,10 @@ export function Category1CourseDev({
     if (!dateStr) return 'N/A';
     const date = new Date(`${dateStr.slice(0, 10)}T12:00:00`);
     if (Number.isNaN(date.getTime())) return dateStr;
-    return date.toLocaleDateString('en-US', {
-      month: '2-digit',
-      day: '2-digit',
-      year: 'numeric',
-    });
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${month}-${day}-${year}`;
   };
 
   const handleCheckboxChange = (name: 'onboarding') => {
@@ -584,10 +583,10 @@ export function Category1CourseDev({
       <div className="flex justify-between items-center bg-white border border-[#E0DCD8] p-4 shadow-2xs">
         <div>
           <h2 className="text-lg font-semibold text-slate-800 uppercase tracking-wide">
-            Category 1: Academic Course Developments
+            Category 1: Course Developments
           </h2>
           <p className="text-xs text-slate-500">
-            Backward-staggered course creation calendars tracking collegiate accreditation
+            Course development timelines, task progress, weekly status, and milestone tracking
           </p>
         </div>
         <button
