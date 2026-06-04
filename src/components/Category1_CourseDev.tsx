@@ -814,7 +814,7 @@ style={{ color: "white" }}
                       className="text-left text-slate-600 hover:text-slate-900 font-semibold uppercase flex items-center gap-1 cursor-pointer select-none"
                     >
                       <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
-                      <span>{activeCourse.hideCompletedTasks ? 'Showing All Tasks' : 'Hide Completed Tasks'}</span>
+                      <span>{activeCourse.hideCompletedTasks ? 'Show Completed Tasks' : 'Hide Completed Tasks'}</span>
                     </button>
                   </div>
                 </div>
@@ -1068,12 +1068,13 @@ style={{ color: "white" }}
                   {activeCourse.tasks
                     .filter(t => !activeCourse.hideCompletedTasks || t.status !== 'Complete')
                     .map((task) => {
-                      const isNA = task.status === 'Not Applicable';
-                      const isComp = task.status === 'Complete';
-                      const today = formatDate(new Date());
-                      const isOver = task.status !== 'Complete' && !isNA && task.dueDate && task.dueDate < today;
                       const draft = getTaskDraft(task);
-                      const hasChanges = hasTaskDraftChanges(task);
+const currentStatus = draft.status || task.status;
+const isNA = currentStatus === 'Not Applicable';
+const isComp = currentStatus === 'Complete';
+const today = formatDate(new Date());
+const isOver = currentStatus !== 'Complete' && !isNA && task.dueDate && task.dueDate < today;
+const hasChanges = hasTaskDraftChanges(task);
 
                       return (
                         <article
@@ -1103,17 +1104,9 @@ style={{ color: "white" }}
                                 </p>
                               </div>
 
-                              {!isNA && (
-                                <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700">
-                                  <input
-                                    type="checkbox"
-                                    checked={isComp}
-                                    onChange={() => handleToggleTask(Number(task.id))}
-                                    className="accent-[#006282] h-4 w-4 cursor-pointer rounded border-slate-300"
-                                  />
-                                  Mark Complete
-                                </label>
-                              )}
+<span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+  {currentStatus}
+</span>
                             </div>
 
                             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 text-xs">
