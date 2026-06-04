@@ -570,12 +570,20 @@ export function Category1CourseDev({
     // Keep the body available even if Outlook or the browser limits long compose URLs.
     navigator.clipboard?.writeText(body).catch(() => undefined);
 
-    const outlookUrl =
-      `https://outlook.office.com/mail/deeplink/compose` +
-      `?to=${encodeURIComponent(to)}` +
-      `&cc=${encodeURIComponent(cc)}` +
-      `&subject=${encodeURIComponent(subject)}` +
-      `&body=${encodeURIComponent(body)}`;
+    navigator.clipboard?.writeText(body).catch(() => undefined);
+
+const outlookUrl =
+  `https://outlook.office.com/mail/deeplink/compose` +
+  `?to=${encodeURIComponent(to)}` +
+  `&cc=${encodeURIComponent(cc)}` +
+  `&subject=${encodeURIComponent(subject)}`;
+
+window.open(outlookUrl, "_blank", "noopener,noreferrer");
+
+alert(
+  "Email draft opened. The full status report has been copied to your clipboard. Paste it into Outlook with Cmd + V."
+);
+return;
 
     const composeWindow = window.open(outlookUrl, "_blank", "noopener,noreferrer");
 
@@ -713,7 +721,8 @@ export function Category1CourseDev({
                   <select
                     value={activeCourse.alertStatus}
                     onChange={(e) => handleAlertStatusChange(e.target.value as any)}
-                    className={`text-xs px-2.5 py-1.5 font-semibold border focus:outline-none ${getAlertSelectClass(activeCourse.alertStatus)}`}
+                    className={`text-xs px-2.5 py-1.5 font-semibold border rounded appearance-none focus:outline-none ${getAlertSelectClass(activeCourse.alertStatus)}`}
+style={{ color: "white" }}
                   >
                     <option value="No Concerns">No Concerns</option>
                     <option value="Potential Concerns">Potential Concerns</option>
