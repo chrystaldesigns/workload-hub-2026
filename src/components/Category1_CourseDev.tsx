@@ -3,7 +3,7 @@ import { CourseDevelopment, CourseDevelopmentTask } from '../types';
 import { 
   FileText, Calendar, Plus, Mail, CheckCircle2, AlertTriangle, 
   Trash2, Sliders, ChevronRight, Share2, Clipboard, ShieldAlert,
-  SlidersHorizontal, Sparkles
+  SlidersHorizontal, Sparkles, Pencil, Save, X
 } from 'lucide-react';
 import { 
   calculateTimelineTasks, 
@@ -32,6 +32,8 @@ export function Category1CourseDev({
   const [selectedId, setSelectedId] = useState<string>(courseDevelopments[0]?.id || '');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState<CourseDevelopmentTask | null>(null);
+  const [editingCourse, setEditingCourse] = useState<typeof formData | null>(null);
+  const [taskDrafts, setTaskDrafts] = useState<Record<string, Partial<CourseDevelopmentTask & { notes?: string }>>>({});
 
   // Form states for new Course
   const [formData, setFormData] = useState({
@@ -64,6 +66,170 @@ export function Category1CourseDev({
       ...prev,
       [name]: value
     }));
+  };
+
+
+
+  const handleEditingChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    if (!editingCourse) return;
+
+    const { name, value } = e.target;
+    setEditingCourse(prev => prev ? ({
+      ...prev,
+      [name]: name === 'versionNumber' || name === 'devStagger'
+        ? Number(value)
+        : name === 'onboarding'
+          ? value === 'true'
+          : value
+    }) : prev);
+  };
+
+  const startEditingCourse = (course: CourseDevelopment) => {
+    setEditingCourse({
+      program: course.program || '',
+      courseNumber: course.courseNumber || '',
+      courseTitle: course.courseTitle || '',
+      canvasVersion: course.canvasVersion || '',
+      workshopCourse: course.workshopCourse || '',
+      devType: course.devType || 'Original',
+      versionNumber: Number(course.versionNumber || 1),
+      termRelease: course.termRelease || 'Fall B',
+      termDeadline: course.termDeadline || '',
+      devStagger: Number(course.devStagger || 14),
+      onboarding: !!course.onboarding,
+      smeName: course.deptTeam?.smeName || '',
+      smeEmail: course.deptTeam?.smeEmail || '',
+      deanName: course.deptTeam?.deanName || '',
+      deanEmail: course.deptTeam?.deanEmail || '',
+      managerName: course.deptTeam?.managerName || '',
+      managerEmail: course.deptTeam?.managerEmail || '',
+      courseNotes: course.courseNotes || '',
+      alertStatus: course.alertStatus || 'No Concerns',
+    });
+  };
+
+  const cancelEditingCourse = () => {
+    setEditingCourse(null);
+  };
+
+  const saveEditingCourse = async () => {
+    if (!activeCourse || !editingCourse) return;
+
+    if (!editingCourse.program.trim()) {
+      alert('Program is required.');
+      return;
+    }
+
+    if (!editingCourse.courseNumber.trim()) {
+      alert('Course Number is required.');
+      return;
+    }
+
+    if (!editingCourse.courseTitle.trim()) {
+      alert('Course Title is required.');
+      return;
+    }
+
+    await onUpdateCourse({
+      ...activeCourse,
+      program: editingCourse.program.trim(),
+      courseNumber: editingCourse.courseNumber.trim().toUpperCase(),
+      courseTitle: editingCourse.courseTitle.trim(),
+      canvasVersion: editingCourse.canvasVersion.trim(),
+      workshopCourse: editingCourse.workshopCourse.trim(),
+      devType: editingCourse.devType,
+      versionNumber: Number(editingCourse.versionNumber || 1),
+      termRelease: editingCourse.termRelease,
+      termDeadline: editingCourse.termDeadline || activeCourse.termDeadline,
+      devStagger: Number(editingCourse.devStagger || 14),
+      onboarding: editingCourse.onboarding,
+      deptTeam: {
+        smeName: editingCourse.smeName.trim(),
+        smeEmail: editingCourse.smeEmail.trim(),
+        deanName: editingCourse.deanName.trim(),
+        deanEmail: editingCourse.deanEmail.trim(),
+        managerName: editingCourse.managerName.trim(),
+        managerEmail: editingCourse.managerEmail.trim(),
+      },
+      alertStatus: editingCourse.alertStatus,
+      courseNotes: editingCourse.courseNotes.trim(),
+    });
+
+    setEditingCourse(null);
+  };
+
+  const getTaskKey = (task: CourseDevelopmentTask) => String(task.id);
+
+  const getTaskDraft = (task: CourseDevelopmentTask) => {
+    const key = getTaskKey(task);
+    const stored = taskDrafts[key] || {};
+
+    return {
+      startDate: stored.startDate ?? task.startDate ?? '',
+      dueDate: stored.dueDate ?? task.dueDate ?? '',
+      status: stored.status ?? task.status,
+      assignedTo: stored.assignedTo ?? task.assignedTo ?? '',
+      notes: stored.notes ?? (task as any).notes ?? '',
+    };
+  };
+
+  const updateTaskDraft = (task: CourseDevelopmentTask, field: string, value: string) => {
+    const key = getTaskKey(task);
+    setTaskDrafts(prev => ({
+      ...prev,
+      [key]: {
+        ...getTaskDraft(task),
+        ...prev[key],
+        [field]: value,
+      },
+    }));
+  };
+
+  const hasTaskDraftChanges = (task: CourseDevelopmentTask) => Boolean(taskDrafts[getTaskKey(task)]);
+
+  const clearTaskDraft = (task: CourseDevelopmentTask) => {
+    const key = getTaskKey(task);
+    setTaskDrafts(prev => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
+
+  const saveTaskChanges = async (task: CourseDevelopmentTask) => {
+    if (!activeCourse) return;
+
+    const draft = getTaskDraft(task);
+    const updatedTasks = activeCourse.tasks.map(item => {
+      if (item.id !== task.id) return item;
+
+      return {
+        ...item,
+        assignedTo: draft.assignedTo || item.assignedTo,
+        startDate: draft.startDate || '',
+        dueDate: draft.dueDate || '',
+        status: draft.status || item.status,
+        notes: draft.notes || '',
+      };
+    });
+
+    await onUpdateCourse({
+      ...activeCourse,
+      tasks: updatedTasks,
+    });
+
+    clearTaskDraft(task);
+  };
+
+  const formatDisplayDate = (dateStr?: string) => {
+    if (!dateStr) return 'N/A';
+    const date = new Date(`${dateStr.slice(0, 10)}T12:00:00`);
+    if (Number.isNaN(date.getTime())) return dateStr;
+    return date.toLocaleDateString('en-US', {
+      month: '2-digit',
+      day: '2-digit',
+      year: 'numeric',
+    });
   };
 
   const handleCheckboxChange = (name: 'onboarding') => {
@@ -418,7 +584,7 @@ export function Category1CourseDev({
       <div className="flex justify-between items-center bg-white border border-[#E0DCD8] p-4 shadow-2xs">
         <div>
           <h2 className="text-lg font-semibold text-slate-800 uppercase tracking-wide">
-            Academic Course Developments
+            Category 1: Academic Course Developments
           </h2>
           <p className="text-xs text-slate-500">
             Backward-staggered course creation calendars tracking collegiate accreditation
@@ -666,8 +832,161 @@ export function Category1CourseDev({
                 </div>
               </div>
 
+
+              {editingCourse && (
+                <div className="border border-[#33B1C8]/40 bg-slate-50 p-4">
+                  <div className="mb-4 flex items-center justify-between gap-3">
+                    <h4 className="text-sm font-semibold text-slate-900 uppercase tracking-wide">
+                      Edit Course Development
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={cancelEditingCourse}
+                      className="inline-flex items-center gap-1 rounded border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                    >
+                      <X className="w-3.5 h-3.5" /> Cancel
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                    <label className="flex flex-col gap-1">
+                      <span className="text-[10px] uppercase text-slate-500 font-semibold">Program</span>
+                      <input name="program" value={editingCourse.program} onChange={handleEditingChange} className="px-3 py-2 border border-slate-300 bg-white" />
+                    </label>
+
+                    <label className="flex flex-col gap-1">
+                      <span className="text-[10px] uppercase text-slate-500 font-semibold">Course Number</span>
+                      <input name="courseNumber" value={editingCourse.courseNumber} onChange={handleEditingChange} className="px-3 py-2 border border-slate-300 bg-white uppercase" />
+                    </label>
+
+                    <label className="md:col-span-2 flex flex-col gap-1">
+                      <span className="text-[10px] uppercase text-slate-500 font-semibold">Course Title</span>
+                      <input name="courseTitle" value={editingCourse.courseTitle} onChange={handleEditingChange} className="px-3 py-2 border border-slate-300 bg-white" />
+                    </label>
+
+                    <label className="flex flex-col gap-1">
+                      <span className="text-[10px] uppercase text-slate-500 font-semibold">Canvas Version</span>
+                      <input name="canvasVersion" value={editingCourse.canvasVersion} onChange={handleEditingChange} className="px-3 py-2 border border-slate-300 bg-white" />
+                    </label>
+
+                    <label className="flex flex-col gap-1">
+                      <span className="text-[10px] uppercase text-slate-500 font-semibold">Workshop Course</span>
+                      <input name="workshopCourse" value={editingCourse.workshopCourse} onChange={handleEditingChange} className="px-3 py-2 border border-slate-300 bg-white" />
+                    </label>
+
+                    <label className="flex flex-col gap-1">
+                      <span className="text-[10px] uppercase text-slate-500 font-semibold">Development Type</span>
+                      <select name="devType" value={editingCourse.devType} onChange={handleEditingChange} className="px-3 py-2 border border-slate-300 bg-white">
+                        <option value="Original">Original</option>
+                        <option value="New Release">New Release</option>
+                        <option value="Tier 1 & 2 Revision">Tier 1 &amp; 2 Revision</option>
+                        <option value="Modification">Modification</option>
+                      </select>
+                    </label>
+
+                    <label className="flex flex-col gap-1">
+                      <span className="text-[10px] uppercase text-slate-500 font-semibold">Version Number</span>
+                      <input type="number" name="versionNumber" value={editingCourse.versionNumber} onChange={handleEditingChange} className="px-3 py-2 border border-slate-300 bg-white" />
+                    </label>
+
+                    <label className="flex flex-col gap-1">
+                      <span className="text-[10px] uppercase text-slate-500 font-semibold">Term Release</span>
+                      <select name="termRelease" value={editingCourse.termRelease} onChange={handleEditingChange} className="px-3 py-2 border border-slate-300 bg-white">
+                        <option value="Spring A">Spring A</option>
+                        <option value="Spring B">Spring B</option>
+                        <option value="Spring C">Spring C</option>
+                        <option value="Summer A">Summer A</option>
+                        <option value="Summer B">Summer B</option>
+                        <option value="Summer C">Summer C</option>
+                        <option value="Fall A">Fall A</option>
+                        <option value="Fall B">Fall B</option>
+                        <option value="Fall C">Fall C</option>
+                      </select>
+                    </label>
+
+                    <label className="flex flex-col gap-1">
+                      <span className="text-[10px] uppercase text-slate-500 font-semibold">Course Deadline</span>
+                      <input type="date" name="termDeadline" value={editingCourse.termDeadline} onChange={handleEditingChange} className="px-3 py-2 border border-slate-300 bg-white" />
+                      <span className="text-[10px] text-slate-500">Displays as {formatDisplayDate(editingCourse.termDeadline)}</span>
+                    </label>
+
+                    <label className="flex flex-col gap-1">
+                      <span className="text-[10px] uppercase text-slate-500 font-semibold">Development Stagger Days</span>
+                      <input type="number" name="devStagger" value={editingCourse.devStagger} onChange={handleEditingChange} className="px-3 py-2 border border-slate-300 bg-white" />
+                    </label>
+
+                    <label className="flex flex-col gap-1">
+                      <span className="text-[10px] uppercase text-slate-500 font-semibold">Onboarding</span>
+                      <select name="onboarding" value={String(editingCourse.onboarding)} onChange={handleEditingChange} className="px-3 py-2 border border-slate-300 bg-white">
+                        <option value="true">Yes</option>
+                        <option value="false">No</option>
+                      </select>
+                    </label>
+
+                    <label className="flex flex-col gap-1">
+                      <span className="text-[10px] uppercase text-slate-500 font-semibold">Alerts</span>
+                      <select name="alertStatus" value={editingCourse.alertStatus} onChange={handleEditingChange} className="px-3 py-2 border border-slate-300 bg-white">
+                        <option value="No Concerns">No Concerns</option>
+                        <option value="Potential Concerns">Potential Concerns</option>
+                        <option value="High Priority Concerns">High Priority Concerns</option>
+                      </select>
+                    </label>
+
+                    <label className="flex flex-col gap-1">
+                      <span className="text-[10px] uppercase text-slate-500 font-semibold">SME Name</span>
+                      <input name="smeName" value={editingCourse.smeName} onChange={handleEditingChange} className="px-3 py-2 border border-slate-300 bg-white" />
+                    </label>
+
+                    <label className="flex flex-col gap-1">
+                      <span className="text-[10px] uppercase text-slate-500 font-semibold">SME Email</span>
+                      <input type="email" name="smeEmail" value={editingCourse.smeEmail} onChange={handleEditingChange} className="px-3 py-2 border border-slate-300 bg-white" />
+                    </label>
+
+                    <label className="flex flex-col gap-1">
+                      <span className="text-[10px] uppercase text-slate-500 font-semibold">Dean Name</span>
+                      <input name="deanName" value={editingCourse.deanName} onChange={handleEditingChange} className="px-3 py-2 border border-slate-300 bg-white" />
+                    </label>
+
+                    <label className="flex flex-col gap-1">
+                      <span className="text-[10px] uppercase text-slate-500 font-semibold">Dean Email</span>
+                      <input type="email" name="deanEmail" value={editingCourse.deanEmail} onChange={handleEditingChange} className="px-3 py-2 border border-slate-300 bg-white" />
+                    </label>
+
+                    <label className="flex flex-col gap-1">
+                      <span className="text-[10px] uppercase text-slate-500 font-semibold">Program Manager Name</span>
+                      <input name="managerName" value={editingCourse.managerName} onChange={handleEditingChange} className="px-3 py-2 border border-slate-300 bg-white" />
+                    </label>
+
+                    <label className="flex flex-col gap-1">
+                      <span className="text-[10px] uppercase text-slate-500 font-semibold">Program Manager Email</span>
+                      <input type="email" name="managerEmail" value={editingCourse.managerEmail} onChange={handleEditingChange} className="px-3 py-2 border border-slate-300 bg-white" />
+                    </label>
+
+                    <label className="md:col-span-2 flex flex-col gap-1">
+                      <span className="text-[10px] uppercase text-slate-500 font-semibold">Course Notes</span>
+                      <textarea name="courseNotes" value={editingCourse.courseNotes} onChange={handleEditingChange} rows={3} className="px-3 py-2 border border-slate-300 bg-white" />
+                    </label>
+                  </div>
+
+                  <div className="mt-4 flex justify-end gap-2">
+                    <button type="button" onClick={cancelEditingCourse} className="inline-flex items-center gap-1 px-3 py-2 border border-slate-300 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                      <X className="w-3.5 h-3.5" /> Cancel
+                    </button>
+                    <button type="button" onClick={saveEditingCourse} className="inline-flex items-center gap-1 px-3 py-2 bg-[#006282] text-white text-xs font-semibold hover:bg-[#076092]">
+                      <Save className="w-3.5 h-3.5" /> Save Course Development
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* COURSE ACTIONS */}
               <div className="flex flex-wrap justify-end items-center gap-2 bg-white p-3 border border-[#E0DCD8]/80">
+                <button
+                  onClick={() => startEditingCourse(activeCourse)}
+                  className="px-3 py-1.5 border border-slate-300 text-slate-800 hover:bg-slate-50 text-2xs font-semibold uppercase tracking-wider flex items-center gap-1 cursor-pointer"
+                >
+                  <Pencil className="w-3.5 h-3.5 text-slate-600" /> Edit Course Development
+                </button>
                 <button
                   onClick={() => handleCopyStatusReport(activeCourse)}
                   className="px-3 py-1.5 border border-[#006282] text-slate-800 hover:bg-slate-50 text-2xs font-semibold uppercase tracking-wider flex items-center gap-1 cursor-pointer"
@@ -703,77 +1022,163 @@ export function Category1CourseDev({
 
               {/* TASKS TABLE MATRIX */}
               <div className="border border-slate-200 mt-2">
-                <div className="bg-slate-50 p-2.5 border-b border-slate-200 flex justify-between items-center">
+                <div className="bg-slate-50 p-2.5 border-b border-slate-200 flex flex-col gap-1 sm:flex-row sm:justify-between sm:items-center">
                   <span className="text-xs uppercase font-semibold text-slate-700">Cascade Timeline Milestones</span>
-                  <span className="text-2xs text-slate-400 font-mono">Sorted backwards from Anchor Deadline</span>
+                  <span className="text-2xs text-slate-400 font-mono">Editable task dates, owners, statuses, and notes</span>
                 </div>
-                <div className="max-h-96 overflow-y-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead>
-                      <tr className="bg-slate-100/50 text-slate-500 font-semibold border-b text-[10px] uppercase">
-                        <th className="px-4 py-2">Task</th>
-                        <th className="px-4 py-2">Owner</th>
-                        <th className="px-4 py-2">Start Date</th>
-                        <th className="px-4 py-2">Due Date</th>
-                        <th className="px-4 py-2 text-center w-16">Toggle</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {activeCourse.tasks
-                        .filter(t => !activeCourse.hideCompletedTasks || t.status !== 'Complete')
-                        .map((task, idx) => {
-                          const isNA = task.status === 'Not Applicable';
-                          const isComp = task.status === 'Complete';
-                          
-                          // Check if task is overdue in system context
-                          const today = formatDate(new Date());
-                          const isOver = task.status !== 'Complete' && !isNA && task.dueDate && task.dueDate < today;
 
-                          return (
-                            <tr key={task.id} className={`hover:bg-slate-50/50 ${isNA ? 'bg-slate-50/30' : ''}`}>
-                              <td className="px-4 py-2.5">
-                                <div className="flex flex-col">
-                                  <span className={`font-semibold ${isComp ? 'line-through text-slate-400' : 'text-slate-800'}`}>
+                <div className="max-h-[680px] overflow-y-auto p-3 space-y-3">
+                  {activeCourse.tasks
+                    .filter(t => !activeCourse.hideCompletedTasks || t.status !== 'Complete')
+                    .map((task) => {
+                      const isNA = task.status === 'Not Applicable';
+                      const isComp = task.status === 'Complete';
+                      const today = formatDate(new Date());
+                      const isOver = task.status !== 'Complete' && !isNA && task.dueDate && task.dueDate < today;
+                      const draft = getTaskDraft(task);
+                      const hasChanges = hasTaskDraftChanges(task);
+
+                      return (
+                        <article
+                          key={task.id}
+                          className={`rounded-xl border p-4 ${isNA ? 'border-slate-200 bg-slate-50/70' : 'border-slate-200 bg-white'}`}
+                        >
+                          <div className="flex flex-col gap-4">
+                            <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+                              <div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className={`font-semibold ${isComp ? 'line-through text-slate-400' : 'text-slate-900'}`}>
                                     {task.id}. {task.name}
                                   </span>
-                                  <span className="text-[10px] text-slate-400 font-mono">
-                                    Phase: {task.phase} {task.durationDays > 0 ? `(${task.durationDays} working days)` : ''}
-                                  </span>
+                                  {hasChanges && (
+                                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-amber-800">
+                                      Unsaved Changes
+                                    </span>
+                                  )}
+                                  {isOver && (
+                                    <span className="rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-semibold uppercase text-white animate-pulse">
+                                      Overdue Alert
+                                    </span>
+                                  )}
                                 </div>
-                              </td>
-                              <td className="px-4 py-2.5 font-semibold text-slate-700">
-                                {task.assignedTo}
-                              </td>
-                              <td className="px-4 py-2.5 font-mono text-slate-500">
-                                {task.startDate ? task.startDate : 'N/A'}
-                              </td>
-                              <td className={`px-4 py-2.5 font-mono font-semibold ${isOver ? 'text-rose-600' : 'text-slate-600'}`}>
-                                {task.dueDate ? task.dueDate : 'N/A'}
-                                {isOver && (
-                                  <span className="ml-1 text-[9px] uppercase tracking-widest font-bold font-mono bg-rose-600 text-white px-1.5 py-0.5 rounded animate-pulse">
-                                    Overdue Alert
-                                  </span>
-                                )}
-                              </td>
-                              <td className="px-4 py-2.5 text-center">
-                                {!isNA ? (
+                                <p className="mt-1 text-[10px] font-mono text-slate-500">
+                                  Phase: {task.phase} {task.durationDays > 0 ? `(${task.durationDays} working days)` : ''}
+                                </p>
+                              </div>
+
+                              {!isNA && (
+                                <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700">
                                   <input
                                     type="checkbox"
                                     checked={isComp}
-                                    onChange={() => handleToggleTask(idx)}
-                                    className="accent-[#006282] w-4.5 h-4.5 rounded cursor-pointer border-slate-300"
+                                    onChange={() => handleToggleTask(Number(task.id))}
+                                    className="accent-[#006282] h-4 w-4 cursor-pointer rounded border-slate-300"
                                   />
-                                ) : (
-                                  <span className="text-[10px] uppercase font-mono font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5">
-                                    N/A
-                                  </span>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                    </tbody>
-                  </table>
+                                  Mark Complete
+                                </label>
+                              )}
+                            </div>
+
+                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 text-xs">
+                              <label className="flex flex-col gap-1">
+                                <span className="text-[10px] uppercase text-slate-500 font-semibold">Owner</span>
+                                <select
+                                  value={draft.assignedTo || ''}
+                                  onChange={(e) => updateTaskDraft(task, 'assignedTo', e.target.value)}
+                                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                                >
+                                  <option>Operations</option>
+                                  <option>Instructional Designer</option>
+                                  <option>Subject Matter Expert</option>
+                                  <option>Quality Assurance</option>
+                                  <option>Multimedia</option>
+                                  <option>Learning Experience Architect</option>
+                                </select>
+                              </label>
+
+                              <label className="flex flex-col gap-1">
+                                <span className="text-[10px] uppercase text-slate-500 font-semibold">Status</span>
+                                <select
+                                  value={draft.status || 'Not Started'}
+                                  onChange={(e) => updateTaskDraft(task, 'status', e.target.value)}
+                                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                                >
+                                  <option>Not Started</option>
+                                  <option>In Progress</option>
+                                  <option>Developing (Content)</option>
+                                  <option>Developing (Canvas)</option>
+                                  <option>Scheduled</option>
+                                  <option>On Hold</option>
+                                  <option>Submission Late (SME)</option>
+                                  <option>Complete</option>
+                                  <option>Not Applicable</option>
+                                </select>
+                              </label>
+
+                              <label className="flex flex-col gap-1">
+                                <span className="text-[10px] uppercase text-slate-500 font-semibold">Start Date</span>
+                                <input
+                                  type="date"
+                                  value={draft.startDate || ''}
+                                  onChange={(e) => updateTaskDraft(task, 'startDate', e.target.value)}
+                                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                                />
+                                <span className="text-[10px] text-slate-500">{formatDisplayDate(draft.startDate)}</span>
+                              </label>
+
+                              <label className="flex flex-col gap-1">
+                                <span className="text-[10px] uppercase text-slate-500 font-semibold">Due Date</span>
+                                <input
+                                  type="date"
+                                  value={draft.dueDate || ''}
+                                  onChange={(e) => updateTaskDraft(task, 'dueDate', e.target.value)}
+                                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                                />
+                                <span className="text-[10px] text-slate-500">{formatDisplayDate(draft.dueDate)}</span>
+                              </label>
+                            </div>
+
+                            <label className="flex flex-col gap-1 text-xs">
+                              <span className="text-[10px] uppercase text-slate-500 font-semibold">Task Notes</span>
+                              <textarea
+                                value={draft.notes || ''}
+                                onChange={(e) => updateTaskDraft(task, 'notes', e.target.value)}
+                                rows={3}
+                                placeholder="Add task-specific notes..."
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                              />
+                            </label>
+
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                onClick={() => saveTaskChanges(task)}
+                                disabled={!hasChanges}
+                                className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium ${
+                                  hasChanges
+                                    ? 'bg-[#003E52] text-white hover:bg-[#073C5C]'
+                                    : 'bg-slate-200 text-slate-500'
+                                }`}
+                              >
+                                <Save className="h-4 w-4" aria-hidden="true" />
+                                Save Task Changes
+                              </button>
+
+                              {hasChanges && (
+                                <button
+                                  type="button"
+                                  onClick={() => clearTaskDraft(task)}
+                                  className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                                >
+                                  <X className="h-4 w-4" aria-hidden="true" />
+                                  Cancel
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </article>
+                      );
+                    })}
                 </div>
               </div>
 
