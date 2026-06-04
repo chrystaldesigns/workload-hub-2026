@@ -397,6 +397,17 @@ export function Category1CourseDev({
     }
   };
 
+  const getAlertSelectClass = (status?: string) => {
+    switch (status) {
+      case 'High Priority Concerns':
+        return 'bg-red-700 text-white border-red-700';
+      case 'Potential Concerns':
+        return 'bg-orange-600 text-white border-orange-600';
+      default:
+        return 'bg-green-700 text-white border-green-700';
+    }
+  };
+
   // Status metrics calculations
   const calculateProgress = (course: CourseDevelopment) => {
     if (!course || !course.tasks || course.tasks.length === 0) return 0;
@@ -550,16 +561,27 @@ export function Category1CourseDev({
     });
 
     const to = course.deptTeam.smeEmail || "";
-    const cc = [course.deptTeam.deanEmail, course.deptTeam.managerEmail].filter(Boolean).join(";");
+    const cc = [course.deptTeam.deanEmail, course.deptTeam.managerEmail].filter(Boolean).join(",");
     const subject = `${course.courseNumber} Course Development Status ${today}`;
     const statusReport = generateWeeklyStatusReport(course);
 
     const body = `This is a friendly update on the status of the course development. You do not need to take any action or respond to this email. It is for your information only.\n\n${statusReport}`;
 
-    window.open(
-      `mailto:${encodeURIComponent(to)}?cc=${encodeURIComponent(cc)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`,
-      "_blank"
-    );
+    // Keep the body available even if Outlook or the browser limits long compose URLs.
+    navigator.clipboard?.writeText(body).catch(() => undefined);
+
+    const outlookUrl =
+      `https://outlook.office.com/mail/deeplink/compose` +
+      `?to=${encodeURIComponent(to)}` +
+      `&cc=${encodeURIComponent(cc)}` +
+      `&subject=${encodeURIComponent(subject)}` +
+      `&body=${encodeURIComponent(body)}`;
+
+    const composeWindow = window.open(outlookUrl, "_blank", "noopener,noreferrer");
+
+    if (!composeWindow) {
+      alert("The email body was copied to your clipboard, but the Outlook compose window was blocked by the browser.");
+    }
   };
 
   // Compliance business rule calculation: check if Closeout is >= 30 days
@@ -649,7 +671,7 @@ export function Category1CourseDev({
 
                     {/* Progress Bar Mini */}
                     <div className="mt-2 text-2xs flex justify-between items-center text-slate-500">
-                      <span>Term Deadline: {c.termDeadline}</span>
+                      <span>Term Deadline: {formatDisplayDate(c.termDeadline)}</span>
                       <span className="font-semibold">{prog}% Completeness</span>
                     </div>
                     <div className="w-full bg-slate-100 h-1 mt-1">
@@ -691,13 +713,7 @@ export function Category1CourseDev({
                   <select
                     value={activeCourse.alertStatus}
                     onChange={(e) => handleAlertStatusChange(e.target.value as any)}
-                    className={`text-xs px-2.5 py-1.5 font-semibold border focus:outline-none ${
-                      activeCourse.alertStatus === "High Priority Concerns"
-                        ? "bg-red-700 text-white border-red-700"
-                        : activeCourse.alertStatus === "Potential Concerns"
-                        ? "bg-orange-600 text-white border-orange-600"
-                        : "bg-green-700 text-white border-green-700"
-                    }`}
+                    className={`text-xs px-2.5 py-1.5 font-semibold border focus:outline-none ${getAlertSelectClass(activeCourse.alertStatus)}`}
                   >
                     <option value="No Concerns">No Concerns</option>
                     <option value="Potential Concerns">Potential Concerns</option>
@@ -713,7 +729,7 @@ export function Category1CourseDev({
                   <div>
                     <span>CRITICAL SYSTEM NON-COMPLIANCE EXPOSURE: </span>
                     <span className="font-normal block text-[11px] mt-0.5">
-                      Course closeout milestone (Task 26) is scheduled less than 30 business days before the Term Release Anchor date ({activeCourse.termDeadline}). Available gap is currently only {closeoutComp.count} business days, creating a bottleneck.
+                      Course closeout milestone (Task 26) is scheduled less than 30 business days before the Term Release Anchor date ({formatDisplayDate(activeCourse.termDeadline)}). Available gap is currently only {closeoutComp.count} business days, creating a bottleneck.
                     </span>
                   </div>
                 </div>
