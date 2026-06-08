@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { CourseDevelopment, CourseDevelopmentTask } from '../types';
 import { 
   FileText, Calendar, Plus, Mail, CheckCircle2, AlertTriangle, 
@@ -29,7 +29,10 @@ export function Category1CourseDev({
   onUpdateCourse, 
   onDeleteCourse 
 }: Category1Props) {
-  const [selectedId, setSelectedId] = useState<string>(courseDevelopments[0]?.id || '');
+  const [selectedId, setSelectedId] = useState<string>(() => {
+    if (typeof window === 'undefined') return courseDevelopments[0]?.id || '';
+    return localStorage.getItem('workloadHubSelectedCourseId') || courseDevelopments[0]?.id || '';
+  });
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState<CourseDevelopmentTask | null>(null);
   const [editingCourse, setEditingCourse] = useState<typeof formData | null>(null);
@@ -60,6 +63,36 @@ export function Category1CourseDev({
 
   const activeCourses = courseDevelopments.filter((course) => !(course as any).archived);
   const activeCourse = activeCourses.find(c => c.id === selectedId) || activeCourses[0];
+
+  const selectCourse = (courseId: string) => {
+    setSelectedId(courseId);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('workloadHubSelectedCourseId', courseId);
+    }
+  };
+
+  useEffect(() => {
+    if (!activeCourses.length) {
+      if (selectedId !== '') setSelectedId('');
+      return;
+    }
+
+    const stillExists = activeCourses.some((course) => course.id === selectedId);
+    if (selectedId && stillExists) return;
+
+    const storedId = typeof window !== 'undefined'
+      ? localStorage.getItem('workloadHubSelectedCourseId')
+      : '';
+
+    const nextId = activeCourses.find((course) => course.id === storedId)?.id || activeCourses[0]?.id || '';
+
+    if (nextId && nextId !== selectedId) {
+      setSelectedId(nextId);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('workloadHubSelectedCourseId', nextId);
+      }
+    }
+  }, [courseDevelopments, selectedId]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -216,11 +249,20 @@ export function Category1CourseDev({
 
     const scrollX = window.scrollX;
     const scrollY = window.scrollY;
+    const preservedSelectedId = activeCourse.id || selectedId;
+
+    if (preservedSelectedId && typeof window !== 'undefined') {
+      localStorage.setItem('workloadHubSelectedCourseId', preservedSelectedId);
+    }
 
     await onUpdateCourse({
       ...activeCourse,
       tasks: updatedTasks,
     });
+
+    if (preservedSelectedId) {
+      setSelectedId(preservedSelectedId);
+    }
 
     window.requestAnimationFrame(() => {
       window.scrollTo(scrollX, scrollY);
@@ -245,11 +287,20 @@ export function Category1CourseDev({
 
     const scrollX = window.scrollX;
     const scrollY = window.scrollY;
+    const preservedSelectedId = activeCourse.id || selectedId;
+
+    if (preservedSelectedId && typeof window !== 'undefined') {
+      localStorage.setItem('workloadHubSelectedCourseId', preservedSelectedId);
+    }
 
     await onUpdateCourse({
       ...activeCourse,
       tasks: updatedTasks,
     });
+
+    if (preservedSelectedId) {
+      setSelectedId(preservedSelectedId);
+    }
 
     window.requestAnimationFrame(() => {
       window.scrollTo(scrollX, scrollY);
@@ -420,7 +471,7 @@ Archived developments will be hidden from the active Course Developments list bu
       archived: true,
     } as CourseDevelopment & { archived?: boolean });
 
-    setSelectedId(nextActiveCourse?.id || '');
+    selectCourse(nextActiveCourse?.id || '');
   };
 
   const handleAlertStatusChange = async (status: 'No Concerns' | 'Potential Concerns' | 'High Priority Concerns') => {
@@ -705,7 +756,7 @@ Archived developments will be hidden from the active Course Developments list bu
                 return (
                   <button
                     key={c.id}
-                    onClick={() => setSelectedId(c.id || '')}
+                    onClick={() => selectCourse(c.id || '')}
                     className={`p-4 border text-left bg-white transition-all flex flex-col gap-2 select-none cursor-pointer outline-none relative overflow-hidden ${
                       isSelected 
                         ? 'border-[#006282] ring-1 ring-[#006282] shadow-xs' 
@@ -1122,7 +1173,7 @@ Archived developments will be hidden from the active Course Developments list bu
 
                 <div className="max-h-[680px] overflow-y-auto p-3 space-y-3">
                   {activeCourse.tasks
-                    .filter(t => activeCourse.hideCompletedTasks === false || t.status !== 'Complete')
+                    .filter(t => activeCourse.hideCompletedTasks === false || (t.status !== 'Complete' && t.status !== 'Not Applicable'))
                     .map((task) => {
                       const draft = getTaskDraft(task);
                       const currentStatus = draft.status || task.status;
