@@ -47,7 +47,50 @@ export default function App() {
       day: "2-digit",
       year: "2-digit",
     });
+const getNextMilestone = () => {
+  const today = new Date().toISOString().split("T")[0];
 
+  const milestoneList: { date: string; label: string }[] = [];
+
+  courseDevelopments.forEach((course) => {
+    const milestones = course.milestones;
+
+    if (!milestones) return;
+
+    const addMilestone = (
+      date?: string,
+      label?: string
+    ) => {
+      if (date && date >= today) {
+        milestoneList.push({
+          date,
+          label: `${course.courseNumber} ${label}`,
+        });
+      }
+    };
+
+    addMilestone(milestones.kickoff, "Kickoff");
+    addMilestone(milestones.midpointReview, "Midpoint");
+    addMilestone(milestones.finalReview, "Final Review");
+    addMilestone(milestones.developmentCompletion, "Development Complete");
+  });
+
+  milestoneList.sort((a, b) => a.date.localeCompare(b.date));
+
+  if (!milestoneList.length) return undefined;
+
+  const next = milestoneList[0];
+
+  const formatted = new Date(
+    `${next.date}T12:00:00`
+  ).toLocaleDateString("en-US", {
+    month: "2-digit",
+    day: "2-digit",
+    year: "2-digit",
+  });
+
+  return `${next.label} • ${formatted}`;
+};
     return `${formattedDate}: College Closed`;
   };
 
@@ -585,10 +628,11 @@ export default function App() {
   return (
     <div className="flex min-h-screen flex-col bg-slate-50/50">
       <Header
-        outlookConnected={!!calendarSettings.outlookConnected}
-        alertCount={alertCount}
-        nextHoliday={getNextHoliday()}
-      />
+  outlookConnected={!!calendarSettings.outlookConnected}
+  alertCount={alertCount}
+  nextHoliday={getNextHoliday()}
+  nextMilestone={getNextMilestone()}
+/>
 
       <Navigation
         activeTab={activeTab}
