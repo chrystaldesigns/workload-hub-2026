@@ -14,6 +14,7 @@ import { Category2LssProjects } from "./components/Category2_LssProjects";
 import { Category3Tasks } from "./components/Category3_Tasks";
 import { CalendarSettingsPanel } from "./components/CalendarSettingsPanel";
 import { AlertCircle, RefreshCw } from "lucide-react";
+import { FSCJ_HOLIDAYS } from "./utils/calendarEngine";
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>("dashboard");
@@ -151,7 +152,25 @@ export default function App() {
   useEffect(() => {
     loadDashboardData();
   }, []);
+const getNextHoliday = () => {
+  const today = new Date().toISOString().split("T")[0];
 
+  const nextHolidayDate = FSCJ_HOLIDAYS
+    .filter((date) => date >= today)
+    .sort()[0];
+
+  if (!nextHolidayDate) return undefined;
+
+  const date = new Date(`${nextHolidayDate}T12:00:00`);
+
+  const formattedDate = date.toLocaleDateString("en-US", {
+    month: "2-digit",
+    day: "2-digit",
+    year: "2-digit",
+  });
+
+  return `${formattedDate}: College Closed`;
+};
   const handleAddCourse = async (newCourse: CourseDevelopment) => {
     try {
       const payload: CourseDevelopment = {
@@ -566,7 +585,7 @@ export default function App() {
       <Header
   outlookConnected={!!calendarSettings.outlookConnected}
   alertCount={alertCount}
-  nextHoliday="06-19-26: College Closed (Juneteenth)"
+  nextHoliday={getNextHoliday()}
 />
 
       <Navigation
