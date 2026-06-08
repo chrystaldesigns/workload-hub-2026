@@ -14,6 +14,7 @@ import { Category2LssProjects } from "./components/Category2_LssProjects";
 import { Category3Tasks } from "./components/Category3_Tasks";
 import { CalendarSettingsPanel } from "./components/CalendarSettingsPanel";
 import { AlertCircle, RefreshCw } from "lucide-react";
+import { FSCJ_HOLIDAYS } from "./utils/calendarEngine";
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>("dashboard");
@@ -29,6 +30,124 @@ export default function App() {
   });
   const [outlookEvents, setOutlookEvents] = useState<OutlookEvent[]>([]);
   const [alertCount, setAlertCount] = useState<number>(0);
+
+  const getLocalTodayIso = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  const formatHeaderDate = (dateStr: string) => {
+    const date = new Date(`${dateStr}T12:00:00`);
+    if (Number.isNaN(date.getTime())) return dateStr;
+
+    return date.toLocaleDateString("en-US", {
+      month: "2-digit",
+      day: "2-digit",
+      year: "2-digit",
+    });
+  };
+
+  const getHolidayName = (dateStr: string) => {
+    const date = new Date(`${dateStr}T12:00:00`);
+    if (Number.isNaN(date.getTime())) return "College Closed";
+
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+
+    if (month === 1 && day === 1) return "New Year's Day";
+    if (month === 1) return "Martin Luther King Jr. Day";
+    if (month === 3 || month === 4) return "Spring Break";
+    if (month === 5) return "Memorial Day";
+    if (month === 6 && day === 19) return "Juneteenth";
+    if (month === 7 && day === 4) return "Independence Day";
+    if (month === 9) return "Labor Day";
+    if (month === 11 && day >= 20) return "Thanksgiving Break";
+    if (month === 12) return "Winter Break";
+
+    return "College Closed";
+  };
+
+  const getNextHoliday = () => {
+    const today = getLocalTodayIso();
+
+    const nextHolidayDate = FSCJ_HOLIDAYS
+      .filter((date) => date >= today)
+      .sort()[0];
+
+    if (!nextHolidayDate) return undefined;
+
+    return `${formatHeaderDate(nextHolidayDate)}: ${getHolidayName(nextHolidayDate)}`;
+  };
+
+  const getNextMilestone = () => {
+    const today = getLocalTodayIso();
+
+    const milestoneList: { date: string; label: string }[] = [];
+
+    courseDevelopments.forEach((course) => {
+      const coursePrefix = course.courseNumber || "Course";
+      const milestones = course.milestones;
+
+      const addMilestone = (date: string | null | undefined, label: string) => {
+        if (date && date >= today) {
+          milestoneList.push({
+            date,
+            label: `${coursePrefix} ${label}`,
+          });
+        }
+      };
+
+      if (milestones) {
+        addMilestone(milestones.onboarding, "Onboarding");
+        addMilestone(milestones.initialMeeting, "Initial Meeting");
+        addMilestone(milestones.courseDesignPlanDue, "Course Design Plan Due");
+        addMilestone(milestones.kickoff, "Kickoff");
+        addMilestone(milestones.midpointReview, "Midpoint Review");
+        addMilestone(milestones.finalReview, "Final Review");
+        addMilestone(milestones.smeDeliverablesComplete, "SME Deliverables Complete");
+        addMilestone(milestones.developmentCompletion, "Development Complete");
+        addMilestone(milestones.closeout, "Closeout");
+      }
+
+      if (Array.isArray(course.tasks)) {
+        course.tasks.forEach((task) => {
+          const taskName = task.name || "Milestone";
+          const taskDate = task.dueDate || task.startDate;
+          const nameLower = taskName.toLowerCase();
+          const looksLikeMilestone =
+            task.isMilestone ||
+            nameLower.includes("kickoff") ||
+            nameLower.includes("midpoint") ||
+            nameLower.includes("final review") ||
+            nameLower.includes("course design plan") ||
+            nameLower.includes("development completion") ||
+            nameLower.includes("sme deliverables");
+
+          if (
+            looksLikeMilestone &&
+            taskDate &&
+            taskDate >= today &&
+            task.status !== "Complete" &&
+            task.status !== "Not Applicable"
+          ) {
+            milestoneList.push({
+              date: taskDate,
+              label: `${coursePrefix} ${taskName}`,
+            });
+          }
+        });
+      }
+    });
+
+    const next = milestoneList.sort((a, b) => a.date.localeCompare(b.date))[0];
+
+    if (!next) return undefined;
+
+    return `${next.label} • ${formatHeaderDate(next.date)}`;
+  };
 
   const countWorkingDaysBetweenDates = (
     startStr: string,
@@ -566,6 +685,8 @@ export default function App() {
       <Header
         outlookConnected={!!calendarSettings.outlookConnected}
         alertCount={alertCount}
+        nextHoliday={getNextHoliday()}
+        nextMilestone={getNextMilestone()}
       />
 
       <Navigation
