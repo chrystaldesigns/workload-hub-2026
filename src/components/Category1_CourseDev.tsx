@@ -221,6 +221,32 @@ export function Category1CourseDev({
     clearTaskDraft(task);
   };
 
+
+  const autoSaveTaskField = async (task: CourseDevelopmentTask, field: string, value: string) => {
+    if (!activeCourse) return;
+
+    const updatedTasks = activeCourse.tasks.map(item => {
+      if (item.id !== task.id) return item;
+
+      return {
+        ...item,
+        [field]: value,
+      };
+    });
+
+    await onUpdateCourse({
+      ...activeCourse,
+      tasks: updatedTasks,
+    });
+
+    clearTaskDraft(task);
+  };
+
+  const saveTaskNotesOnBlur = async (task: CourseDevelopmentTask) => {
+    const draft = getTaskDraft(task);
+    await autoSaveTaskField(task, 'notes', draft.notes || '');
+  };
+
   const formatDisplayDate = (dateStr?: string) => {
     if (!dateStr) return 'N/A';
     const date = new Date(`${dateStr.slice(0, 10)}T12:00:00`);
@@ -270,7 +296,7 @@ export function Category1CourseDev({
       },
       alertStatus: formData.alertStatus,
       courseNotes: formData.courseNotes,
-      hideCompletedTasks: false,
+      hideCompletedTasks: true,
       tasks: generatedTasks
     };
 
@@ -561,9 +587,7 @@ export function Category1CourseDev({
     });
 
     const to = course.deptTeam.smeEmail || "";
-    const cc = [course.deptTeam.deanEmail, course.deptTeam.managerEmail]
-  .filter(Boolean)
-  .join(",");
+    const cc = [course.deptTeam.deanEmail, course.deptTeam.managerEmail].filter(Boolean).join(",");
     const subject = `${course.courseNumber} Course Development Status ${today}`;
     const statusReport = generateWeeklyStatusReport(course);
 
@@ -572,31 +596,12 @@ export function Category1CourseDev({
     // Keep the body available even if Outlook or the browser limits long compose URLs.
     navigator.clipboard?.writeText(body).catch(() => undefined);
 
-    navigator.clipboard?.writeText(body).catch(() => undefined);
-
-const params = new URLSearchParams();
-
-if (to) params.set("to", to);
-if (cc) params.set("cc", cc);
-params.set("subject", subject);
-
-const outlookUrl = `https://outlook.office.com/mail/deeplink/compose?${params.toString()}`;
-
-navigator.clipboard?.writeText(body).catch(() => undefined);
-
-window.open(outlookUrl, "_blank", "noopener,noreferrer");
-
-alert(
-  "Outlook draft opened. The full status report has been copied to your clipboard. Paste it into the email body with Cmd + V."
-);
-return;
-
-window.open(outlookUrl, "_blank", "noopener,noreferrer");
-
-alert(
-  "Email draft opened. The full status report has been copied to your clipboard. Paste it into Outlook with Cmd + V."
-);
-return;
+    const outlookUrl =
+      `https://outlook.office.com/mail/deeplink/compose` +
+      `?to=${encodeURIComponent(to)}` +
+      `&cc=${encodeURIComponent(cc)}` +
+      `&subject=${encodeURIComponent(subject)}` +
+      `&body=${encodeURIComponent(body)}`;
 
     const composeWindow = window.open(outlookUrl, "_blank", "noopener,noreferrer");
 
@@ -626,7 +631,7 @@ return;
       <div className="flex justify-between items-center bg-white border border-[#E0DCD8] p-4 shadow-2xs">
         <div>
           <h2 className="text-lg font-semibold text-slate-800 uppercase tracking-wide">
-            Course Developments
+            Category 1: Course Developments
           </h2>
           <p className="text-xs text-slate-500">
             Course development timelines, task progress, weekly status, and milestone tracking
@@ -734,8 +739,7 @@ return;
                   <select
                     value={activeCourse.alertStatus}
                     onChange={(e) => handleAlertStatusChange(e.target.value as any)}
-                    className={`text-xs px-2.5 py-1.5 font-semibold border rounded appearance-none focus:outline-none ${getAlertSelectClass(activeCourse.alertStatus)}`}
-style={{ color: "white" }}
+                    className={`text-xs px-2.5 py-1.5 font-semibold border focus:outline-none ${getAlertSelectClass(activeCourse.alertStatus)}`}
                   >
                     <option value="No Concerns">No Concerns</option>
                     <option value="Potential Concerns">Potential Concerns</option>
@@ -814,7 +818,7 @@ style={{ color: "white" }}
                       className="text-left text-slate-600 hover:text-slate-900 font-semibold uppercase flex items-center gap-1 cursor-pointer select-none"
                     >
                       <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
-                      <span>{activeCourse.hideCompletedTasks ? 'Show Completed Tasks' : 'Hide Completed Tasks'}</span>
+                      <span>{activeCourse.hideCompletedTasks ? 'Showing All Tasks' : 'Hide Completed Tasks'}</span>
                     </button>
                   </div>
                 </div>
@@ -1061,20 +1065,21 @@ style={{ color: "white" }}
               <div className="border border-slate-200 mt-2">
                 <div className="bg-slate-50 p-2.5 border-b border-slate-200 flex flex-col gap-1 sm:flex-row sm:justify-between sm:items-center">
                   <span className="text-xs uppercase font-semibold text-slate-700">Cascade Timeline Milestones</span>
-                  <span className="text-2xs text-slate-400 font-mono">Editable task dates, owners, statuses, and notes</span>
+                  <span className="text-2xs text-slate-400 font-mono">Task edits auto-save when changed</span>
                 </div>
 
                 <div className="max-h-[680px] overflow-y-auto p-3 space-y-3">
                   {activeCourse.tasks
-                    .filter(t => !activeCourse.hideCompletedTasks || t.status !== 'Complete')
+                    .filter(t => activeCourse.hideCompletedTasks === false || t.status !== 'Complete')
                     .map((task) => {
                       const draft = getTaskDraft(task);
-const currentStatus = draft.status || task.status;
-const isNA = currentStatus === 'Not Applicable';
-const isComp = currentStatus === 'Complete';
-const today = formatDate(new Date());
-const isOver = currentStatus !== 'Complete' && !isNA && task.dueDate && task.dueDate < today;
-const hasChanges = hasTaskDraftChanges(task);
+                      const currentStatus = draft.status || task.status;
+                      const isNA = currentStatus === 'Not Applicable';
+                      const isComp = currentStatus === 'Complete';
+                      const today = formatDate(new Date());
+                      const isOver = currentStatus !== 'Complete' && !isNA && task.dueDate && task.dueDate < today;
+                      const isEmailTask = /\[Email\]/i.test(task.name || '');
+                      const displayTaskName = (task.name || '').replace(/\s*\[Email\]\s*/gi, '').trim();
 
                       return (
                         <article
@@ -1082,31 +1087,20 @@ const hasChanges = hasTaskDraftChanges(task);
                           className={`rounded-xl border p-4 ${isNA ? 'border-slate-200 bg-slate-50/70' : 'border-slate-200 bg-white'}`}
                         >
                           <div className="flex flex-col gap-4">
-                            <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
-                              <div>
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <span className={`font-semibold ${isComp ? 'line-through text-slate-400' : 'text-slate-900'}`}>
-                                    {task.id}. {task.name}
+                            <div className="flex flex-col gap-2">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className={`font-semibold ${isComp ? 'line-through text-slate-400' : 'text-slate-900'}`}>
+                                  {task.id}. {displayTaskName}
+                                </span>
+                                {isEmailTask && (
+                                  <Mail className="h-4 w-4 text-[#006282]" aria-label="Email task" />
+                                )}
+                                {isOver && (
+                                  <span className="rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-semibold uppercase text-white animate-pulse">
+                                    Overdue Alert
                                   </span>
-                                  {hasChanges && (
-                                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-amber-800">
-                                      Unsaved Changes
-                                    </span>
-                                  )}
-                                  {isOver && (
-                                    <span className="rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-semibold uppercase text-white animate-pulse">
-                                      Overdue Alert
-                                    </span>
-                                  )}
-                                </div>
-                                <p className="mt-1 text-[10px] font-mono text-slate-500">
-                                  Phase: {task.phase} {task.durationDays > 0 ? `(${task.durationDays} working days)` : ''}
-                                </p>
+                                )}
                               </div>
-
-<span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-  {currentStatus}
-</span>
                             </div>
 
                             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 text-xs">
@@ -1114,7 +1108,7 @@ const hasChanges = hasTaskDraftChanges(task);
                                 <span className="text-[10px] uppercase text-slate-500 font-semibold">Owner</span>
                                 <select
                                   value={draft.assignedTo || ''}
-                                  onChange={(e) => updateTaskDraft(task, 'assignedTo', e.target.value)}
+                                  onChange={(e) => autoSaveTaskField(task, 'assignedTo', e.target.value)}
                                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                                 >
                                   <option>Operations</option>
@@ -1130,7 +1124,7 @@ const hasChanges = hasTaskDraftChanges(task);
                                 <span className="text-[10px] uppercase text-slate-500 font-semibold">Status</span>
                                 <select
                                   value={draft.status || 'Not Started'}
-                                  onChange={(e) => updateTaskDraft(task, 'status', e.target.value)}
+                                  onChange={(e) => autoSaveTaskField(task, 'status', e.target.value)}
                                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                                 >
                                   <option>Not Started</option>
@@ -1150,7 +1144,7 @@ const hasChanges = hasTaskDraftChanges(task);
                                 <input
                                   type="date"
                                   value={draft.startDate || ''}
-                                  onChange={(e) => updateTaskDraft(task, 'startDate', e.target.value)}
+                                  onChange={(e) => autoSaveTaskField(task, 'startDate', e.target.value)}
                                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                                 />
                                 <span className="text-[10px] text-slate-500">{formatDisplayDate(draft.startDate)}</span>
@@ -1161,7 +1155,7 @@ const hasChanges = hasTaskDraftChanges(task);
                                 <input
                                   type="date"
                                   value={draft.dueDate || ''}
-                                  onChange={(e) => updateTaskDraft(task, 'dueDate', e.target.value)}
+                                  onChange={(e) => autoSaveTaskField(task, 'dueDate', e.target.value)}
                                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                                 />
                                 <span className="text-[10px] text-slate-500">{formatDisplayDate(draft.dueDate)}</span>
@@ -1173,37 +1167,17 @@ const hasChanges = hasTaskDraftChanges(task);
                               <textarea
                                 value={draft.notes || ''}
                                 onChange={(e) => updateTaskDraft(task, 'notes', e.target.value)}
-                                rows={3}
+                                onBlur={() => saveTaskNotesOnBlur(task)}
+                                rows={2}
                                 placeholder="Add task-specific notes..."
                                 className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                               />
                             </label>
 
-                            <div className="flex flex-wrap gap-2">
-                              <button
-                                type="button"
-                                onClick={() => saveTaskChanges(task)}
-                                disabled={!hasChanges}
-                                className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium ${
-                                  hasChanges
-                                    ? 'bg-[#003E52] text-white hover:bg-[#073C5C]'
-                                    : 'bg-slate-200 text-slate-500'
-                                }`}
-                              >
-                                <Save className="h-4 w-4" aria-hidden="true" />
-                                Save Task Changes
-                              </button>
-
-                              {hasChanges && (
-                                <button
-                                  type="button"
-                                  onClick={() => clearTaskDraft(task)}
-                                  className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                                >
-                                  <X className="h-4 w-4" aria-hidden="true" />
-                                  Cancel
-                                </button>
-                              )}
+                            <div className="flex justify-end text-[10px] font-mono text-slate-400">
+                              <span>
+                                {task.phase}{task.durationDays > 0 ? ` • ${task.durationDays} working days` : ''}
+                              </span>
                             </div>
                           </div>
                         </article>
@@ -1230,7 +1204,7 @@ const hasChanges = hasTaskDraftChanges(task);
           <div className="bg-[#F4F1ED] border-2 border-slate-900 p-6 max-w-xl w-full flex flex-col gap-4 max-h-[85vh] overflow-y-auto">
             <div className="flex justify-between items-center border-b border-slate-900 pb-2.5">
               <h3 className="text-md font-semibold text-slate-900 uppercase tracking-widest flex items-center gap-1.5">
-                <Sparkles className="w-5 h-5 text-[#33B1C8]" /> Course Information Creator
+                <Sparkles className="w-5 h-5 text-[#33B1C8]" /> Dispatcher Course creation Wizard
               </h3>
               <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-slate-600 font-semibold cursor-pointer select-none">✕</button>
             </div>
@@ -1239,7 +1213,7 @@ const hasChanges = hasTaskDraftChanges(task);
               
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Program:</label>
+                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Division program:</label>
                   <input
                     type="text"
                     name="program"
@@ -1266,7 +1240,7 @@ const hasChanges = hasTaskDraftChanges(task);
               </div>
 
               <div>
-                <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Course Title:</label>
+                <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Course Title Name:</label>
                 <input
                   type="text"
                   name="courseTitle"
@@ -1280,7 +1254,7 @@ const hasChanges = hasTaskDraftChanges(task);
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Development Type:</label>
+                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Type Design Mode:</label>
                   <select
                     name="devType"
                     value={formData.devType}
@@ -1296,7 +1270,7 @@ const hasChanges = hasTaskDraftChanges(task);
                 <div>
                   <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Version Number:</label>
                   <input
-                    type="text"
+                    type="number"
                     name="versionNumber"
                     value={formData.versionNumber}
                     onChange={handleInputChange}
@@ -1328,7 +1302,7 @@ const hasChanges = hasTaskDraftChanges(task);
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Term Start Date (Anchor):</label>
+                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Term Deadline (Anchor):</label>
                   <input
                     type="date"
                     name="termDeadline"
@@ -1354,7 +1328,7 @@ const hasChanges = hasTaskDraftChanges(task);
                   />
                 </div>
                 <div>
-                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Onboarding Needed?</label>
+                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Onboarding Sequence?</label>
                   <div className="flex items-center gap-4 py-2">
                     <label className="flex items-center gap-1.5 text-xs font-normal cursor-pointer select-none">
                       <input
@@ -1385,7 +1359,7 @@ const hasChanges = hasTaskDraftChanges(task);
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Subject Matter Expert:</label>
+                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Subject Matter Expert (Left):</label>
                   <input
                     type="text"
                     name="smeName"
@@ -1397,7 +1371,7 @@ const hasChanges = hasTaskDraftChanges(task);
                   />
                 </div>
                 <div>
-                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">SME Email Address:</label>
+                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">SME Email Address (Right):</label>
                   <input
                     type="email"
                     name="smeEmail"
@@ -1412,7 +1386,7 @@ const hasChanges = hasTaskDraftChanges(task);
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Dean:</label>
+                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Division Dean (Left):</label>
                   <input
                     type="text"
                     name="deanName"
@@ -1424,7 +1398,7 @@ const hasChanges = hasTaskDraftChanges(task);
                   />
                 </div>
                 <div>
-                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Dean Email Address:</label>
+                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Dean Email Address (Right):</label>
                   <input
                     type="email"
                     name="deanEmail"
@@ -1439,7 +1413,7 @@ const hasChanges = hasTaskDraftChanges(task);
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Academic PM (Optional):</label>
+                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Academic PM (Left, Optional):</label>
                   <input
                     type="text"
                     name="managerName"
@@ -1450,7 +1424,7 @@ const hasChanges = hasTaskDraftChanges(task);
                   />
                 </div>
                 <div>
-                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">PM Email Address:</label>
+                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">PM Email Address (Right):</label>
                   <input
                     type="email"
                     name="managerEmail"
@@ -1463,7 +1437,7 @@ const hasChanges = hasTaskDraftChanges(task);
               </div>
 
               <div>
-                <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Notes:</label>
+                <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Notes / Accreditation context:</label>
                 <textarea
                   name="courseNotes"
                   value={formData.courseNotes}
