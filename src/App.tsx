@@ -31,6 +31,26 @@ export default function App() {
   const [outlookEvents, setOutlookEvents] = useState<OutlookEvent[]>([]);
   const [alertCount, setAlertCount] = useState<number>(0);
 
+  const getNextHoliday = () => {
+    const today = new Date().toISOString().split("T")[0];
+
+    const nextHolidayDate = FSCJ_HOLIDAYS
+      .filter((date) => date >= today)
+      .sort()[0];
+
+    if (!nextHolidayDate) return undefined;
+
+    const date = new Date(`${nextHolidayDate}T12:00:00`);
+
+    const formattedDate = date.toLocaleDateString("en-US", {
+      month: "2-digit",
+      day: "2-digit",
+      year: "2-digit",
+    });
+
+    return `${formattedDate}: College Closed`;
+  };
+
   const countWorkingDaysBetweenDates = (
     startStr: string,
     endStr: string,
@@ -152,25 +172,7 @@ export default function App() {
   useEffect(() => {
     loadDashboardData();
   }, []);
-const getNextHoliday = () => {
-  const today = new Date().toISOString().split("T")[0];
 
-  const nextHolidayDate = FSCJ_HOLIDAYS
-    .filter((date) => date >= today)
-    .sort()[0];
-
-  if (!nextHolidayDate) return undefined;
-
-  const date = new Date(`${nextHolidayDate}T12:00:00`);
-
-  const formattedDate = date.toLocaleDateString("en-US", {
-    month: "2-digit",
-    day: "2-digit",
-    year: "2-digit",
-  });
-
-  return `${formattedDate}: College Closed`;
-};
   const handleAddCourse = async (newCourse: CourseDevelopment) => {
     try {
       const payload: CourseDevelopment = {
@@ -583,58 +585,11 @@ const getNextHoliday = () => {
   return (
     <div className="flex min-h-screen flex-col bg-slate-50/50">
       <Header
-  outlookConnected={!!calendarSettings.outlookConnected}
-  alertCount={alertCount}
-  nextHoliday={getNextHoliday()}
-  nextMilestone={getNextMilestone()}
-/>
-  const today = new Date().toISOString().split("T")[0];
+        outlookConnected={!!calendarSettings.outlookConnected}
+        alertCount={alertCount}
+        nextHoliday={getNextHoliday()}
+      />
 
-  const milestones: {
-    date: string;
-    label: string;
-  }[] = [];
-
-  courseDevelopments.forEach((course) => {
-    if (course.kickoffDate && course.kickoffDate >= today) {
-      milestones.push({
-        date: course.kickoffDate,
-        label: `${course.courseNumber} Kickoff`,
-      });
-    }
-
-    if (course.midpointDate && course.midpointDate >= today) {
-      milestones.push({
-        date: course.midpointDate,
-        label: `${course.courseNumber} Midpoint`,
-      });
-    }
-
-    if (course.finalReviewDate && course.finalReviewDate >= today) {
-      milestones.push({
-        date: course.finalReviewDate,
-        label: `${course.courseNumber} Final Review`,
-      });
-    }
-  });
-
-  milestones.sort((a, b) => a.date.localeCompare(b.date));
-
-  if (!milestones.length) return undefined;
-
-  const next = milestones[0];
-
-  const formatted = new Date(`${next.date}T12:00:00`).toLocaleDateString(
-    "en-US",
-    {
-      month: "2-digit",
-      day: "2-digit",
-      year: "2-digit",
-    }
-  );
-
-  return `${next.label} • ${formatted}`;
-};
       <Navigation
         activeTab={activeTab}
         setActiveTab={setActiveTab}
