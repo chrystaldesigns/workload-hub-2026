@@ -5,9 +5,15 @@ interface HeaderProps {
   outlookConnected: boolean;
   alertCount: number;
   nextHoliday?: string;
+  nextMilestone?: string;
 }
 
-export function Header({ outlookConnected, alertCount, nextHoliday }: HeaderProps) {
+export function Header({
+  outlookConnected,
+  alertCount,
+  nextHoliday,
+  nextMilestone,
+}: HeaderProps) {
   const [time, setTime] = useState<string>("");
 
   useEffect(() => {
@@ -70,6 +76,17 @@ export function Header({ outlookConnected, alertCount, nextHoliday }: HeaderProp
               </span>
             </div>
           )}
+          {nextMilestone && (
+  <div className="bg-[#076092]/40 border border-[#33B1C8]/20 px-3 py-1.5 text-[#33B1C8]">
+    <span className="text-[9px] uppercase block opacity-60">
+      Next Milestone
+    </span>
+
+    <span className="font-semibold text-white tracking-wide">
+      {nextMilestone}
+    </span>
+  </div>
+)}
 
           <div className="flex gap-2">
             {outlookConnected && (
