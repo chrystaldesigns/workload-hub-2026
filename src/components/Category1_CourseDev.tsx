@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { CourseDevelopment, CourseDevelopmentTask } from '../types';
 import { 
   FileText, Calendar, Plus, Mail, CheckCircle2, AlertTriangle, 
   Trash2, Sliders, ChevronRight, Share2, Clipboard, ShieldAlert,
-  SlidersHorizontal, Sparkles, Pencil, Save, X, Archive
+  SlidersHorizontal, Sparkles, Pencil, Save, X
 } from 'lucide-react';
 import { 
   calculateTimelineTasks, 
@@ -29,14 +29,25 @@ export function Category1CourseDev({
   onUpdateCourse, 
   onDeleteCourse 
 }: Category1Props) {
-  const [selectedId, setSelectedId] = useState<string>(() => {
-    if (typeof window === 'undefined') return courseDevelopments[0]?.id || '';
-    return localStorage.getItem('workloadHubSelectedCourseId') || courseDevelopments[0]?.id || '';
-  });
+  const [selectedId, setSelectedId] = useState<string>(courseDevelopments[0]?.id || '');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState<CourseDevelopmentTask | null>(null);
   const [editingCourse, setEditingCourse] = useState<typeof formData | null>(null);
   const [taskDrafts, setTaskDrafts] = useState<Record<string, Partial<CourseDevelopmentTask & { notes?: string }>>>({});
+  const taskListRef = useRef<HTMLDivElement | null>(null);
+
+  const restoreTaskListScroll = (scrollTop: number) => {
+    window.requestAnimationFrame(() => {
+      if (taskListRef.current) {
+        taskListRef.current.scrollTop = scrollTop;
+      }
+      window.setTimeout(() => {
+        if (taskListRef.current) {
+          taskListRef.current.scrollTop = scrollTop;
+        }
+      }, 0);
+    });
+  };
 
   // Form states for new Course
   const [formData, setFormData] = useState({
@@ -61,38 +72,7 @@ export function Category1CourseDev({
     alertStatus: 'No Concerns' as const,
   });
 
-  const activeCourses = courseDevelopments.filter((course) => !(course as any).archived);
-  const activeCourse = activeCourses.find(c => c.id === selectedId) || activeCourses[0];
-
-  const selectCourse = (courseId: string) => {
-    setSelectedId(courseId);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('workloadHubSelectedCourseId', courseId);
-    }
-  };
-
-  useEffect(() => {
-    if (!activeCourses.length) {
-      if (selectedId !== '') setSelectedId('');
-      return;
-    }
-
-    const stillExists = activeCourses.some((course) => course.id === selectedId);
-    if (selectedId && stillExists) return;
-
-    const storedId = typeof window !== 'undefined'
-      ? localStorage.getItem('workloadHubSelectedCourseId')
-      : '';
-
-    const nextId = activeCourses.find((course) => course.id === storedId)?.id || activeCourses[0]?.id || '';
-
-    if (nextId && nextId !== selectedId) {
-      setSelectedId(nextId);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('workloadHubSelectedCourseId', nextId);
-      }
-    }
-  }, [courseDevelopments, selectedId]);
+  const activeCourse = courseDevelopments.find(c => c.id === selectedId) || courseDevelopments[0];
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -249,6 +229,7 @@ export function Category1CourseDev({
 
     const scrollX = window.scrollX;
     const scrollY = window.scrollY;
+    const taskListScrollTop = taskListRef.current?.scrollTop ?? 0;
     const preservedSelectedId = activeCourse.id || selectedId;
 
     if (preservedSelectedId && typeof window !== 'undefined') {
@@ -268,6 +249,7 @@ export function Category1CourseDev({
       window.scrollTo(scrollX, scrollY);
       window.setTimeout(() => window.scrollTo(scrollX, scrollY), 0);
     });
+    restoreTaskListScroll(taskListScrollTop);
 
     clearTaskDraft(task);
   };
@@ -287,6 +269,7 @@ export function Category1CourseDev({
 
     const scrollX = window.scrollX;
     const scrollY = window.scrollY;
+    const taskListScrollTop = taskListRef.current?.scrollTop ?? 0;
     const preservedSelectedId = activeCourse.id || selectedId;
 
     if (preservedSelectedId && typeof window !== 'undefined') {
@@ -306,6 +289,7 @@ export function Category1CourseDev({
       window.scrollTo(scrollX, scrollY);
       window.setTimeout(() => window.scrollTo(scrollX, scrollY), 0);
     });
+    restoreTaskListScroll(taskListScrollTop);
 
     clearTaskDraft(task);
   };
@@ -451,27 +435,6 @@ export function Category1CourseDev({
       hideCompletedTasks: !activeCourse.hideCompletedTasks
     };
     await onUpdateCourse(updatedCourse);
-  };
-
-  const handleArchiveCourse = async (course: CourseDevelopment) => {
-    if (!course?.id) return;
-
-    const confirmed = window.confirm(
-      `Archive ${course.courseNumber}: ${course.courseTitle}?
-
-Archived developments will be hidden from the active Course Developments list but will remain saved in Firestore.`
-    );
-
-    if (!confirmed) return;
-
-    const nextActiveCourse = activeCourses.find((item) => item.id !== course.id);
-
-    await onUpdateCourse({
-      ...course,
-      archived: true,
-    } as CourseDevelopment & { archived?: boolean });
-
-    selectCourse(nextActiveCourse?.id || '');
   };
 
   const handleAlertStatusChange = async (status: 'No Concerns' | 'Potential Concerns' | 'High Priority Concerns') => {
@@ -745,18 +708,18 @@ Archived developments will be hidden from the active Course Developments list bu
           </div>
 
           <div className="flex flex-col gap-2 max-h-[550px] overflow-y-auto pr-1">
-            {activeCourses.length === 0 ? (
+            {courseDevelopments.length === 0 ? (
               <div className="p-6 bg-slate-50 text-center text-slate-400 border border-dashed border-slate-200">
-                No active course development schedules loaded. Click "+ Add Academic Course" to begin.
+                No course development schedules loaded. Click "+ Add Academic Course" to begin.
               </div>
             ) : (
-              activeCourses.map(c => {
+              courseDevelopments.map(c => {
                 const isSelected = c.id === (activeCourse?.id || '');
                 const prog = calculateProgress(c);
                 return (
                   <button
                     key={c.id}
-                    onClick={() => selectCourse(c.id || '')}
+                    onClick={() => setSelectedId(c.id || '')}
                     className={`p-4 border text-left bg-white transition-all flex flex-col gap-2 select-none cursor-pointer outline-none relative overflow-hidden ${
                       isSelected 
                         ? 'border-[#006282] ring-1 ring-[#006282] shadow-xs' 
@@ -907,7 +870,7 @@ Archived developments will be hidden from the active Course Developments list bu
                       className="text-left text-slate-600 hover:text-slate-900 font-semibold uppercase flex items-center gap-1 cursor-pointer select-none"
                     >
                       <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
-                      <span>{activeCourse.hideCompletedTasks ? 'Show Completed Tasks' : 'Hide Completed Tasks'}</span>
+                      <span>{activeCourse.hideCompletedTasks ? 'Showing All Tasks' : 'Hide Completed Tasks'}</span>
                     </button>
                   </div>
                 </div>
@@ -1110,57 +1073,43 @@ Archived developments will be hidden from the active Course Developments list bu
               )}
 
               {/* COURSE ACTIONS */}
-              <div className="flex flex-wrap justify-end items-center gap-x-4 gap-y-2 bg-white py-2 text-[11px] border-b border-[#E0DCD8]/80">
+              <div className="flex flex-wrap justify-end items-center gap-2 bg-white p-3 border border-[#E0DCD8]/80">
                 <button
-                  type="button"
                   onClick={() => startEditingCourse(activeCourse)}
-                  className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-slate-700 hover:text-[#006282]"
+                  className="px-3 py-1.5 border border-slate-300 text-slate-800 hover:bg-slate-50 text-2xs font-semibold uppercase tracking-wider flex items-center gap-1 cursor-pointer"
                 >
-                  <Pencil className="w-3.5 h-3.5" /> Edit
+                  <Pencil className="w-3.5 h-3.5 text-slate-600" /> Edit Course Development
                 </button>
-
                 <button
-                  type="button"
                   onClick={() => handleCopyStatusReport(activeCourse)}
-                  className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-slate-700 hover:text-[#006282]"
+                  className="px-3 py-1.5 border border-[#006282] text-slate-800 hover:bg-slate-50 text-2xs font-semibold uppercase tracking-wider flex items-center gap-1 cursor-pointer"
                 >
-                  <Clipboard className="w-3.5 h-3.5" /> Status QB
+                  <Clipboard className="w-3.5 h-3.5 text-[#006282]" /> Course Dev. Weekly Status QB
                 </button>
 
                 <button
-                  type="button"
                   onClick={() => triggerWeeklyStatusEmailDraft(activeCourse)}
-                  className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-slate-700 hover:text-[#087834]"
+                  className="px-3 py-1.5 border border-[#087834] text-slate-800 hover:bg-slate-50 text-2xs font-semibold uppercase tracking-wider flex items-center gap-1 cursor-pointer"
                 >
-                  <Mail className="w-3.5 h-3.5" /> Status Email
+                  <Mail className="w-3.5 h-3.5 text-[#087834]" /> Course Dev. Weekly Status Email
                 </button>
 
                 <button
-                  type="button"
                   onClick={() => triggerCompensationDraft(activeCourse)}
-                  className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-slate-700 hover:text-[#087834]"
+                  className="px-3 py-1.5 border border-[#087834] text-slate-800 hover:bg-slate-50 text-2xs font-semibold uppercase tracking-wider flex items-center gap-1 cursor-pointer"
                 >
-                  <Mail className="w-3.5 h-3.5" /> SME Compensation
+                  <Mail className="w-3.5 h-3.5 text-[#087834]" /> SME Compensation Notification
                 </button>
 
                 <button
-                  type="button"
-                  onClick={() => handleArchiveCourse(activeCourse)}
-                  className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-slate-700 hover:text-[#B35C06]"
-                >
-                  <Archive className="w-3.5 h-3.5" /> Archive
-                </button>
-
-                <button
-                  type="button"
                   onClick={() => {
-                    if (confirm("Are you sure you want to delete this course development from Firestore permanently?")) {
+                    if (confirm("Are you sure you want to delete this course schedule from Firestore permanently?")) {
                       onDeleteCourse(activeCourse.id || '');
                     }
                   }}
-                  className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-rose-700 hover:text-rose-900"
+                  className="px-2.5 py-1.5 text-rose-700 hover:bg-rose-50 text-2xs font-semibold uppercase flex items-center gap-1 cursor-pointer outline-none"
                 >
-                  <Trash2 className="w-3.5 h-3.5" /> Delete
+                  <Trash2 className="w-3.5 h-3.5 text-rose-600" /> Delete Project
                 </button>
               </div>
 
@@ -1171,9 +1120,9 @@ Archived developments will be hidden from the active Course Developments list bu
                   <span className="text-2xs text-slate-400 font-mono">Task edits auto-save when changed</span>
                 </div>
 
-                <div className="max-h-[680px] overflow-y-auto p-3 space-y-3">
+                <div ref={taskListRef} className="max-h-[680px] overflow-y-auto p-3 space-y-3">
                   {activeCourse.tasks
-                    .filter(t => activeCourse.hideCompletedTasks === false || (t.status !== 'Complete' && t.status !== 'Not Applicable'))
+                    .filter(t => activeCourse.hideCompletedTasks === false || t.status !== 'Complete')
                     .map((task) => {
                       const draft = getTaskDraft(task);
                       const currentStatus = draft.status || task.status;
