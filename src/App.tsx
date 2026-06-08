@@ -588,7 +588,6 @@ const getNextHoliday = () => {
   nextHoliday={getNextHoliday()}
   nextMilestone={getNextMilestone()}
 />
-const getNextMilestone = () => {
   const today = new Date().toISOString().split("T")[0];
 
   const milestones: {
