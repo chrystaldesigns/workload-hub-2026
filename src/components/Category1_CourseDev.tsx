@@ -3,7 +3,7 @@ import { CourseDevelopment, CourseDevelopmentTask } from '../types';
 import { 
   FileText, Calendar, Plus, Mail, CheckCircle2, AlertTriangle, 
   Trash2, Sliders, ChevronRight, Share2, Clipboard, ShieldAlert,
-  SlidersHorizontal, Sparkles, Pencil, Save, X
+  SlidersHorizontal, Sparkles, Pencil, Save, X, Archive
 } from 'lucide-react';
 import { 
   calculateTimelineTasks, 
@@ -58,7 +58,8 @@ export function Category1CourseDev({
     alertStatus: 'No Concerns' as const,
   });
 
-  const activeCourse = courseDevelopments.find(c => c.id === selectedId) || courseDevelopments[0];
+  const activeCourses = courseDevelopments.filter((course) => !(course as any).archived);
+  const activeCourse = activeCourses.find(c => c.id === selectedId) || activeCourses[0];
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -213,9 +214,17 @@ export function Category1CourseDev({
       };
     });
 
+    const scrollX = window.scrollX;
+    const scrollY = window.scrollY;
+
     await onUpdateCourse({
       ...activeCourse,
       tasks: updatedTasks,
+    });
+
+    window.requestAnimationFrame(() => {
+      window.scrollTo(scrollX, scrollY);
+      window.setTimeout(() => window.scrollTo(scrollX, scrollY), 0);
     });
 
     clearTaskDraft(task);
@@ -234,9 +243,17 @@ export function Category1CourseDev({
       };
     });
 
+    const scrollX = window.scrollX;
+    const scrollY = window.scrollY;
+
     await onUpdateCourse({
       ...activeCourse,
       tasks: updatedTasks,
+    });
+
+    window.requestAnimationFrame(() => {
+      window.scrollTo(scrollX, scrollY);
+      window.setTimeout(() => window.scrollTo(scrollX, scrollY), 0);
     });
 
     clearTaskDraft(task);
@@ -383,6 +400,27 @@ export function Category1CourseDev({
       hideCompletedTasks: !activeCourse.hideCompletedTasks
     };
     await onUpdateCourse(updatedCourse);
+  };
+
+  const handleArchiveCourse = async (course: CourseDevelopment) => {
+    if (!course?.id) return;
+
+    const confirmed = window.confirm(
+      `Archive ${course.courseNumber}: ${course.courseTitle}?
+
+Archived developments will be hidden from the active Course Developments list but will remain saved in Firestore.`
+    );
+
+    if (!confirmed) return;
+
+    const nextActiveCourse = activeCourses.find((item) => item.id !== course.id);
+
+    await onUpdateCourse({
+      ...course,
+      archived: true,
+    } as CourseDevelopment & { archived?: boolean });
+
+    setSelectedId(nextActiveCourse?.id || '');
   };
 
   const handleAlertStatusChange = async (status: 'No Concerns' | 'Potential Concerns' | 'High Priority Concerns') => {
@@ -656,12 +694,12 @@ export function Category1CourseDev({
           </div>
 
           <div className="flex flex-col gap-2 max-h-[550px] overflow-y-auto pr-1">
-            {courseDevelopments.length === 0 ? (
+            {activeCourses.length === 0 ? (
               <div className="p-6 bg-slate-50 text-center text-slate-400 border border-dashed border-slate-200">
-                No course development schedules loaded. Click "+ Add Academic Course" to begin.
+                No active course development schedules loaded. Click "+ Add Academic Course" to begin.
               </div>
             ) : (
-              courseDevelopments.map(c => {
+              activeCourses.map(c => {
                 const isSelected = c.id === (activeCourse?.id || '');
                 const prog = calculateProgress(c);
                 return (
@@ -818,7 +856,7 @@ export function Category1CourseDev({
                       className="text-left text-slate-600 hover:text-slate-900 font-semibold uppercase flex items-center gap-1 cursor-pointer select-none"
                     >
                       <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
-                      <span>{activeCourse.hideCompletedTasks ? 'Showing All Tasks' : 'Hide Completed Tasks'}</span>
+                      <span>{activeCourse.hideCompletedTasks ? 'Show Completed Tasks' : 'Hide Completed Tasks'}</span>
                     </button>
                   </div>
                 </div>
@@ -1021,43 +1059,57 @@ export function Category1CourseDev({
               )}
 
               {/* COURSE ACTIONS */}
-              <div className="flex flex-wrap justify-end items-center gap-2 bg-white p-3 border border-[#E0DCD8]/80">
+              <div className="flex flex-wrap justify-end items-center gap-x-4 gap-y-2 bg-white py-2 text-[11px] border-b border-[#E0DCD8]/80">
                 <button
+                  type="button"
                   onClick={() => startEditingCourse(activeCourse)}
-                  className="px-3 py-1.5 border border-slate-300 text-slate-800 hover:bg-slate-50 text-2xs font-semibold uppercase tracking-wider flex items-center gap-1 cursor-pointer"
+                  className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-slate-700 hover:text-[#006282]"
                 >
-                  <Pencil className="w-3.5 h-3.5 text-slate-600" /> Edit Course Development
+                  <Pencil className="w-3.5 h-3.5" /> Edit
                 </button>
+
                 <button
+                  type="button"
                   onClick={() => handleCopyStatusReport(activeCourse)}
-                  className="px-3 py-1.5 border border-[#006282] text-slate-800 hover:bg-slate-50 text-2xs font-semibold uppercase tracking-wider flex items-center gap-1 cursor-pointer"
+                  className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-slate-700 hover:text-[#006282]"
                 >
-                  <Clipboard className="w-3.5 h-3.5 text-[#006282]" /> Course Dev. Weekly Status QB
+                  <Clipboard className="w-3.5 h-3.5" /> Status QB
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => triggerWeeklyStatusEmailDraft(activeCourse)}
-                  className="px-3 py-1.5 border border-[#087834] text-slate-800 hover:bg-slate-50 text-2xs font-semibold uppercase tracking-wider flex items-center gap-1 cursor-pointer"
+                  className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-slate-700 hover:text-[#087834]"
                 >
-                  <Mail className="w-3.5 h-3.5 text-[#087834]" /> Course Dev. Weekly Status Email
+                  <Mail className="w-3.5 h-3.5" /> Status Email
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => triggerCompensationDraft(activeCourse)}
-                  className="px-3 py-1.5 border border-[#087834] text-slate-800 hover:bg-slate-50 text-2xs font-semibold uppercase tracking-wider flex items-center gap-1 cursor-pointer"
+                  className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-slate-700 hover:text-[#087834]"
                 >
-                  <Mail className="w-3.5 h-3.5 text-[#087834]" /> SME Compensation Notification
+                  <Mail className="w-3.5 h-3.5" /> SME Compensation
                 </button>
 
                 <button
+                  type="button"
+                  onClick={() => handleArchiveCourse(activeCourse)}
+                  className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-slate-700 hover:text-[#B35C06]"
+                >
+                  <Archive className="w-3.5 h-3.5" /> Archive
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => {
-                    if (confirm("Are you sure you want to delete this course schedule from Firestore permanently?")) {
+                    if (confirm("Are you sure you want to delete this course development from Firestore permanently?")) {
                       onDeleteCourse(activeCourse.id || '');
                     }
                   }}
-                  className="px-2.5 py-1.5 text-rose-700 hover:bg-rose-50 text-2xs font-semibold uppercase flex items-center gap-1 cursor-pointer outline-none"
+                  className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-rose-700 hover:text-rose-900"
                 >
-                  <Trash2 className="w-3.5 h-3.5 text-rose-600" /> Delete Project
+                  <Trash2 className="w-3.5 h-3.5" /> Delete
                 </button>
               </div>
 
