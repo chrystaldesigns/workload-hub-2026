@@ -232,6 +232,54 @@ export function Category1CourseDev({
     await onUpdateCourse(updatedCourse);
   };
 
+  const getTaskDraft = (task: CourseDevelopmentTask) => ({
+    assignedTo: task.assignedTo || '',
+    status: task.status || 'Not Started',
+    startDate: task.startDate || '',
+    dueDate: task.dueDate || '',
+    notes: (task as any).notes || '',
+  });
+
+  const autoSaveTaskField = async (
+    task: CourseDevelopmentTask,
+    field: 'assignedTo' | 'status' | 'startDate' | 'dueDate' | 'notes',
+    value: string
+  ) => {
+    if (!activeCourse) return;
+
+    const scrollX = window.scrollX;
+    const scrollY = window.scrollY;
+    const selectedCourseId = activeCourse.id || selectedId || '';
+
+    if (selectedCourseId) {
+      setSelectedId(selectedCourseId);
+      localStorage.setItem('workloadHubSelectedCourseDevId', selectedCourseId);
+    }
+
+    const updatedTasks = (activeCourse.tasks || []).map((item) =>
+      item.id === task.id
+        ? {
+            ...item,
+            [field]: value,
+          }
+        : item
+    );
+
+    await onUpdateCourse({
+      ...activeCourse,
+      tasks: updatedTasks,
+    });
+
+    requestAnimationFrame(() => {
+      if (selectedCourseId) {
+        setSelectedId(selectedCourseId);
+        localStorage.setItem('workloadHubSelectedCourseDevId', selectedCourseId);
+      }
+      window.scrollTo(scrollX, scrollY);
+    });
+  };
+
+
   // Helper selectors
   const getDevTypeColor = (type: string) => {
     switch(type) {
