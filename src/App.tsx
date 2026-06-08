@@ -564,9 +564,10 @@ export default function App() {
   return (
     <div className="flex min-h-screen flex-col bg-slate-50/50">
       <Header
-        outlookConnected={!!calendarSettings.outlookConnected}
-        alertCount={alertCount}
-      />
+  outlookConnected={!!calendarSettings.outlookConnected}
+  alertCount={alertCount}
+  nextHoliday="06-19-26: College Closed (Juneteenth)"
+/>
 
       <Navigation
         activeTab={activeTab}
