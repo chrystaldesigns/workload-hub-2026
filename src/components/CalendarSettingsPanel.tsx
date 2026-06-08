@@ -124,10 +124,10 @@ export function CalendarSettingsPanel({
       <div className="bg-white border border-[#E0DCD8] p-6 shadow-2xs flex flex-col gap-4">
         <div>
           <h3 className="text-sm uppercase tracking-wider font-semibold text-slate-700 border-b border-slate-100 pb-2">
-            Subtract Custom Planning Out-of-Office Dates
-          </h3>
+  Out-of-Office Date Planning
+</h3>
           <p className="text-xs text-slate-400 mt-1 font-sans">
-            Manually subtract unavailable dates from workload planning calculations.
+            Add vacation, conference, holiday, or other out-of-office dates that should be excluded from workload planning calculations.
           </p>
         </div>
 
