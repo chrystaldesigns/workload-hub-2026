@@ -3,7 +3,7 @@ import { CourseDevelopment, CourseDevelopmentTask } from '../types';
 import { 
   FileText, Calendar, Plus, Mail, CheckCircle2, AlertTriangle, 
   Trash2, Sliders, ChevronRight, Share2, Clipboard, ShieldAlert,
-  SlidersHorizontal, Sparkles, Pencil, Save, X
+  SlidersHorizontal, Sparkles
 } from 'lucide-react';
 import { 
   calculateTimelineTasks, 
@@ -30,13 +30,13 @@ export function Category1CourseDev({
   onDeleteCourse 
 }: Category1Props) {
   const [selectedId, setSelectedId] = useState<string>(() => {
-    if (typeof window === 'undefined') return courseDevelopments[0]?.id || '';
-    return localStorage.getItem('workloadHubSelectedCourseDevId') || courseDevelopments[0]?.id || '';
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('workloadHubSelectedCourseDevId') || courseDevelopments[0]?.id || '';
+    }
+    return courseDevelopments[0]?.id || '';
   });
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState<CourseDevelopmentTask | null>(null);
-  const [editingCourse, setEditingCourse] = useState<typeof formData | null>(null);
-  const [taskDrafts, setTaskDrafts] = useState<Record<string, Partial<CourseDevelopmentTask & { notes?: string }>>>({});
 
   // Form states for new Course
   const [formData, setFormData] = useState({
@@ -63,175 +63,36 @@ export function Category1CourseDev({
 
   const activeCourse = courseDevelopments.find(c => c.id === selectedId) || courseDevelopments[0];
 
+  useEffect(() => {
+    if (!courseDevelopments.length) return;
+
+    const savedId = typeof window !== 'undefined'
+      ? localStorage.getItem('workloadHubSelectedCourseDevId')
+      : '';
+
+    const savedCourseExists = !!savedId && courseDevelopments.some(course => course.id === savedId);
+    const selectedCourseExists = !!selectedId && courseDevelopments.some(course => course.id === selectedId);
+
+    if (savedCourseExists && savedId !== selectedId) {
+      setSelectedId(savedId);
+      return;
+    }
+
+    if (!selectedCourseExists) {
+      const fallbackId = courseDevelopments[0]?.id || '';
+      setSelectedId(fallbackId);
+      if (typeof window !== 'undefined' && fallbackId) {
+        localStorage.setItem('workloadHubSelectedCourseDevId', fallbackId);
+      }
+    }
+  }, [courseDevelopments, selectedId]);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
       [name]: value
     }));
-  };
-
-
-
-  const handleEditingChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    if (!editingCourse) return;
-
-    const { name, value } = e.target;
-    setEditingCourse(prev => prev ? ({
-      ...prev,
-      [name]: name === 'versionNumber' || name === 'devStagger'
-        ? Number(value)
-        : name === 'onboarding'
-          ? value === 'true'
-          : value
-    }) : prev);
-  };
-
-  const startEditingCourse = (course: CourseDevelopment) => {
-    setEditingCourse({
-      program: course.program || '',
-      courseNumber: course.courseNumber || '',
-      courseTitle: course.courseTitle || '',
-      canvasVersion: course.canvasVersion || '',
-      workshopCourse: course.workshopCourse || '',
-      devType: course.devType || 'Original',
-      versionNumber: Number(course.versionNumber || 1),
-      termRelease: course.termRelease || 'Fall B',
-      termDeadline: course.termDeadline || '',
-      devStagger: Number(course.devStagger || 14),
-      onboarding: !!course.onboarding,
-      smeName: course.deptTeam?.smeName || '',
-      smeEmail: course.deptTeam?.smeEmail || '',
-      deanName: course.deptTeam?.deanName || '',
-      deanEmail: course.deptTeam?.deanEmail || '',
-      managerName: course.deptTeam?.managerName || '',
-      managerEmail: course.deptTeam?.managerEmail || '',
-      courseNotes: course.courseNotes || '',
-      alertStatus: course.alertStatus || 'No Concerns',
-    });
-  };
-
-  const cancelEditingCourse = () => {
-    setEditingCourse(null);
-  };
-
-  const saveEditingCourse = async () => {
-    if (!activeCourse || !editingCourse) return;
-
-    if (!editingCourse.program.trim()) {
-      alert('Program is required.');
-      return;
-    }
-
-    if (!editingCourse.courseNumber.trim()) {
-      alert('Course Number is required.');
-      return;
-    }
-
-    if (!editingCourse.courseTitle.trim()) {
-      alert('Course Title is required.');
-      return;
-    }
-
-    await onUpdateCourse({
-      ...activeCourse,
-      program: editingCourse.program.trim(),
-      courseNumber: editingCourse.courseNumber.trim().toUpperCase(),
-      courseTitle: editingCourse.courseTitle.trim(),
-      canvasVersion: editingCourse.canvasVersion.trim(),
-      workshopCourse: editingCourse.workshopCourse.trim(),
-      devType: editingCourse.devType,
-      versionNumber: Number(editingCourse.versionNumber || 1),
-      termRelease: editingCourse.termRelease,
-      termDeadline: editingCourse.termDeadline || activeCourse.termDeadline,
-      devStagger: Number(editingCourse.devStagger || 14),
-      onboarding: editingCourse.onboarding,
-      deptTeam: {
-        smeName: editingCourse.smeName.trim(),
-        smeEmail: editingCourse.smeEmail.trim(),
-        deanName: editingCourse.deanName.trim(),
-        deanEmail: editingCourse.deanEmail.trim(),
-        managerName: editingCourse.managerName.trim(),
-        managerEmail: editingCourse.managerEmail.trim(),
-      },
-      alertStatus: editingCourse.alertStatus,
-      courseNotes: editingCourse.courseNotes.trim(),
-    });
-
-    setEditingCourse(null);
-  };
-
-  const getTaskKey = (task: CourseDevelopmentTask) => String(task.id);
-
-  const getTaskDraft = (task: CourseDevelopmentTask) => {
-    const key = getTaskKey(task);
-    const stored = taskDrafts[key] || {};
-
-    return {
-      startDate: stored.startDate ?? task.startDate ?? '',
-      dueDate: stored.dueDate ?? task.dueDate ?? '',
-      status: stored.status ?? task.status,
-      assignedTo: stored.assignedTo ?? task.assignedTo ?? '',
-      notes: stored.notes ?? (task as any).notes ?? '',
-    };
-  };
-
-  const updateTaskDraft = (task: CourseDevelopmentTask, field: string, value: string) => {
-    const key = getTaskKey(task);
-    setTaskDrafts(prev => ({
-      ...prev,
-      [key]: {
-        ...getTaskDraft(task),
-        ...prev[key],
-        [field]: value,
-      },
-    }));
-  };
-
-  const hasTaskDraftChanges = (task: CourseDevelopmentTask) => Boolean(taskDrafts[getTaskKey(task)]);
-
-  const clearTaskDraft = (task: CourseDevelopmentTask) => {
-    const key = getTaskKey(task);
-    setTaskDrafts(prev => {
-      const next = { ...prev };
-      delete next[key];
-      return next;
-    });
-  };
-
-  const saveTaskChanges = async (task: CourseDevelopmentTask) => {
-    if (!activeCourse) return;
-
-    const draft = getTaskDraft(task);
-    const updatedTasks = activeCourse.tasks.map(item => {
-      if (item.id !== task.id) return item;
-
-      return {
-        ...item,
-        assignedTo: draft.assignedTo || item.assignedTo,
-        startDate: draft.startDate || '',
-        dueDate: draft.dueDate || '',
-        status: draft.status || item.status,
-        notes: draft.notes || '',
-      };
-    });
-
-    await onUpdateCourse({
-      ...activeCourse,
-      tasks: updatedTasks,
-    });
-
-    clearTaskDraft(task);
-  };
-
-  const formatDisplayDate = (dateStr?: string) => {
-    if (!dateStr) return 'N/A';
-    const date = new Date(`${dateStr.slice(0, 10)}T12:00:00`);
-    if (Number.isNaN(date.getTime())) return dateStr;
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const year = date.getFullYear();
-    return `${month}-${day}-${year}`;
   };
 
   const handleCheckboxChange = (name: 'onboarding') => {
@@ -273,7 +134,7 @@ export function Category1CourseDev({
       },
       alertStatus: formData.alertStatus,
       courseNotes: formData.courseNotes,
-      hideCompletedTasks: false,
+      hideCompletedTasks: true,
       tasks: generatedTasks
     };
 
@@ -397,17 +258,6 @@ export function Category1CourseDev({
       case 'Potential Concerns': return 'bg-amber-600';
       case 'High Priority Concerns': return 'bg-rose-600';
       default: return 'bg-slate-600';
-    }
-  };
-
-  const getAlertSelectClass = (status?: string) => {
-    switch (status) {
-      case 'High Priority Concerns':
-        return 'bg-red-700 text-white border-red-700';
-      case 'Potential Concerns':
-        return 'bg-orange-600 text-white border-orange-600';
-      default:
-        return 'bg-green-700 text-white border-green-700';
     }
   };
 
@@ -564,27 +414,16 @@ export function Category1CourseDev({
     });
 
     const to = course.deptTeam.smeEmail || "";
-    const cc = [course.deptTeam.deanEmail, course.deptTeam.managerEmail].filter(Boolean).join(",");
+    const cc = [course.deptTeam.deanEmail, course.deptTeam.managerEmail].filter(Boolean).join(";");
     const subject = `${course.courseNumber} Course Development Status ${today}`;
     const statusReport = generateWeeklyStatusReport(course);
 
     const body = `This is a friendly update on the status of the course development. You do not need to take any action or respond to this email. It is for your information only.\n\n${statusReport}`;
 
-    // Keep the body available even if Outlook or the browser limits long compose URLs.
-    navigator.clipboard?.writeText(body).catch(() => undefined);
-
-    const outlookUrl =
-      `https://outlook.office.com/mail/deeplink/compose` +
-      `?to=${encodeURIComponent(to)}` +
-      `&cc=${encodeURIComponent(cc)}` +
-      `&subject=${encodeURIComponent(subject)}` +
-      `&body=${encodeURIComponent(body)}`;
-
-    const composeWindow = window.open(outlookUrl, "_blank", "noopener,noreferrer");
-
-    if (!composeWindow) {
-      alert("The email body was copied to your clipboard, but the Outlook compose window was blocked by the browser.");
-    }
+    window.open(
+      `mailto:${encodeURIComponent(to)}?cc=${encodeURIComponent(cc)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`,
+      "_blank"
+    );
   };
 
   // Compliance business rule calculation: check if Closeout is >= 30 days
@@ -608,10 +447,10 @@ export function Category1CourseDev({
       <div className="flex justify-between items-center bg-white border border-[#E0DCD8] p-4 shadow-2xs">
         <div>
           <h2 className="text-lg font-semibold text-slate-800 uppercase tracking-wide">
-            Category 1: Course Developments
+            Category 1: Academic Course Developments
           </h2>
           <p className="text-xs text-slate-500">
-            Course development timelines, task progress, weekly status, and milestone tracking
+            Backward-staggered course creation calendars tracking collegiate accreditation
           </p>
         </div>
         <button
@@ -647,9 +486,7 @@ export function Category1CourseDev({
                     onClick={() => {
                       const nextId = c.id || '';
                       setSelectedId(nextId);
-                      if (typeof window !== 'undefined') {
-                        localStorage.setItem('workloadHubSelectedCourseDevId', nextId);
-                      }
+                      localStorage.setItem('workloadHubSelectedCourseDevId', nextId);
                     }}
                     className={`p-4 border text-left bg-white transition-all flex flex-col gap-2 select-none cursor-pointer outline-none relative overflow-hidden ${
                       isSelected 
@@ -680,7 +517,7 @@ export function Category1CourseDev({
 
                     {/* Progress Bar Mini */}
                     <div className="mt-2 text-2xs flex justify-between items-center text-slate-500">
-                      <span>Term Deadline: {formatDisplayDate(c.termDeadline)}</span>
+                      <span>Term Deadline: {c.termDeadline}</span>
                       <span className="font-semibold">{prog}% Completeness</span>
                     </div>
                     <div className="w-full bg-slate-100 h-1 mt-1">
@@ -722,7 +559,13 @@ export function Category1CourseDev({
                   <select
                     value={activeCourse.alertStatus}
                     onChange={(e) => handleAlertStatusChange(e.target.value as any)}
-                    className={`text-xs px-2.5 py-1.5 font-semibold border focus:outline-none ${getAlertSelectClass(activeCourse.alertStatus)}`}
+                    className={`text-xs px-2.5 py-1.5 font-semibold border focus:outline-none ${
+                      activeCourse.alertStatus === "High Priority Concerns"
+                        ? "bg-red-700 text-white border-red-700"
+                        : activeCourse.alertStatus === "Potential Concerns"
+                        ? "bg-orange-600 text-white border-orange-600"
+                        : "bg-green-700 text-white border-green-700"
+                    }`}
                   >
                     <option value="No Concerns">No Concerns</option>
                     <option value="Potential Concerns">Potential Concerns</option>
@@ -738,7 +581,7 @@ export function Category1CourseDev({
                   <div>
                     <span>CRITICAL SYSTEM NON-COMPLIANCE EXPOSURE: </span>
                     <span className="font-normal block text-[11px] mt-0.5">
-                      Course closeout milestone (Task 26) is scheduled less than 30 business days before the Term Release Anchor date ({formatDisplayDate(activeCourse.termDeadline)}). Available gap is currently only {closeoutComp.count} business days, creating a bottleneck.
+                      Course closeout milestone (Task 26) is scheduled less than 30 business days before the Term Release Anchor date ({activeCourse.termDeadline}). Available gap is currently only {closeoutComp.count} business days, creating a bottleneck.
                     </span>
                   </div>
                 </div>
@@ -801,7 +644,7 @@ export function Category1CourseDev({
                       className="text-left text-slate-600 hover:text-slate-900 font-semibold uppercase flex items-center gap-1 cursor-pointer select-none"
                     >
                       <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
-                      <span>{activeCourse.hideCompletedTasks ? 'Showing All Tasks' : 'Hide Completed Tasks'}</span>
+                      <span>{activeCourse.hideCompletedTasks ? 'Show Completed Tasks' : 'Hide Completed Tasks'}</span>
                     </button>
                   </div>
                 </div>
@@ -856,161 +699,8 @@ export function Category1CourseDev({
                 </div>
               </div>
 
-
-              {editingCourse && (
-                <div className="border border-[#33B1C8]/40 bg-slate-50 p-4">
-                  <div className="mb-4 flex items-center justify-between gap-3">
-                    <h4 className="text-sm font-semibold text-slate-900 uppercase tracking-wide">
-                      Edit Course Development
-                    </h4>
-                    <button
-                      type="button"
-                      onClick={cancelEditingCourse}
-                      className="inline-flex items-center gap-1 rounded border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                    >
-                      <X className="w-3.5 h-3.5" /> Cancel
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                    <label className="flex flex-col gap-1">
-                      <span className="text-[10px] uppercase text-slate-500 font-semibold">Program</span>
-                      <input name="program" value={editingCourse.program} onChange={handleEditingChange} className="px-3 py-2 border border-slate-300 bg-white" />
-                    </label>
-
-                    <label className="flex flex-col gap-1">
-                      <span className="text-[10px] uppercase text-slate-500 font-semibold">Course Number</span>
-                      <input name="courseNumber" value={editingCourse.courseNumber} onChange={handleEditingChange} className="px-3 py-2 border border-slate-300 bg-white uppercase" />
-                    </label>
-
-                    <label className="md:col-span-2 flex flex-col gap-1">
-                      <span className="text-[10px] uppercase text-slate-500 font-semibold">Course Title</span>
-                      <input name="courseTitle" value={editingCourse.courseTitle} onChange={handleEditingChange} className="px-3 py-2 border border-slate-300 bg-white" />
-                    </label>
-
-                    <label className="flex flex-col gap-1">
-                      <span className="text-[10px] uppercase text-slate-500 font-semibold">Canvas Version</span>
-                      <input name="canvasVersion" value={editingCourse.canvasVersion} onChange={handleEditingChange} className="px-3 py-2 border border-slate-300 bg-white" />
-                    </label>
-
-                    <label className="flex flex-col gap-1">
-                      <span className="text-[10px] uppercase text-slate-500 font-semibold">Workshop Course</span>
-                      <input name="workshopCourse" value={editingCourse.workshopCourse} onChange={handleEditingChange} className="px-3 py-2 border border-slate-300 bg-white" />
-                    </label>
-
-                    <label className="flex flex-col gap-1">
-                      <span className="text-[10px] uppercase text-slate-500 font-semibold">Development Type</span>
-                      <select name="devType" value={editingCourse.devType} onChange={handleEditingChange} className="px-3 py-2 border border-slate-300 bg-white">
-                        <option value="Original">Original</option>
-                        <option value="New Release">New Release</option>
-                        <option value="Tier 1 & 2 Revision">Tier 1 &amp; 2 Revision</option>
-                        <option value="Modification">Modification</option>
-                      </select>
-                    </label>
-
-                    <label className="flex flex-col gap-1">
-                      <span className="text-[10px] uppercase text-slate-500 font-semibold">Version Number</span>
-                      <input type="number" name="versionNumber" value={editingCourse.versionNumber} onChange={handleEditingChange} className="px-3 py-2 border border-slate-300 bg-white" />
-                    </label>
-
-                    <label className="flex flex-col gap-1">
-                      <span className="text-[10px] uppercase text-slate-500 font-semibold">Term Release</span>
-                      <select name="termRelease" value={editingCourse.termRelease} onChange={handleEditingChange} className="px-3 py-2 border border-slate-300 bg-white">
-                        <option value="Spring A">Spring A</option>
-                        <option value="Spring B">Spring B</option>
-                        <option value="Spring C">Spring C</option>
-                        <option value="Summer A">Summer A</option>
-                        <option value="Summer B">Summer B</option>
-                        <option value="Summer C">Summer C</option>
-                        <option value="Fall A">Fall A</option>
-                        <option value="Fall B">Fall B</option>
-                        <option value="Fall C">Fall C</option>
-                      </select>
-                    </label>
-
-                    <label className="flex flex-col gap-1">
-                      <span className="text-[10px] uppercase text-slate-500 font-semibold">Course Deadline</span>
-                      <input type="date" name="termDeadline" value={editingCourse.termDeadline} onChange={handleEditingChange} className="px-3 py-2 border border-slate-300 bg-white" />
-                      <span className="text-[10px] text-slate-500">Displays as {formatDisplayDate(editingCourse.termDeadline)}</span>
-                    </label>
-
-                    <label className="flex flex-col gap-1">
-                      <span className="text-[10px] uppercase text-slate-500 font-semibold">Development Stagger Days</span>
-                      <input type="number" name="devStagger" value={editingCourse.devStagger} onChange={handleEditingChange} className="px-3 py-2 border border-slate-300 bg-white" />
-                    </label>
-
-                    <label className="flex flex-col gap-1">
-                      <span className="text-[10px] uppercase text-slate-500 font-semibold">Onboarding</span>
-                      <select name="onboarding" value={String(editingCourse.onboarding)} onChange={handleEditingChange} className="px-3 py-2 border border-slate-300 bg-white">
-                        <option value="true">Yes</option>
-                        <option value="false">No</option>
-                      </select>
-                    </label>
-
-                    <label className="flex flex-col gap-1">
-                      <span className="text-[10px] uppercase text-slate-500 font-semibold">Alerts</span>
-                      <select name="alertStatus" value={editingCourse.alertStatus} onChange={handleEditingChange} className="px-3 py-2 border border-slate-300 bg-white">
-                        <option value="No Concerns">No Concerns</option>
-                        <option value="Potential Concerns">Potential Concerns</option>
-                        <option value="High Priority Concerns">High Priority Concerns</option>
-                      </select>
-                    </label>
-
-                    <label className="flex flex-col gap-1">
-                      <span className="text-[10px] uppercase text-slate-500 font-semibold">SME Name</span>
-                      <input name="smeName" value={editingCourse.smeName} onChange={handleEditingChange} className="px-3 py-2 border border-slate-300 bg-white" />
-                    </label>
-
-                    <label className="flex flex-col gap-1">
-                      <span className="text-[10px] uppercase text-slate-500 font-semibold">SME Email</span>
-                      <input type="email" name="smeEmail" value={editingCourse.smeEmail} onChange={handleEditingChange} className="px-3 py-2 border border-slate-300 bg-white" />
-                    </label>
-
-                    <label className="flex flex-col gap-1">
-                      <span className="text-[10px] uppercase text-slate-500 font-semibold">Dean Name</span>
-                      <input name="deanName" value={editingCourse.deanName} onChange={handleEditingChange} className="px-3 py-2 border border-slate-300 bg-white" />
-                    </label>
-
-                    <label className="flex flex-col gap-1">
-                      <span className="text-[10px] uppercase text-slate-500 font-semibold">Dean Email</span>
-                      <input type="email" name="deanEmail" value={editingCourse.deanEmail} onChange={handleEditingChange} className="px-3 py-2 border border-slate-300 bg-white" />
-                    </label>
-
-                    <label className="flex flex-col gap-1">
-                      <span className="text-[10px] uppercase text-slate-500 font-semibold">Program Manager Name</span>
-                      <input name="managerName" value={editingCourse.managerName} onChange={handleEditingChange} className="px-3 py-2 border border-slate-300 bg-white" />
-                    </label>
-
-                    <label className="flex flex-col gap-1">
-                      <span className="text-[10px] uppercase text-slate-500 font-semibold">Program Manager Email</span>
-                      <input type="email" name="managerEmail" value={editingCourse.managerEmail} onChange={handleEditingChange} className="px-3 py-2 border border-slate-300 bg-white" />
-                    </label>
-
-                    <label className="md:col-span-2 flex flex-col gap-1">
-                      <span className="text-[10px] uppercase text-slate-500 font-semibold">Course Notes</span>
-                      <textarea name="courseNotes" value={editingCourse.courseNotes} onChange={handleEditingChange} rows={3} className="px-3 py-2 border border-slate-300 bg-white" />
-                    </label>
-                  </div>
-
-                  <div className="mt-4 flex justify-end gap-2">
-                    <button type="button" onClick={cancelEditingCourse} className="inline-flex items-center gap-1 px-3 py-2 border border-slate-300 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50">
-                      <X className="w-3.5 h-3.5" /> Cancel
-                    </button>
-                    <button type="button" onClick={saveEditingCourse} className="inline-flex items-center gap-1 px-3 py-2 bg-[#006282] text-white text-xs font-semibold hover:bg-[#076092]">
-                      <Save className="w-3.5 h-3.5" /> Save Course Development
-                    </button>
-                  </div>
-                </div>
-              )}
-
               {/* COURSE ACTIONS */}
               <div className="flex flex-wrap justify-end items-center gap-2 bg-white p-3 border border-[#E0DCD8]/80">
-                <button
-                  onClick={() => startEditingCourse(activeCourse)}
-                  className="px-3 py-1.5 border border-slate-300 text-slate-800 hover:bg-slate-50 text-2xs font-semibold uppercase tracking-wider flex items-center gap-1 cursor-pointer"
-                >
-                  <Pencil className="w-3.5 h-3.5 text-slate-600" /> Edit Course Development
-                </button>
                 <button
                   onClick={() => handleCopyStatusReport(activeCourse)}
                   className="px-3 py-1.5 border border-[#006282] text-slate-800 hover:bg-slate-50 text-2xs font-semibold uppercase tracking-wider flex items-center gap-1 cursor-pointer"
@@ -1048,19 +738,21 @@ export function Category1CourseDev({
               <div className="border border-slate-200 mt-2">
                 <div className="bg-slate-50 p-2.5 border-b border-slate-200 flex flex-col gap-1 sm:flex-row sm:justify-between sm:items-center">
                   <span className="text-xs uppercase font-semibold text-slate-700">Cascade Timeline Milestones</span>
-                  <span className="text-2xs text-slate-400 font-mono">Editable task dates, owners, statuses, and notes</span>
+                  <span className="text-2xs text-slate-400 font-mono">Task edits auto-save when changed</span>
                 </div>
 
                 <div className="max-h-[680px] overflow-y-auto p-3 space-y-3">
                   {activeCourse.tasks
                     .filter(t => activeCourse.hideCompletedTasks === false || (t.status !== 'Complete' && t.status !== 'Not Applicable'))
                     .map((task) => {
-                      const isNA = task.status === 'Not Applicable';
-                      const isComp = task.status === 'Complete';
-                      const today = formatDate(new Date());
-                      const isOver = task.status !== 'Complete' && !isNA && task.dueDate && task.dueDate < today;
                       const draft = getTaskDraft(task);
-                      const hasChanges = hasTaskDraftChanges(task);
+                      const currentStatus = draft.status || task.status;
+                      const isNA = currentStatus === 'Not Applicable';
+                      const isComp = currentStatus === 'Complete';
+                      const today = formatDate(new Date());
+                      const isOver = currentStatus !== 'Complete' && !isNA && task.dueDate && task.dueDate < today;
+                      const isEmailTask = /\[Email\]/i.test(task.name || '');
+                      const displayTaskName = (task.name || '').replace(/\s*\[Email\]\s*/gi, '').trim();
 
                       return (
                         <article
@@ -1068,39 +760,20 @@ export function Category1CourseDev({
                           className={`rounded-xl border p-4 ${isNA ? 'border-slate-200 bg-slate-50/70' : 'border-slate-200 bg-white'}`}
                         >
                           <div className="flex flex-col gap-4">
-                            <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
-                              <div>
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <span className={`font-semibold ${isComp ? 'line-through text-slate-400' : 'text-slate-900'}`}>
-                                    {task.id}. {task.name}
+                            <div className="flex flex-col gap-2">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className={`font-semibold ${isComp ? 'line-through text-slate-400' : 'text-slate-900'}`}>
+                                  {task.id}. {displayTaskName}
+                                </span>
+                                {isEmailTask && (
+                                  <Mail className="h-4 w-4 text-[#006282]" aria-label="Email task" />
+                                )}
+                                {isOver && (
+                                  <span className="rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-semibold uppercase text-white animate-pulse">
+                                    Overdue Alert
                                   </span>
-                                  {hasChanges && (
-                                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-amber-800">
-                                      Unsaved Changes
-                                    </span>
-                                  )}
-                                  {isOver && (
-                                    <span className="rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-semibold uppercase text-white animate-pulse">
-                                      Overdue Alert
-                                    </span>
-                                  )}
-                                </div>
-                                <p className="mt-1 text-[10px] font-mono text-slate-500">
-                                  Phase: {task.phase} {task.durationDays > 0 ? `(${task.durationDays} working days)` : ''}
-                                </p>
+                                )}
                               </div>
-
-                              {!isNA && (
-                                <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700">
-                                  <input
-                                    type="checkbox"
-                                    checked={isComp}
-                                    onChange={() => handleToggleTask(Number(task.id))}
-                                    className="accent-[#006282] h-4 w-4 cursor-pointer rounded border-slate-300"
-                                  />
-                                  Mark Complete
-                                </label>
-                              )}
                             </div>
 
                             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 text-xs">
@@ -1108,7 +781,7 @@ export function Category1CourseDev({
                                 <span className="text-[10px] uppercase text-slate-500 font-semibold">Owner</span>
                                 <select
                                   value={draft.assignedTo || ''}
-                                  onChange={(e) => updateTaskDraft(task, 'assignedTo', e.target.value)}
+                                  onChange={(e) => autoSaveTaskField(task, 'assignedTo', e.target.value)}
                                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                                 >
                                   <option>Operations</option>
@@ -1124,7 +797,7 @@ export function Category1CourseDev({
                                 <span className="text-[10px] uppercase text-slate-500 font-semibold">Status</span>
                                 <select
                                   value={draft.status || 'Not Started'}
-                                  onChange={(e) => updateTaskDraft(task, 'status', e.target.value)}
+                                  onChange={(e) => autoSaveTaskField(task, 'status', e.target.value)}
                                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                                 >
                                   <option>Not Started</option>
@@ -1144,7 +817,7 @@ export function Category1CourseDev({
                                 <input
                                   type="date"
                                   value={draft.startDate || ''}
-                                  onChange={(e) => updateTaskDraft(task, 'startDate', e.target.value)}
+                                  onChange={(e) => autoSaveTaskField(task, 'startDate', e.target.value)}
                                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                                 />
                                 <span className="text-[10px] text-slate-500">{formatDisplayDate(draft.startDate)}</span>
@@ -1155,7 +828,7 @@ export function Category1CourseDev({
                                 <input
                                   type="date"
                                   value={draft.dueDate || ''}
-                                  onChange={(e) => updateTaskDraft(task, 'dueDate', e.target.value)}
+                                  onChange={(e) => autoSaveTaskField(task, 'dueDate', e.target.value)}
                                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                                 />
                                 <span className="text-[10px] text-slate-500">{formatDisplayDate(draft.dueDate)}</span>
@@ -1167,37 +840,17 @@ export function Category1CourseDev({
                               <textarea
                                 value={draft.notes || ''}
                                 onChange={(e) => updateTaskDraft(task, 'notes', e.target.value)}
-                                rows={3}
+                                onBlur={() => saveTaskNotesOnBlur(task)}
+                                rows={2}
                                 placeholder="Add task-specific notes..."
                                 className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                               />
                             </label>
 
-                            <div className="flex flex-wrap gap-2">
-                              <button
-                                type="button"
-                                onClick={() => saveTaskChanges(task)}
-                                disabled={!hasChanges}
-                                className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium ${
-                                  hasChanges
-                                    ? 'bg-[#003E52] text-white hover:bg-[#073C5C]'
-                                    : 'bg-slate-200 text-slate-500'
-                                }`}
-                              >
-                                <Save className="h-4 w-4" aria-hidden="true" />
-                                Save Task Changes
-                              </button>
-
-                              {hasChanges && (
-                                <button
-                                  type="button"
-                                  onClick={() => clearTaskDraft(task)}
-                                  className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                                >
-                                  <X className="h-4 w-4" aria-hidden="true" />
-                                  Cancel
-                                </button>
-                              )}
+                            <div className="flex justify-end text-[10px] font-mono text-slate-400">
+                              <span>
+                                {task.phase}{task.durationDays > 0 ? ` • ${task.durationDays} working days` : ''}
+                              </span>
                             </div>
                           </div>
                         </article>
