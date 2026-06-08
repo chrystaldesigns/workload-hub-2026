@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { CourseDevelopment, CourseDevelopmentTask } from '../types';
 import { 
   FileText, Calendar, Plus, Mail, CheckCircle2, AlertTriangle, 
   Trash2, Sliders, ChevronRight, Share2, Clipboard, ShieldAlert,
-  SlidersHorizontal, Sparkles, Pencil, Save, X, Archive
+  SlidersHorizontal, Sparkles, Pencil, Save, X
 } from 'lucide-react';
 import { 
   calculateTimelineTasks, 
@@ -29,10 +29,7 @@ export function Category1CourseDev({
   onUpdateCourse, 
   onDeleteCourse 
 }: Category1Props) {
-  const [selectedId, setSelectedId] = useState<string>(() => {
-    if (typeof window === 'undefined') return courseDevelopments[0]?.id || '';
-    return localStorage.getItem('workloadHubSelectedCourseId') || courseDevelopments[0]?.id || '';
-  });
+  const [selectedId, setSelectedId] = useState<string>(courseDevelopments[0]?.id || '');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState<CourseDevelopmentTask | null>(null);
   const [editingCourse, setEditingCourse] = useState<typeof formData | null>(null);
@@ -61,38 +58,7 @@ export function Category1CourseDev({
     alertStatus: 'No Concerns' as const,
   });
 
-  const activeCourses = courseDevelopments.filter((course) => !(course as any).archived);
-  const activeCourse = activeCourses.find(c => c.id === selectedId) || activeCourses[0];
-
-  const selectCourse = (courseId: string) => {
-    setSelectedId(courseId);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('workloadHubSelectedCourseId', courseId);
-    }
-  };
-
-  useEffect(() => {
-    if (!activeCourses.length) {
-      if (selectedId !== '') setSelectedId('');
-      return;
-    }
-
-    const stillExists = activeCourses.some((course) => course.id === selectedId);
-    if (selectedId && stillExists) return;
-
-    const storedId = typeof window !== 'undefined'
-      ? localStorage.getItem('workloadHubSelectedCourseId')
-      : '';
-
-    const nextId = activeCourses.find((course) => course.id === storedId)?.id || activeCourses[0]?.id || '';
-
-    if (nextId && nextId !== selectedId) {
-      setSelectedId(nextId);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('workloadHubSelectedCourseId', nextId);
-      }
-    }
-  }, [courseDevelopments, selectedId]);
+  const activeCourse = courseDevelopments.find(c => c.id === selectedId) || courseDevelopments[0];
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -247,72 +213,12 @@ export function Category1CourseDev({
       };
     });
 
-    const scrollX = window.scrollX;
-    const scrollY = window.scrollY;
-    const preservedSelectedId = activeCourse.id || selectedId;
-
-    if (preservedSelectedId && typeof window !== 'undefined') {
-      localStorage.setItem('workloadHubSelectedCourseId', preservedSelectedId);
-    }
-
     await onUpdateCourse({
       ...activeCourse,
       tasks: updatedTasks,
     });
 
-    if (preservedSelectedId) {
-      setSelectedId(preservedSelectedId);
-    }
-
-    window.requestAnimationFrame(() => {
-      window.scrollTo(scrollX, scrollY);
-      window.setTimeout(() => window.scrollTo(scrollX, scrollY), 0);
-    });
-
     clearTaskDraft(task);
-  };
-
-
-  const autoSaveTaskField = async (task: CourseDevelopmentTask, field: string, value: string) => {
-    if (!activeCourse) return;
-
-    const updatedTasks = activeCourse.tasks.map(item => {
-      if (item.id !== task.id) return item;
-
-      return {
-        ...item,
-        [field]: value,
-      };
-    });
-
-    const scrollX = window.scrollX;
-    const scrollY = window.scrollY;
-    const preservedSelectedId = activeCourse.id || selectedId;
-
-    if (preservedSelectedId && typeof window !== 'undefined') {
-      localStorage.setItem('workloadHubSelectedCourseId', preservedSelectedId);
-    }
-
-    await onUpdateCourse({
-      ...activeCourse,
-      tasks: updatedTasks,
-    });
-
-    if (preservedSelectedId) {
-      setSelectedId(preservedSelectedId);
-    }
-
-    window.requestAnimationFrame(() => {
-      window.scrollTo(scrollX, scrollY);
-      window.setTimeout(() => window.scrollTo(scrollX, scrollY), 0);
-    });
-
-    clearTaskDraft(task);
-  };
-
-  const saveTaskNotesOnBlur = async (task: CourseDevelopmentTask) => {
-    const draft = getTaskDraft(task);
-    await autoSaveTaskField(task, 'notes', draft.notes || '');
   };
 
   const formatDisplayDate = (dateStr?: string) => {
@@ -364,7 +270,7 @@ export function Category1CourseDev({
       },
       alertStatus: formData.alertStatus,
       courseNotes: formData.courseNotes,
-      hideCompletedTasks: true,
+      hideCompletedTasks: false,
       tasks: generatedTasks
     };
 
@@ -451,27 +357,6 @@ export function Category1CourseDev({
       hideCompletedTasks: !activeCourse.hideCompletedTasks
     };
     await onUpdateCourse(updatedCourse);
-  };
-
-  const handleArchiveCourse = async (course: CourseDevelopment) => {
-    if (!course?.id) return;
-
-    const confirmed = window.confirm(
-      `Archive ${course.courseNumber}: ${course.courseTitle}?
-
-Archived developments will be hidden from the active Course Developments list but will remain saved in Firestore.`
-    );
-
-    if (!confirmed) return;
-
-    const nextActiveCourse = activeCourses.find((item) => item.id !== course.id);
-
-    await onUpdateCourse({
-      ...course,
-      archived: true,
-    } as CourseDevelopment & { archived?: boolean });
-
-    selectCourse(nextActiveCourse?.id || '');
   };
 
   const handleAlertStatusChange = async (status: 'No Concerns' | 'Potential Concerns' | 'High Priority Concerns') => {
@@ -745,18 +630,18 @@ Archived developments will be hidden from the active Course Developments list bu
           </div>
 
           <div className="flex flex-col gap-2 max-h-[550px] overflow-y-auto pr-1">
-            {activeCourses.length === 0 ? (
+            {courseDevelopments.length === 0 ? (
               <div className="p-6 bg-slate-50 text-center text-slate-400 border border-dashed border-slate-200">
-                No active course development schedules loaded. Click "+ Add Academic Course" to begin.
+                No course development schedules loaded. Click "+ Add Academic Course" to begin.
               </div>
             ) : (
-              activeCourses.map(c => {
+              courseDevelopments.map(c => {
                 const isSelected = c.id === (activeCourse?.id || '');
                 const prog = calculateProgress(c);
                 return (
                   <button
                     key={c.id}
-                    onClick={() => selectCourse(c.id || '')}
+                    onClick={() => setSelectedId(c.id || '')}
                     className={`p-4 border text-left bg-white transition-all flex flex-col gap-2 select-none cursor-pointer outline-none relative overflow-hidden ${
                       isSelected 
                         ? 'border-[#006282] ring-1 ring-[#006282] shadow-xs' 
@@ -1110,57 +995,43 @@ Archived developments will be hidden from the active Course Developments list bu
               )}
 
               {/* COURSE ACTIONS */}
-              <div className="flex flex-wrap justify-end items-center gap-x-4 gap-y-2 bg-white py-2 text-[11px] border-b border-[#E0DCD8]/80">
+              <div className="flex flex-wrap justify-end items-center gap-2 bg-white p-3 border border-[#E0DCD8]/80">
                 <button
-                  type="button"
                   onClick={() => startEditingCourse(activeCourse)}
-                  className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-slate-700 hover:text-[#006282]"
+                  className="px-3 py-1.5 border border-slate-300 text-slate-800 hover:bg-slate-50 text-2xs font-semibold uppercase tracking-wider flex items-center gap-1 cursor-pointer"
                 >
-                  <Pencil className="w-3.5 h-3.5" /> Edit
+                  <Pencil className="w-3.5 h-3.5 text-slate-600" /> Edit Course Development
                 </button>
-
                 <button
-                  type="button"
                   onClick={() => handleCopyStatusReport(activeCourse)}
-                  className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-slate-700 hover:text-[#006282]"
+                  className="px-3 py-1.5 border border-[#006282] text-slate-800 hover:bg-slate-50 text-2xs font-semibold uppercase tracking-wider flex items-center gap-1 cursor-pointer"
                 >
-                  <Clipboard className="w-3.5 h-3.5" /> Status QB
+                  <Clipboard className="w-3.5 h-3.5 text-[#006282]" /> Course Dev. Weekly Status QB
                 </button>
 
                 <button
-                  type="button"
                   onClick={() => triggerWeeklyStatusEmailDraft(activeCourse)}
-                  className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-slate-700 hover:text-[#087834]"
+                  className="px-3 py-1.5 border border-[#087834] text-slate-800 hover:bg-slate-50 text-2xs font-semibold uppercase tracking-wider flex items-center gap-1 cursor-pointer"
                 >
-                  <Mail className="w-3.5 h-3.5" /> Status Email
+                  <Mail className="w-3.5 h-3.5 text-[#087834]" /> Course Dev. Weekly Status Email
                 </button>
 
                 <button
-                  type="button"
                   onClick={() => triggerCompensationDraft(activeCourse)}
-                  className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-slate-700 hover:text-[#087834]"
+                  className="px-3 py-1.5 border border-[#087834] text-slate-800 hover:bg-slate-50 text-2xs font-semibold uppercase tracking-wider flex items-center gap-1 cursor-pointer"
                 >
-                  <Mail className="w-3.5 h-3.5" /> SME Compensation
+                  <Mail className="w-3.5 h-3.5 text-[#087834]" /> SME Compensation Notification
                 </button>
 
                 <button
-                  type="button"
-                  onClick={() => handleArchiveCourse(activeCourse)}
-                  className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-slate-700 hover:text-[#B35C06]"
-                >
-                  <Archive className="w-3.5 h-3.5" /> Archive
-                </button>
-
-                <button
-                  type="button"
                   onClick={() => {
-                    if (confirm("Are you sure you want to delete this course development from Firestore permanently?")) {
+                    if (confirm("Are you sure you want to delete this course schedule from Firestore permanently?")) {
                       onDeleteCourse(activeCourse.id || '');
                     }
                   }}
-                  className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-rose-700 hover:text-rose-900"
+                  className="px-2.5 py-1.5 text-rose-700 hover:bg-rose-50 text-2xs font-semibold uppercase flex items-center gap-1 cursor-pointer outline-none"
                 >
-                  <Trash2 className="w-3.5 h-3.5" /> Delete
+                  <Trash2 className="w-3.5 h-3.5 text-rose-600" /> Delete Project
                 </button>
               </div>
 
@@ -1168,21 +1039,19 @@ Archived developments will be hidden from the active Course Developments list bu
               <div className="border border-slate-200 mt-2">
                 <div className="bg-slate-50 p-2.5 border-b border-slate-200 flex flex-col gap-1 sm:flex-row sm:justify-between sm:items-center">
                   <span className="text-xs uppercase font-semibold text-slate-700">Cascade Timeline Milestones</span>
-                  <span className="text-2xs text-slate-400 font-mono">Task edits auto-save when changed</span>
+                  <span className="text-2xs text-slate-400 font-mono">Editable task dates, owners, statuses, and notes</span>
                 </div>
 
                 <div className="max-h-[680px] overflow-y-auto p-3 space-y-3">
                   {activeCourse.tasks
-                    .filter(t => activeCourse.hideCompletedTasks === false || (t.status !== 'Complete' && t.status !== 'Not Applicable'))
+                    .filter(t => !activeCourse.hideCompletedTasks || (t.status !== 'Complete' && t.status !== 'Not Applicable'))
                     .map((task) => {
-                      const draft = getTaskDraft(task);
-                      const currentStatus = draft.status || task.status;
-                      const isNA = currentStatus === 'Not Applicable';
-                      const isComp = currentStatus === 'Complete';
+                      const isNA = task.status === 'Not Applicable';
+                      const isComp = task.status === 'Complete';
                       const today = formatDate(new Date());
-                      const isOver = currentStatus !== 'Complete' && !isNA && task.dueDate && task.dueDate < today;
-                      const isEmailTask = /\[Email\]/i.test(task.name || '');
-                      const displayTaskName = (task.name || '').replace(/\s*\[Email\]\s*/gi, '').trim();
+                      const isOver = task.status !== 'Complete' && !isNA && task.dueDate && task.dueDate < today;
+                      const draft = getTaskDraft(task);
+                      const hasChanges = hasTaskDraftChanges(task);
 
                       return (
                         <article
@@ -1190,20 +1059,39 @@ Archived developments will be hidden from the active Course Developments list bu
                           className={`rounded-xl border p-4 ${isNA ? 'border-slate-200 bg-slate-50/70' : 'border-slate-200 bg-white'}`}
                         >
                           <div className="flex flex-col gap-4">
-                            <div className="flex flex-col gap-2">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className={`font-semibold ${isComp ? 'line-through text-slate-400' : 'text-slate-900'}`}>
-                                  {task.id}. {displayTaskName}
-                                </span>
-                                {isEmailTask && (
-                                  <Mail className="h-4 w-4 text-[#006282]" aria-label="Email task" />
-                                )}
-                                {isOver && (
-                                  <span className="rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-semibold uppercase text-white animate-pulse">
-                                    Overdue Alert
+                            <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+                              <div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className={`font-semibold ${isComp ? 'line-through text-slate-400' : 'text-slate-900'}`}>
+                                    {task.id}. {task.name}
                                   </span>
-                                )}
+                                  {hasChanges && (
+                                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-amber-800">
+                                      Unsaved Changes
+                                    </span>
+                                  )}
+                                  {isOver && (
+                                    <span className="rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-semibold uppercase text-white animate-pulse">
+                                      Overdue Alert
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="mt-1 text-[10px] font-mono text-slate-500">
+                                  Phase: {task.phase} {task.durationDays > 0 ? `(${task.durationDays} working days)` : ''}
+                                </p>
                               </div>
+
+                              {!isNA && (
+                                <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700">
+                                  <input
+                                    type="checkbox"
+                                    checked={isComp}
+                                    onChange={() => handleToggleTask(Number(task.id))}
+                                    className="accent-[#006282] h-4 w-4 cursor-pointer rounded border-slate-300"
+                                  />
+                                  Mark Complete
+                                </label>
+                              )}
                             </div>
 
                             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 text-xs">
@@ -1211,7 +1099,7 @@ Archived developments will be hidden from the active Course Developments list bu
                                 <span className="text-[10px] uppercase text-slate-500 font-semibold">Owner</span>
                                 <select
                                   value={draft.assignedTo || ''}
-                                  onChange={(e) => autoSaveTaskField(task, 'assignedTo', e.target.value)}
+                                  onChange={(e) => updateTaskDraft(task, 'assignedTo', e.target.value)}
                                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                                 >
                                   <option>Operations</option>
@@ -1227,7 +1115,7 @@ Archived developments will be hidden from the active Course Developments list bu
                                 <span className="text-[10px] uppercase text-slate-500 font-semibold">Status</span>
                                 <select
                                   value={draft.status || 'Not Started'}
-                                  onChange={(e) => autoSaveTaskField(task, 'status', e.target.value)}
+                                  onChange={(e) => updateTaskDraft(task, 'status', e.target.value)}
                                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                                 >
                                   <option>Not Started</option>
@@ -1247,7 +1135,7 @@ Archived developments will be hidden from the active Course Developments list bu
                                 <input
                                   type="date"
                                   value={draft.startDate || ''}
-                                  onChange={(e) => autoSaveTaskField(task, 'startDate', e.target.value)}
+                                  onChange={(e) => updateTaskDraft(task, 'startDate', e.target.value)}
                                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                                 />
                                 <span className="text-[10px] text-slate-500">{formatDisplayDate(draft.startDate)}</span>
@@ -1258,7 +1146,7 @@ Archived developments will be hidden from the active Course Developments list bu
                                 <input
                                   type="date"
                                   value={draft.dueDate || ''}
-                                  onChange={(e) => autoSaveTaskField(task, 'dueDate', e.target.value)}
+                                  onChange={(e) => updateTaskDraft(task, 'dueDate', e.target.value)}
                                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                                 />
                                 <span className="text-[10px] text-slate-500">{formatDisplayDate(draft.dueDate)}</span>
@@ -1270,17 +1158,37 @@ Archived developments will be hidden from the active Course Developments list bu
                               <textarea
                                 value={draft.notes || ''}
                                 onChange={(e) => updateTaskDraft(task, 'notes', e.target.value)}
-                                onBlur={() => saveTaskNotesOnBlur(task)}
-                                rows={2}
+                                rows={3}
                                 placeholder="Add task-specific notes..."
                                 className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                               />
                             </label>
 
-                            <div className="flex justify-end text-[10px] font-mono text-slate-400">
-                              <span>
-                                {task.phase}{task.durationDays > 0 ? ` • ${task.durationDays} working days` : ''}
-                              </span>
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                onClick={() => saveTaskChanges(task)}
+                                disabled={!hasChanges}
+                                className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium ${
+                                  hasChanges
+                                    ? 'bg-[#003E52] text-white hover:bg-[#073C5C]'
+                                    : 'bg-slate-200 text-slate-500'
+                                }`}
+                              >
+                                <Save className="h-4 w-4" aria-hidden="true" />
+                                Save Task Changes
+                              </button>
+
+                              {hasChanges && (
+                                <button
+                                  type="button"
+                                  onClick={() => clearTaskDraft(task)}
+                                  className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                                >
+                                  <X className="h-4 w-4" aria-hidden="true" />
+                                  Cancel
+                                </button>
+                              )}
                             </div>
                           </div>
                         </article>
