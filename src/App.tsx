@@ -14,7 +14,6 @@ import { Category2LssProjects } from "./components/Category2_LssProjects";
 import { Category3Tasks } from "./components/Category3_Tasks";
 import { CalendarSettingsPanel } from "./components/CalendarSettingsPanel";
 import { AlertCircle, RefreshCw } from "lucide-react";
-import { FSCJ_HOLIDAYS } from "./utils/calendarEngine";
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>("dashboard");
@@ -30,125 +29,6 @@ export default function App() {
   });
   const [outlookEvents, setOutlookEvents] = useState<OutlookEvent[]>([]);
   const [alertCount, setAlertCount] = useState<number>(0);
-
-  const getLocalTodayIso = () => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const day = String(now.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
-  };
-
-  const formatHeaderDate = (dateStr: string) => {
-    const date = new Date(`${dateStr}T12:00:00`);
-    if (Number.isNaN(date.getTime())) return dateStr;
-
-    return date.toLocaleDateString("en-US", {
-      month: "2-digit",
-      day: "2-digit",
-      year: "2-digit",
-    });
-  };
-
-  const getHolidayName = (dateStr: string) => {
-    const date = new Date(`${dateStr}T12:00:00`);
-    if (Number.isNaN(date.getTime())) return "College Closed";
-
-    const month = date.getMonth() + 1;
-    const day = date.getDate();
-
-    if (month === 1 && day === 1) return "New Year's Day";
-    if (month === 1) return "Martin Luther King Jr. Day";
-    if (month === 3 || month === 4) return "Spring Break";
-    if (month === 5) return "Memorial Day";
-    if (month === 6 && day === 19) return "Juneteenth";
-    if (month === 7 && day === 4) return "Independence Day";
-    if (month === 9) return "Labor Day";
-    if (month === 11 && day >= 20) return "Thanksgiving Break";
-    if (month === 12) return "Winter Break";
-
-    return "College Closed";
-  };
-
-  const getNextHoliday = () => {
-    const today = getLocalTodayIso();
-
-    const nextHolidayDate = FSCJ_HOLIDAYS
-      .filter((date) => date >= today)
-      .sort()[0];
-
-    if (!nextHolidayDate) return undefined;
-
-    return `${formatHeaderDate(nextHolidayDate)}: ${getHolidayName(nextHolidayDate)}`;
-  };
-
-  const getNextMilestone = () => {
-    const today = getLocalTodayIso();
-
-    const milestoneList: { date: string; label: string }[] = [];
-
-    courseDevelopments.forEach((course) => {
-      if (course.archived) return;
-      const coursePrefix = course.courseNumber || "Course";
-      const milestones = course.milestones;
-
-      const addMilestone = (date: string | null | undefined, label: string) => {
-        if (date && date >= today) {
-          milestoneList.push({
-            date,
-            label: `${coursePrefix} ${label}`,
-          });
-        }
-      };
-
-      if (milestones) {
-        addMilestone(milestones.onboarding, "Onboarding");
-        addMilestone(milestones.initialMeeting, "Initial Meeting");
-        addMilestone(milestones.courseDesignPlanDue, "Course Design Plan Due");
-        addMilestone(milestones.kickoff, "Kickoff");
-        addMilestone(milestones.midpointReview, "Midpoint Review");
-        addMilestone(milestones.finalReview, "Final Review");
-        addMilestone(milestones.smeDeliverablesComplete, "SME Deliverables Complete");
-        addMilestone(milestones.developmentCompletion, "Development Complete");
-        addMilestone(milestones.closeout, "Closeout");
-      }
-
-      if (Array.isArray(course.tasks)) {
-        course.tasks.forEach((task) => {
-          const taskName = task.name || "Milestone";
-          const taskDate = task.dueDate || task.startDate;
-          const nameLower = taskName.toLowerCase();
-          const looksLikeMilestone =
-            task.isMilestone ||
-            nameLower.includes("kickoff") ||
-            nameLower.includes("midpoint") ||
-            nameLower.includes("final review") ||
-            nameLower.includes("course design plan") ||
-            nameLower.includes("development completion") ||
-            nameLower.includes("sme deliverables");
-
-          if (
-            looksLikeMilestone &&
-            taskDate &&
-            taskDate >= today &&
-            task.status !== "Complete" &&
-            task.status !== "Not Applicable"
-          ) {
-            milestoneList.push({
-              date: taskDate,
-              label: `${coursePrefix} ${taskName}`,
-            });
-          }
-        });
-      }
-    });
-
-    const next = milestoneList.sort((a, b) => a.date.localeCompare(b.date))[0];
-
-    if (!next) return undefined;
-
-    return `${next.label} • ${formatHeaderDate(next.date)}`;
-  };
 
   const countWorkingDaysBetweenDates = (
     startStr: string,
@@ -212,17 +92,6 @@ export default function App() {
       const safeCourses = Array.isArray(cdData) ? cdData : [];
       const safeProjects = Array.isArray(lssData) ? lssData : [];
       const safeTasks = Array.isArray(taskData) ? taskData : [];
-
-      const activeCourses = safeCourses.filter(
-        (course: CourseDevelopment) => !course.archived
-      );
-      const activeProjects = safeProjects.filter(
-        (project: LssProject) => !project.archived
-      );
-      const activeTasks = safeTasks.filter(
-        (task: StandaloneTask) => !task.archived
-      );
-
       const safeCalendar = {
         customBlocked: Array.isArray(calData?.customBlocked) ? calData.customBlocked : [],
         outlookConnected: !!calData?.outlookConnected,
@@ -238,14 +107,14 @@ export default function App() {
 
       const todayStr = new Date().toISOString().split("T")[0];
 
-      const overdueTasks = activeTasks.filter(
+      const overdueTasks = safeTasks.filter(
         (task: StandaloneTask) =>
           task.status !== "Complete" && !!task.dueDate && task.dueDate < todayStr
       ).length;
 
       let nonComplianceCount = 0;
 
-      activeCourses.forEach((course: CourseDevelopment) => {
+      safeCourses.forEach((course: CourseDevelopment) => {
         if (!Array.isArray(course.tasks) || !course.termDeadline) return;
 
         const closeoutTask =
@@ -697,8 +566,6 @@ export default function App() {
       <Header
         outlookConnected={!!calendarSettings.outlookConnected}
         alertCount={alertCount}
-        nextHoliday={getNextHoliday()}
-        nextMilestone={getNextMilestone()}
       />
 
       <Navigation
@@ -712,13 +579,10 @@ export default function App() {
       <footer className="border-t border-slate-100 bg-white px-6 py-10 text-center text-xs text-slate-500 print:hidden">
         <div className="mx-auto flex max-w-7xl flex-col gap-2">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-800">
-            Florida State College at Jacksonville &bull; Workload Hub
+            Workload Hub established in 2026
           </p>
           <p className="text-xs text-slate-500">
             Developed for course development, project tracking, and workload planning.
-          </p>
-          <p className="mx-auto mt-2 max-w-max rounded-lg border border-slate-100/60 bg-slate-50 px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider text-slate-400">
-            WCAG 2.1 AA / Section 508 Support-Oriented Interface
           </p>
         </div>
       </footer>
