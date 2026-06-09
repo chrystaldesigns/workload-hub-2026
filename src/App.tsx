@@ -211,6 +211,17 @@ export default function App() {
       const safeCourses = Array.isArray(cdData) ? cdData : [];
       const safeProjects = Array.isArray(lssData) ? lssData : [];
       const safeTasks = Array.isArray(taskData) ? taskData : [];
+
+      const activeCourses = safeCourses.filter(
+        (course: CourseDevelopment) => !course.archived
+      );
+      const activeProjects = safeProjects.filter(
+        (project: LssProject) => !project.archived
+      );
+      const activeTasks = safeTasks.filter(
+        (task: StandaloneTask) => !task.archived
+      );
+
       const safeCalendar = {
         customBlocked: Array.isArray(calData?.customBlocked) ? calData.customBlocked : [],
         outlookConnected: !!calData?.outlookConnected,
@@ -218,22 +229,22 @@ export default function App() {
         timezone: "America/New_York" as any,
       };
 
-      setCourseDevelopments(safeCourses);
-      setLssProjects(safeProjects);
-      setStandaloneTasks(safeTasks);
+      setCourseDevelopments(activeCourses);
+      setLssProjects(activeProjects);
+      setStandaloneTasks(activeTasks);
       setCalendarSettings(safeCalendar);
       setOutlookEvents(Array.isArray(outData) ? outData : []);
 
       const todayStr = new Date().toISOString().split("T")[0];
 
-      const overdueTasks = safeTasks.filter(
+      const overdueTasks = activeTasks.filter(
         (task: StandaloneTask) =>
           task.status !== "Complete" && !!task.dueDate && task.dueDate < todayStr
       ).length;
 
       let nonComplianceCount = 0;
 
-      safeCourses.forEach((course: CourseDevelopment) => {
+      activeCourses.forEach((course: CourseDevelopment) => {
         if (!Array.isArray(course.tasks) || !course.termDeadline) return;
 
         const closeoutTask =
