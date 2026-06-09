@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { BellRing, CalendarDays, CalendarRange } from "lucide-react";
+import { CalendarRange } from "lucide-react";
 
 interface HeaderProps {
   outlookConnected: boolean;
@@ -10,7 +10,6 @@ interface HeaderProps {
 
 export function Header({
   outlookConnected,
-  alertCount,
   nextHoliday,
   nextMilestone,
 }: HeaderProps) {
@@ -59,7 +58,6 @@ export function Header({
             <span className="text-[9px] uppercase block opacity-60">
               System Clock (Eastern)
             </span>
-
             <span className="font-semibold text-white tracking-wide">
               {today} • {time || "Loading Clock..."}
             </span>
@@ -70,43 +68,31 @@ export function Header({
               <span className="text-[9px] uppercase block opacity-60">
                 Next Holiday / Event
               </span>
-
               <span className="font-semibold text-white tracking-wide">
                 {nextHoliday}
               </span>
             </div>
           )}
+
           {nextMilestone && (
-  <div className="bg-[#076092]/40 border border-[#33B1C8]/20 px-3 py-1.5 text-[#33B1C8]">
-    <span className="text-[9px] uppercase block opacity-60">
-      Next Milestone
-    </span>
+            <div className="bg-[#076092]/40 border border-[#33B1C8]/20 px-3 py-1.5 text-[#33B1C8]">
+              <span className="text-[9px] uppercase block opacity-60">
+                Next Milestone
+              </span>
+              <span className="font-semibold text-white tracking-wide">
+                {nextMilestone}
+              </span>
+            </div>
+          )}
 
-    <span className="font-semibold text-white tracking-wide">
-      {nextMilestone}
-    </span>
-  </div>
-)}
-
-          <div className="flex gap-2">
-            {outlookConnected && (
-              <div className="px-2.5 py-1.5 flex items-center gap-1.5 border bg-emerald-950/40 border-emerald-500/30 text-emerald-300">
-                <CalendarRange className="w-3.5 h-3.5" />
-                <span className="uppercase text-[10px] tracking-wider">
-                  Outlook Synced
-                </span>
-              </div>
-            )}
-
-            {alertCount > 0 && (
-              <div className="bg-rose-950/40 border border-rose-500/30 px-2.5 py-1.5 flex items-center gap-1.5 text-rose-300 animate-pulse">
-                <BellRing className="w-3.5 h-3.5 text-rose-400" />
-                <span className="uppercase text-[10px] tracking-wider font-semibold">
-                  {alertCount} Active Alerts
-                </span>
-              </div>
-            )}
-          </div>
+          {outlookConnected && (
+            <div className="px-2.5 py-1.5 flex items-center gap-1.5 border bg-emerald-950/40 border-emerald-500/30 text-emerald-300">
+              <CalendarRange className="w-3.5 h-3.5" />
+              <span className="uppercase text-[10px] tracking-wider">
+                Outlook Synced
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </header>
