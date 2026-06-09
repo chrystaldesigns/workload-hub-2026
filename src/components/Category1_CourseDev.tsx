@@ -3,7 +3,7 @@ import { CourseDevelopment, CourseDevelopmentTask } from '../types';
 import { 
   FileText, Calendar, Plus, Mail, CheckCircle2, AlertTriangle, 
   Trash2, Sliders, ChevronRight, Share2, Clipboard, ShieldAlert,
-  SlidersHorizontal, Sparkles, Pencil, Save, X, Archive
+  SlidersHorizontal, Sparkles, Pencil, Save, X, Archive, RotateCcw
 } from 'lucide-react';
 import { 
   calculateTimelineTasks, 
@@ -37,6 +37,7 @@ export function Category1CourseDev({
   const [showEmailModal, setShowEmailModal] = useState<CourseDevelopmentTask | null>(null);
   const [editingCourse, setEditingCourse] = useState<typeof formData | null>(null);
   const [taskDrafts, setTaskDrafts] = useState<Record<string, Partial<CourseDevelopmentTask & { notes?: string }>>>({});
+  const [showArchived, setShowArchived] = useState(false);
 
   // Form states for new Course
   const [formData, setFormData] = useState({
@@ -61,8 +62,10 @@ export function Category1CourseDev({
     alertStatus: 'No Concerns' as const,
   });
 
+  const visibleCourses = courseDevelopments.filter((course) => showArchived || !(course as any).archived);
   const activeCourses = courseDevelopments.filter((course) => !(course as any).archived);
-  const activeCourse = activeCourses.find(c => c.id === selectedId) || activeCourses[0];
+  const archivedCourses = courseDevelopments.filter((course) => (course as any).archived);
+  const activeCourse = visibleCourses.find(c => c.id === selectedId) || visibleCourses[0];
 
   const selectCourse = (courseId: string) => {
     setSelectedId(courseId);
@@ -72,19 +75,19 @@ export function Category1CourseDev({
   };
 
   useEffect(() => {
-    if (!activeCourses.length) {
+    if (!visibleCourses.length) {
       if (selectedId !== '') setSelectedId('');
       return;
     }
 
-    const stillExists = activeCourses.some((course) => course.id === selectedId);
+    const stillExists = visibleCourses.some((course) => course.id === selectedId);
     if (selectedId && stillExists) return;
 
     const storedId = typeof window !== 'undefined'
       ? localStorage.getItem('workloadHubSelectedCourseId')
       : '';
 
-    const nextId = activeCourses.find((course) => course.id === storedId)?.id || activeCourses[0]?.id || '';
+    const nextId = visibleCourses.find((course) => course.id === storedId)?.id || visibleCourses[0]?.id || '';
 
     if (nextId && nextId !== selectedId) {
       setSelectedId(nextId);
@@ -92,7 +95,7 @@ export function Category1CourseDev({
         localStorage.setItem('workloadHubSelectedCourseId', nextId);
       }
     }
-  }, [courseDevelopments, selectedId]);
+  }, [courseDevelopments, selectedId, showArchived]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -469,10 +472,24 @@ Archived developments will be hidden from the active Course Developments list bu
     await onUpdateCourse({
       ...course,
       archived: true,
-    } as CourseDevelopment & { archived?: boolean });
+      archivedDate: new Date().toISOString().split('T')[0],
+    } as CourseDevelopment & { archived?: boolean; archivedDate?: string });
 
     selectCourse(nextActiveCourse?.id || '');
   };
+
+  const handleRestoreCourse = async (course: CourseDevelopment) => {
+    if (!course?.id) return;
+
+    await onUpdateCourse({
+      ...course,
+      archived: false,
+      archivedDate: '',
+    } as CourseDevelopment & { archived?: boolean; archivedDate?: string });
+
+    selectCourse(course.id || '');
+  };
+
 
   const handleAlertStatusChange = async (status: 'No Concerns' | 'Potential Concerns' | 'High Priority Concerns') => {
     if (!activeCourse) return;
@@ -720,18 +737,33 @@ Archived developments will be hidden from the active Course Developments list bu
       <div className="flex justify-between items-center bg-white border border-[#E0DCD8] p-4 shadow-2xs">
         <div>
           <h2 className="text-lg font-semibold text-slate-800 uppercase tracking-wide">
-            Course Developments
+            Category 1: Course Developments
           </h2>
           <p className="text-xs text-slate-500">
             Course development timelines, task progress, weekly status, and milestone tracking
           </p>
         </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="bg-[#006282] hover:bg-[#076092] text-white px-4 py-2 text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 transition-colors cursor-pointer"
-        >
-          <Plus className="w-4 h-4" /> Add Academic Course
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowArchived((prev) => !prev)}
+            className={`border px-4 py-2 text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 transition-colors cursor-pointer ${
+              showArchived
+                ? 'border-[#B35C06] bg-[#B35C06] text-white'
+                : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+            }`}
+          >
+            <Archive className="w-4 h-4" />
+            {showArchived ? 'Hide Archived' : `Show Archived (${archivedCourses.length})`}
+          </button>
+
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="bg-[#006282] hover:bg-[#076092] text-white px-4 py-2 text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 transition-colors cursor-pointer"
+          >
+            <Plus className="w-4 h-4" /> Add Academic Course
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -745,12 +777,12 @@ Archived developments will be hidden from the active Course Developments list bu
           </div>
 
           <div className="flex flex-col gap-2 max-h-[550px] overflow-y-auto pr-1">
-            {activeCourses.length === 0 ? (
+            {visibleCourses.length === 0 ? (
               <div className="p-6 bg-slate-50 text-center text-slate-400 border border-dashed border-slate-200">
-                No active course development schedules loaded. Click "+ Add Academic Course" to begin.
+                {showArchived ? 'No archived course developments found.' : 'No active course development schedules loaded. Click "+ Add Academic Course" to begin.'}
               </div>
             ) : (
-              activeCourses.map(c => {
+              visibleCourses.map(c => {
                 const isSelected = c.id === (activeCourse?.id || '');
                 const prog = calculateProgress(c);
                 return (
@@ -782,6 +814,11 @@ Archived developments will be hidden from the active Course Developments list bu
                       <p className="text-[10px] text-slate-500 font-medium font-mono uppercase mt-0.5">
                         {c.program}
                       </p>
+                      {(c as any).archived && (
+                        <p className="mt-1 text-[10px] font-semibold uppercase text-[#B35C06]">
+                          Archived{(c as any).archivedDate ? ` • ${(c as any).archivedDate}` : ''}
+                        </p>
+                      )}
                     </div>
 
                     {/* Progress Bar Mini */}
@@ -1111,57 +1148,86 @@ Archived developments will be hidden from the active Course Developments list bu
 
               {/* COURSE ACTIONS */}
               <div className="flex flex-wrap justify-end items-center gap-x-4 gap-y-2 bg-white py-2 text-[11px] border-b border-[#E0DCD8]/80">
-                <button
-                  type="button"
-                  onClick={() => startEditingCourse(activeCourse)}
-                  className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-slate-700 hover:text-[#006282]"
-                >
-                  <Pencil className="w-3.5 h-3.5" /> Edit
-                </button>
+                {(activeCourse as any).archived ? (
+                  <>
+                    <span className="mr-auto text-[11px] font-semibold uppercase tracking-wider text-[#B35C06]">
+                      Archived{(activeCourse as any).archivedDate ? ` ${(activeCourse as any).archivedDate}` : ''}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleRestoreCourse(activeCourse)}
+                      className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-[#006282] hover:text-[#073C5C]"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" /> Restore
+                    </button>
 
-                <button
-                  type="button"
-                  onClick={() => handleCopyStatusReport(activeCourse)}
-                  className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-slate-700 hover:text-[#006282]"
-                >
-                  <Clipboard className="w-3.5 h-3.5" /> Status QB
-                </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (confirm("Delete this archived course development permanently from Firestore? This cannot be undone.")) {
+                          onDeleteCourse(activeCourse.id || '');
+                        }
+                      }}
+                      className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-rose-700 hover:text-rose-900"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" /> Delete Permanently
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => startEditingCourse(activeCourse)}
+                      className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-slate-700 hover:text-[#006282]"
+                    >
+                      <Pencil className="w-3.5 h-3.5" /> Edit
+                    </button>
 
-                <button
-                  type="button"
-                  onClick={() => triggerWeeklyStatusEmailDraft(activeCourse)}
-                  className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-slate-700 hover:text-[#087834]"
-                >
-                  <Mail className="w-3.5 h-3.5" /> Status Email
-                </button>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyStatusReport(activeCourse)}
+                      className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-slate-700 hover:text-[#006282]"
+                    >
+                      <Clipboard className="w-3.5 h-3.5" /> Status QB
+                    </button>
 
-                <button
-                  type="button"
-                  onClick={() => triggerCompensationDraft(activeCourse)}
-                  className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-slate-700 hover:text-[#087834]"
-                >
-                  <Mail className="w-3.5 h-3.5" /> SME Compensation
-                </button>
+                    <button
+                      type="button"
+                      onClick={() => triggerWeeklyStatusEmailDraft(activeCourse)}
+                      className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-slate-700 hover:text-[#087834]"
+                    >
+                      <Mail className="w-3.5 h-3.5" /> Status Email
+                    </button>
 
-                <button
-                  type="button"
-                  onClick={() => handleArchiveCourse(activeCourse)}
-                  className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-slate-700 hover:text-[#B35C06]"
-                >
-                  <Archive className="w-3.5 h-3.5" /> Archive
-                </button>
+                    <button
+                      type="button"
+                      onClick={() => triggerCompensationDraft(activeCourse)}
+                      className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-slate-700 hover:text-[#087834]"
+                    >
+                      <Mail className="w-3.5 h-3.5" /> SME Compensation
+                    </button>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (confirm("Are you sure you want to delete this course development from Firestore permanently?")) {
-                      onDeleteCourse(activeCourse.id || '');
-                    }
-                  }}
-                  className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-rose-700 hover:text-rose-900"
-                >
-                  <Trash2 className="w-3.5 h-3.5" /> Delete
-                </button>
+                    <button
+                      type="button"
+                      onClick={() => handleArchiveCourse(activeCourse)}
+                      className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-slate-700 hover:text-[#B35C06]"
+                    >
+                      <Archive className="w-3.5 h-3.5" /> Archive
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (confirm("Are you sure you want to delete this course development from Firestore permanently?")) {
+                          onDeleteCourse(activeCourse.id || '');
+                        }
+                      }}
+                      className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-rose-700 hover:text-rose-900"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" /> Delete
+                    </button>
+                  </>
+                )}
               </div>
 
               {/* TASKS TABLE MATRIX */}
