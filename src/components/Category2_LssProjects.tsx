@@ -130,8 +130,10 @@ export function Category2LssProjects({
 }: Category2Props) {
   const safeProjects = Array.isArray(lssProjects) ? lssProjects : [];
   const [showArchived, setShowArchived] = useState(false);
-  const visibleProjects = safeProjects.filter((project) => showArchived || !project.archived);
-  const archivedProjects = safeProjects.filter((project) => project.archived);
+  const visibleProjects = safeProjects.filter(
+    (project) => showArchived || !(project as any).archived
+  );
+  const archivedProjects = safeProjects.filter((project) => (project as any).archived);
 
   const [selectedId, setSelectedId] = useState<string>("");
   const [formData, setFormData] = useState<ProjectFormData>(emptyProjectForm);
@@ -450,6 +452,44 @@ export function Category2LssProjects({
       await onDeleteProject(project.id);
       if (selectedId === project.id) setSelectedId("");
     }
+  };
+
+  const handleArchiveProject = async (project: LssProject) => {
+    if (!project.id) {
+      alert("This project is missing an ID and cannot be archived.");
+      return;
+    }
+
+    const confirmed = window.confirm(`Archive project "${project.title}"?`);
+
+    if (!confirmed) return;
+
+    await onUpdateProject({
+      ...project,
+      archived: true,
+      archivedDate: new Date().toISOString().split("T")[0],
+      updatedAt: new Date().toISOString(),
+    } as unknown as LssProject);
+
+    if (selectedId === project.id) {
+      setSelectedId("");
+    }
+  };
+
+  const handleRestoreProject = async (project: LssProject) => {
+    if (!project.id) {
+      alert("This project is missing an ID and cannot be restored.");
+      return;
+    }
+
+    await onUpdateProject({
+      ...project,
+      archived: false,
+      archivedDate: "",
+      updatedAt: new Date().toISOString(),
+    } as unknown as LssProject);
+
+    setSelectedId(project.id);
   };
 
   const handleAddTask = async (e: React.FormEvent) => {
@@ -928,23 +968,35 @@ export function Category2LssProjects({
       <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="mb-4 flex items-center justify-between gap-3">
-            <h3 className="text-lg font-semibold text-slate-900">Project List</h3>
-            <button
-              type="button"
-              onClick={() => setShowArchived((prev) => !prev)}
-              className={`inline-flex items-center gap-1 rounded-lg border px-3 py-1 text-xs font-medium ${
-                showArchived
-                  ? "border-[#B35C06] bg-[#B35C06] text-white"
-                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-              }`}
-            >
-              <Archive className="h-4 w-4" aria-hidden="true" />
-              {showArchived ? "Hide Archived" : `Show Archived (${archivedProjects.length})`}
-            </button>
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900">Project List</h3>
+              {archivedProjects.length > 0 && (
+                <p className="mt-1 text-xs text-slate-500">
+                  {archivedProjects.length} archived project{archivedProjects.length === 1 ? "" : "s"}
+                </p>
+              )}
+            </div>
+
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
+              <input
+                type="checkbox"
+                checked={showArchived}
+                onChange={(e) => {
+                  setShowArchived(e.target.checked);
+                  setSelectedId("");
+                }}
+                className="accent-[#003E52]"
+              />
+              Show Archived
+            </label>
           </div>
 
-          {visibleProjects.length === 0 ? (
-            <p className="text-sm text-slate-600">{showArchived ? "No archived projects found." : "No projects have been added yet."}</p>
+          {safeProjects.length === 0 ? (
+            <p className="text-sm text-slate-600">No projects have been added yet.</p>
+          ) : visibleProjects.length === 0 ? (
+            <p className="text-sm text-slate-600">
+              No active projects to show. Turn on Show Archived to view archived projects.
+            </p>
           ) : (
             <div className="space-y-3">
               {visibleProjects.map((project) => {
@@ -964,17 +1016,21 @@ export function Category2LssProjects({
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <h4 className={`font-semibold ${isSelected ? "text-white" : "text-slate-900"}`}>
-                          {project.title}
-                        </h4>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h4 className={`font-semibold ${isSelected ? "text-white" : "text-slate-900"}`}>
+                            {project.title}
+                          </h4>
+                          {(project as any).archived && (
+                            <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${
+                              isSelected ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"
+                            }`}>
+                              Archived
+                            </span>
+                          )}
+                        </div>
                         <p className={`mt-1 text-sm ${isSelected ? "text-slate-100" : "text-slate-600"}`}>
                           {project.type || "Project"} · {project.status}
                         </p>
-                        {project.archived && (
-                          <p className={`mt-1 text-xs font-semibold uppercase ${isSelected ? "text-orange-100" : "text-[#B35C06]"}`}>
-                            Archived{project.archivedDate ? ` • ${project.archivedDate}` : ""}
-                          </p>
-                        )}
                         <p className={`mt-1 text-xs ${isSelected ? "text-slate-100" : "text-slate-500"}`}>
                           Target: {project.targetCompletionDate || "Not set"}
                         </p>
@@ -1053,6 +1109,11 @@ export function Category2LssProjects({
                       Start: {activeProject.startDate || "Not set"} · Target:{" "}
                       {activeProject.targetCompletionDate || "Not set"}
                     </p>
+                    {(activeProject as any).archived && (
+                      <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        Archived{(activeProject as any).archivedDate ? `: ${(activeProject as any).archivedDate}` : ""}
+                      </p>
+                    )}
                   </div>
 
                   <div className="flex flex-wrap gap-2">
@@ -1066,12 +1127,12 @@ export function Category2LssProjects({
                     >
                       {getProjectAlert(activeProject)}
                     </span>
-                    {activeProject.archived ? (
+                    {(activeProject as any).archived ? (
                       <>
                         <button
                           type="button"
                           onClick={() => handleRestoreProject(activeProject)}
-                          className="inline-flex items-center gap-1 rounded-lg border border-[#003E52] bg-white px-3 py-1 text-xs font-medium text-[#003E52] hover:bg-slate-50"
+                          className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-white px-3 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50"
                         >
                           <RotateCcw className="h-4 w-4" aria-hidden="true" />
                           Restore
@@ -1098,7 +1159,7 @@ export function Category2LssProjects({
                         <button
                           type="button"
                           onClick={() => handleArchiveProject(activeProject)}
-                          className="inline-flex items-center gap-1 rounded-lg border border-orange-200 bg-white px-3 py-1 text-xs font-medium text-[#B35C06] hover:bg-orange-50"
+                          className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
                         >
                           <Archive className="h-4 w-4" aria-hidden="true" />
                           Archive
