@@ -88,6 +88,7 @@ export default function App() {
     const milestoneList: { date: string; label: string }[] = [];
 
     courseDevelopments.forEach((course) => {
+      if (course.archived) return;
       const coursePrefix = course.courseNumber || "Course";
       const milestones = course.milestones;
 
@@ -229,9 +230,9 @@ export default function App() {
         timezone: "America/New_York" as any,
       };
 
-      setCourseDevelopments(activeCourses);
-      setLssProjects(activeProjects);
-      setStandaloneTasks(activeTasks);
+      setCourseDevelopments(safeCourses);
+      setLssProjects(safeProjects);
+      setStandaloneTasks(safeTasks);
       setCalendarSettings(safeCalendar);
       setOutlookEvents(Array.isArray(outData) ? outData : []);
 
