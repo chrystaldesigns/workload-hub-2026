@@ -165,6 +165,8 @@ export interface CourseMilestones {
 export interface CourseDevelopment {
   id?: string;
   itemType?: "courseDevelopment";
+  archived?: boolean;
+  archivedDate?: string;
 
   program: string;
   courseNumber: string;
@@ -199,8 +201,6 @@ export interface CourseDevelopment {
   tasks: CourseDevelopmentTask[];
 
   initialized?: boolean;
-  archived?: boolean;
-  archivedDate?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -233,6 +233,8 @@ export interface LssTask {
 export interface LssProject {
   id?: string;
   itemType?: "project";
+  archived?: boolean;
+  archivedDate?: string;
 
   title: string;
   type: string;
@@ -287,8 +289,6 @@ export interface LssProject {
   notes?: string;
   tasks: LssTask[];
 
-  archived?: boolean;
-  archivedDate?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -296,6 +296,8 @@ export interface LssProject {
 export interface StandaloneTask {
   id?: string;
   itemType?: "standaloneTask";
+  archived?: boolean;
+  archivedDate?: string;
 
   title: string;
 
@@ -321,8 +323,6 @@ export interface StandaloneTask {
   actionType?: ActionType;
   actionTemplate?: TaskActionTemplate;
 
-  archived?: boolean;
-  archivedDate?: string;
   createdAt?: string;
   updatedAt?: string;
 }
