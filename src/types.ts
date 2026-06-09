@@ -199,6 +199,8 @@ export interface CourseDevelopment {
   tasks: CourseDevelopmentTask[];
 
   initialized?: boolean;
+  archived?: boolean;
+  archivedDate?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -285,6 +287,8 @@ export interface LssProject {
   notes?: string;
   tasks: LssTask[];
 
+  archived?: boolean;
+  archivedDate?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -317,6 +321,8 @@ export interface StandaloneTask {
   actionType?: ActionType;
   actionTemplate?: TaskActionTemplate;
 
+  archived?: boolean;
+  archivedDate?: string;
   createdAt?: string;
   updatedAt?: string;
 }
