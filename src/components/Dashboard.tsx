@@ -1,12 +1,5 @@
 import React from "react";
-import {
-  BookOpen,
-  FolderGit,
-  CheckSquare,
-  AlertTriangle,
-  CalendarDays,
-  ArrowRight,
-} from "lucide-react";
+import { CalendarDays, ListChecks } from "lucide-react";
 import { CourseDevelopment, LssProject, StandaloneTask } from "../types";
 
 interface DashboardProps {
@@ -18,6 +11,15 @@ interface DashboardProps {
   onOpenTasks: () => void;
 }
 
+type FocusItem = {
+  id: string;
+  title: string;
+  context: string;
+  date?: string;
+  type: "Course Development" | "Project" | "Task";
+  onOpen: () => void;
+};
+
 export function Dashboard({
   courseDevelopments,
   lssProjects,
@@ -27,44 +29,31 @@ export function Dashboard({
   onOpenTasks,
 }: DashboardProps) {
   const safeCourses = Array.isArray(courseDevelopments)
-    ? courseDevelopments.filter((course) => !course.archived)
+    ? courseDevelopments.filter((course) => !(course as any).archived)
     : [];
   const safeProjects = Array.isArray(lssProjects)
-    ? lssProjects.filter((project) => !project.archived)
+    ? lssProjects.filter((project) => !(project as any).archived)
     : [];
   const safeTasks = Array.isArray(standaloneTasks)
-    ? standaloneTasks.filter((task) => !task.archived)
+    ? standaloneTasks.filter((task) => !(task as any).archived)
     : [];
 
   const today = new Date().toISOString().split("T")[0];
 
-  const activeCourses = safeCourses.filter((course) => {
-    return course.tasks?.some((task) => task.status !== "Complete");
-  });
+  const formatShortDate = (dateStr?: string) => {
+    if (!dateStr) return "Not set";
+    const date = new Date(`${dateStr.slice(0, 10)}T12:00:00`);
+    if (Number.isNaN(date.getTime())) return dateStr;
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const year = String(date.getFullYear()).slice(-2);
+    return `${month}-${day}-${year}`;
+  };
 
-  const activeProjects = safeProjects.filter((project) => project.status !== "Complete");
-
-  const activeTasks = safeTasks.filter((task) => task.status !== "Complete");
-
-  const dueTodayTasks = safeTasks.filter((task) => {
-    return task.dueDate === today && task.status !== "Complete";
-  });
-
-  const overdueTasks = safeTasks.filter((task) => {
-    return !!task.dueDate && task.dueDate < today && task.status !== "Complete";
-  });
-
-  const highConcernCourses = safeCourses.filter(
-    (course) => course.alertStatus === "High Priority Concerns"
-  );
-
-  const highConcernProjects = safeProjects.filter(
-    (project) => project.alertStatus === "High Priority Concerns"
-  );
-
-  const highConcernTasks = safeTasks.filter(
-    (task) => task.alertStatus === "High Priority Concerns"
-  );
+  const isActiveStatus = (status?: string) => {
+    const normalized = (status || "").toLowerCase();
+    return normalized !== "complete" && normalized !== "completed" && normalized !== "not applicable";
+  };
 
   const getAlertBadgeClass = (alertStatus?: string) => {
     switch (alertStatus) {
@@ -77,314 +66,275 @@ export function Dashboard({
     }
   };
 
-  const getCourseCompletionDate = (course: CourseDevelopment) => {
+  const getCourseStartOfTerm = (course: CourseDevelopment) => {
     const closeoutTask =
-      course.tasks?.find((task) =>
-        task.name?.toLowerCase().includes("project completion")
-      ) ||
-      course.tasks?.find((task) =>
-        task.phase?.toLowerCase().includes("project closeout")
-      );
+      course.tasks?.find((task) => task.name?.toLowerCase().includes("project completion")) ||
+      course.tasks?.find((task) => task.phase?.toLowerCase().includes("project closeout"));
 
     return (
       course.completionDate ||
       closeoutTask?.completionDate ||
       closeoutTask?.dueDate ||
       course.termDeadline ||
-      "Not set"
+      ""
+    );
+  };
+
+  const todayFocusItems: FocusItem[] = [
+    ...safeCourses.flatMap((course) =>
+      (course.tasks || [])
+        .filter((task) => task.startDate && task.startDate <= today && isActiveStatus(task.status))
+        .map((task) => ({
+          id: `course-${course.id || course.courseNumber}-${task.id}`,
+          title: task.name || "Untitled course task",
+          context: `${course.courseNumber}: ${course.courseTitle}`,
+          date: task.startDate,
+          type: "Course Development" as const,
+          onOpen: onOpenCourseDevelopments,
+        }))
+    ),
+    ...safeProjects
+      .filter((project) => project.startDate && project.startDate <= today && isActiveStatus(project.status))
+      .map((project) => ({
+        id: `project-${project.id || project.title}`,
+        title: project.title,
+        context: `Project • ${project.status}`,
+        date: project.startDate,
+        type: "Project" as const,
+        onOpen: onOpenProjects,
+      })),
+    ...safeTasks
+      .filter((task) => task.startDate && task.startDate <= today && isActiveStatus(task.status))
+      .map((task) => ({
+        id: `task-${task.id || task.title}`,
+        title: task.title,
+        context: `Task • ${task.status}`,
+        date: task.startDate,
+        type: "Task" as const,
+        onOpen: onOpenTasks,
+      })),
+  ].sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+
+  const dueTodayItems: FocusItem[] = [
+    ...safeCourses.flatMap((course) =>
+      (course.tasks || [])
+        .filter((task) => task.dueDate === today && isActiveStatus(task.status))
+        .map((task) => ({
+          id: `due-course-${course.id || course.courseNumber}-${task.id}`,
+          title: task.name || "Untitled course task",
+          context: `${course.courseNumber}: ${course.courseTitle}`,
+          date: task.dueDate,
+          type: "Course Development" as const,
+          onOpen: onOpenCourseDevelopments,
+        }))
+    ),
+    ...safeProjects
+      .filter((project) => project.targetCompletionDate === today && isActiveStatus(project.status))
+      .map((project) => ({
+        id: `due-project-${project.id || project.title}`,
+        title: project.title,
+        context: `Project • ${project.status}`,
+        date: project.targetCompletionDate,
+        type: "Project" as const,
+        onOpen: onOpenProjects,
+      })),
+    ...safeTasks
+      .filter((task) => task.dueDate === today && isActiveStatus(task.status))
+      .map((task) => ({
+        id: `due-task-${task.id || task.title}`,
+        title: task.title,
+        context: `Task • ${task.status}`,
+        date: task.dueDate,
+        type: "Task" as const,
+        onOpen: onOpenTasks,
+      })),
+  ];
+
+  const renderFocusList = (items: FocusItem[], emptyText: string) => {
+    if (items.length === 0) {
+      return <p className="text-sm text-slate-600">{emptyText}</p>;
+    }
+
+    return (
+      <div className="divide-y divide-slate-100">
+        {items.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={item.onOpen}
+            className="flex w-full flex-col gap-0.5 py-2 text-left hover:bg-slate-50"
+          >
+            <span className="text-sm font-semibold text-slate-900">{item.title}</span>
+            <span className="text-xs text-slate-500">
+              {item.context} {item.date ? `• ${formatShortDate(item.date)}` : ""}
+            </span>
+          </button>
+        ))}
+      </div>
     );
   };
 
   return (
-    <section className="space-y-6 px-4 py-6 sm:px-6 lg:px-8">
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <section className="space-y-5 px-4 py-5 sm:px-6 lg:px-8">
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
           <div>
             <h2 className="text-2xl font-semibold text-slate-900">Dashboard</h2>
             <p className="mt-1 text-sm text-slate-600">
-              View all Course Developments, Projects, and Tasks in one place.
+              {safeCourses.length} Course Developments • {safeProjects.length} Projects • {safeTasks.length} Tasks
             </p>
           </div>
           <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-            Today: {today}
+            Today: {formatShortDate(today)}
           </p>
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-5 lg:grid-cols-2">
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="mb-3 flex items-center gap-3">
-            <div className="rounded-xl bg-[#003E52] p-3 text-white">
-              <BookOpen className="h-5 w-5" aria-hidden="true" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-slate-900">Course Developments</p>
-              <p className="text-xs text-slate-500">Active course workload</p>
-            </div>
+          <div className="mb-3 flex items-center gap-2">
+            <ListChecks className="h-5 w-5 text-[#003E52]" aria-hidden="true" />
+            <h3 className="text-lg font-semibold text-slate-900">Today's Focus</h3>
           </div>
-          <p className="text-3xl font-semibold text-slate-900">{activeCourses.length}</p>
-          <button
-            type="button"
-            onClick={onOpenCourseDevelopments}
-            className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-[#003E52] hover:underline"
-          >
-            View Course Developments
-            <ArrowRight className="h-4 w-4" aria-hidden="true" />
-          </button>
+          {renderFocusList(
+            todayFocusItems,
+            "No active items have a start date of today or earlier."
+          )}
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="mb-3 flex items-center gap-3">
-            <div className="rounded-xl bg-[#073C5C] p-3 text-white">
-              <FolderGit className="h-5 w-5" aria-hidden="true" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-slate-900">Projects</p>
-              <p className="text-xs text-slate-500">Manual project work</p>
-            </div>
-          </div>
-          <p className="text-3xl font-semibold text-slate-900">{activeProjects.length}</p>
-          <button
-            type="button"
-            onClick={onOpenProjects}
-            className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-[#003E52] hover:underline"
-          >
-            View Projects
-            <ArrowRight className="h-4 w-4" aria-hidden="true" />
-          </button>
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="mb-3 flex items-center gap-3">
-            <div className="rounded-xl bg-[#087898] p-3 text-white">
-              <CheckSquare className="h-5 w-5" aria-hidden="true" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-slate-900">Tasks</p>
-              <p className="text-xs text-slate-500">Standalone action items</p>
-            </div>
-          </div>
-          <p className="text-3xl font-semibold text-slate-900">{activeTasks.length}</p>
-          <button
-            type="button"
-            onClick={onOpenTasks}
-            className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-[#003E52] hover:underline"
-          >
-            View Tasks
-            <ArrowRight className="h-4 w-4" aria-hidden="true" />
-          </button>
-        </div>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="mb-4 flex items-center gap-2">
+          <div className="mb-3 flex items-center gap-2">
             <CalendarDays className="h-5 w-5 text-[#003E52]" aria-hidden="true" />
             <h3 className="text-lg font-semibold text-slate-900">Due Today</h3>
           </div>
-
-          {dueTodayTasks.length === 0 ? (
-            <p className="text-sm text-slate-600">No standalone tasks are due today.</p>
-          ) : (
-            <div className="space-y-3">
-              {dueTodayTasks.map((task) => (
-                <article
-                  key={task.id || task.title}
-                  className="rounded-xl border border-slate-200 bg-slate-50 p-4"
-                >
-                  <h4 className="font-medium text-slate-900">{task.title}</h4>
-                  <p className="mt-1 text-sm text-slate-600">
-                    Status: {task.status} · Priority: {task.priority}
-                  </p>
-                </article>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="mb-4 flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-red-700" aria-hidden="true" />
-            <h3 className="text-lg font-semibold text-slate-900">Needs Attention</h3>
-          </div>
-
-          {overdueTasks.length === 0 &&
-          highConcernCourses.length === 0 &&
-          highConcernProjects.length === 0 &&
-          highConcernTasks.length === 0 ? (
-            <p className="text-sm text-slate-600">No high-priority concerns are currently flagged.</p>
-          ) : (
-            <div className="space-y-3">
-              {overdueTasks.map((task) => (
-                <article
-                  key={task.id || task.title}
-                  className="rounded-xl border border-red-200 bg-red-50 p-4"
-                >
-                  <h4 className="font-medium text-red-900">{task.title}</h4>
-                  <p className="mt-1 text-sm text-red-800">Overdue since {task.dueDate}</p>
-                </article>
-              ))}
-
-              {highConcernCourses.map((course) => (
-                <article
-                  key={course.id || course.courseNumber}
-                  className="rounded-xl border border-red-200 bg-red-50 p-4"
-                >
-                  <h4 className="font-medium text-red-900">
-                    {course.courseNumber}: {course.courseTitle}
-                  </h4>
-                  <p className="mt-1 text-sm text-red-800">High Priority Concern</p>
-                </article>
-              ))}
-
-              {highConcernProjects.map((project) => (
-                <article
-                  key={project.id || project.title}
-                  className="rounded-xl border border-red-200 bg-red-50 p-4"
-                >
-                  <h4 className="font-medium text-red-900">{project.title}</h4>
-                  <p className="mt-1 text-sm text-red-800">High Priority Concern</p>
-                </article>
-              ))}
-
-              {highConcernTasks.map((task) => (
-                <article
-                  key={task.id || task.title}
-                  className="rounded-xl border border-red-200 bg-red-50 p-4"
-                >
-                  <h4 className="font-medium text-red-900">{task.title}</h4>
-                  <p className="mt-1 text-sm text-red-800">High Priority Concern</p>
-                </article>
-              ))}
-            </div>
-          )}
+          {renderFocusList(dueTodayItems, "No active items are due today.")}
         </div>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-3">
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <h3 className="text-lg font-semibold text-slate-900">Course Developments</h3>
-            <button
-              type="button"
-              onClick={onOpenCourseDevelopments}
-              className="text-sm font-medium text-[#003E52] hover:underline"
-            >
-              Open
-            </button>
-          </div>
-
-          {safeCourses.length === 0 ? (
-            <p className="text-sm text-slate-600">No course developments have been added yet.</p>
-          ) : (
-            <div className="space-y-3">
-              {safeCourses.map((course) => (
-                <button
-                  key={course.id || course.courseNumber}
-                  type="button"
-                  onClick={onOpenCourseDevelopments}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 p-4 text-left hover:bg-slate-100"
-                >
-                  <h4 className="font-medium text-slate-900">
-                    {course.courseNumber}: {course.courseTitle}
-                  </h4>
-                  <p className="mt-1 text-sm text-slate-600">
-                    Deadline: {course.calculatedDeadline || course.termDeadline || "Not set"}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Completion: {getCourseCompletionDate(course)}
-                  </p>
-                  <span
-                    className={`mt-2 inline-flex rounded-full px-2 py-1 text-xs font-medium ${getAlertBadgeClass(
-                      course.alertStatus
-                    )}`}
-                  >
-                    {course.alertStatus || "No Concerns"}
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h3 className="text-lg font-semibold text-slate-900">Active Workload</h3>
+          <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
+            Compact list view
+          </span>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <h3 className="text-lg font-semibold text-slate-900">Projects</h3>
-            <button
-              type="button"
-              onClick={onOpenProjects}
-              className="text-sm font-medium text-[#003E52] hover:underline"
-            >
-              Open
-            </button>
+        <div className="space-y-5">
+          <div>
+            <div className="mb-2 flex items-center justify-between gap-3 border-b border-slate-100 pb-2">
+              <h4 className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                Course Developments
+              </h4>
+              <button
+                type="button"
+                onClick={onOpenCourseDevelopments}
+                className="text-xs font-semibold text-[#003E52] hover:underline"
+              >
+                Open
+              </button>
+            </div>
+
+            {safeCourses.length === 0 ? (
+              <p className="text-sm text-slate-600">No active course developments.</p>
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {safeCourses.map((course) => (
+                  <button
+                    key={course.id || course.courseNumber}
+                    type="button"
+                    onClick={onOpenCourseDevelopments}
+                    className="flex w-full flex-col gap-1 py-2.5 text-left hover:bg-slate-50"
+                  >
+                    <span className="text-sm font-semibold text-slate-900">
+                      {course.courseNumber}: {course.courseTitle}
+                    </span>
+                    <span className="text-xs text-slate-600">
+                      Deadline: {formatShortDate(course.calculatedDeadline || course.termDeadline)} | Start of Term: {formatShortDate(getCourseStartOfTerm(course))} | Term: {course.termRelease || "Not set"} | Alerts:{" "}
+                      <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${getAlertBadgeClass(course.alertStatus)}`}>
+                        {course.alertStatus || "No Concerns"}
+                      </span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
-          {safeProjects.length === 0 ? (
-            <p className="text-sm text-slate-600">No projects have been added yet.</p>
-          ) : (
-            <div className="space-y-3">
-              {safeProjects.map((project) => (
-                <button
-                  key={project.id || project.title}
-                  type="button"
-                  onClick={onOpenProjects}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 p-4 text-left hover:bg-slate-100"
-                >
-                  <h4 className="font-medium text-slate-900">{project.title}</h4>
-                  <p className="mt-1 text-sm text-slate-600">
-                    Status: {project.status} · Target: {project.targetCompletionDate || "Not set"}
-                  </p>
-                  <span
-                    className={`mt-2 inline-flex rounded-full px-2 py-1 text-xs font-medium ${getAlertBadgeClass(
-                      project.alertStatus
-                    )}`}
-                  >
-                    {project.alertStatus || "No Concerns"}
-                  </span>
-                </button>
-              ))}
+          <div>
+            <div className="mb-2 flex items-center justify-between gap-3 border-b border-slate-100 pb-2">
+              <h4 className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                Projects
+              </h4>
+              <button
+                type="button"
+                onClick={onOpenProjects}
+                className="text-xs font-semibold text-[#003E52] hover:underline"
+              >
+                Open
+              </button>
             </div>
-          )}
-        </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <h3 className="text-lg font-semibold text-slate-900">Tasks</h3>
-            <button
-              type="button"
-              onClick={onOpenTasks}
-              className="text-sm font-medium text-[#003E52] hover:underline"
-            >
-              Open
-            </button>
+            {safeProjects.length === 0 ? (
+              <p className="text-sm text-slate-600">No active projects.</p>
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {safeProjects.map((project) => (
+                  <button
+                    key={project.id || project.title}
+                    type="button"
+                    onClick={onOpenProjects}
+                    className="flex w-full flex-col gap-1 py-2.5 text-left hover:bg-slate-50"
+                  >
+                    <span className="text-sm font-semibold text-slate-900">{project.title}</span>
+                    <span className="text-xs text-slate-600">
+                      Status: {project.status || "Not set"} | Target: {formatShortDate(project.targetCompletionDate)} | Alerts:{" "}
+                      <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${getAlertBadgeClass(project.alertStatus)}`}>
+                        {project.alertStatus || "No Concerns"}
+                      </span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
-          {safeTasks.length === 0 ? (
-            <p className="text-sm text-slate-600">No standalone tasks have been added yet.</p>
-          ) : (
-            <div className="space-y-3">
-              {safeTasks.map((task) => (
-                <button
-                  key={task.id || task.title}
-                  type="button"
-                  onClick={onOpenTasks}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 p-4 text-left hover:bg-slate-100"
-                >
-                  <h4 className="font-medium text-slate-900">{task.title}</h4>
-                  <p className="mt-1 text-sm text-slate-600">
-                    Status: {task.status} · Due: {task.dueDate || "Not set"}
-                  </p>
-                  <span
-                    className={`mt-2 inline-flex rounded-full px-2 py-1 text-xs font-medium ${getAlertBadgeClass(
-                      task.alertStatus
-                    )}`}
-                  >
-                    {task.alertStatus || "No Concerns"}
-                  </span>
-                </button>
-              ))}
+          <div>
+            <div className="mb-2 flex items-center justify-between gap-3 border-b border-slate-100 pb-2">
+              <h4 className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                Tasks
+              </h4>
+              <button
+                type="button"
+                onClick={onOpenTasks}
+                className="text-xs font-semibold text-[#003E52] hover:underline"
+              >
+                Open
+              </button>
             </div>
-          )}
+
+            {safeTasks.length === 0 ? (
+              <p className="text-sm text-slate-600">No active standalone tasks.</p>
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {safeTasks.map((task) => (
+                  <button
+                    key={task.id || task.title}
+                    type="button"
+                    onClick={onOpenTasks}
+                    className="flex w-full flex-col gap-1 py-2.5 text-left hover:bg-slate-50"
+                  >
+                    <span className="text-sm font-semibold text-slate-900">{task.title}</span>
+                    <span className="text-xs text-slate-600">
+                      Status: {task.status || "Not set"} | Target: {formatShortDate(task.dueDate)} | Alerts:{" "}
+                      <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${getAlertBadgeClass(task.alertStatus)}`}>
+                        {task.alertStatus || "No Concerns"}
+                      </span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </section>
