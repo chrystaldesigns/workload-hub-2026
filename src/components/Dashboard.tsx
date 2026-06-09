@@ -1,18 +1,11 @@
-// =====================================================
-// Dashboard Capacity Forecast + Workload Heat Map
-// Restore Point - June 3, 2026
-// Dashboard Header Cleanup Complete
-// =====================================================
 import React from "react";
 import {
-  AlertTriangle,
-  ArrowRight,
   BookOpen,
-  CalendarDays,
-  CheckSquare,
-  Clock,
   FolderGit,
-  TrendingUp,
+  CheckSquare,
+  AlertTriangle,
+  CalendarDays,
+  ArrowRight,
 } from "lucide-react";
 import { CourseDevelopment, LssProject, StandaloneTask } from "../types";
 
@@ -25,174 +18,6 @@ interface DashboardProps {
   onOpenTasks: () => void;
 }
 
-type UnifiedItem = {
-  id: string;
-  title: string;
-  category: "Course Development" | "Project" | "Task";
-  startDate?: string;
-  dueDate?: string;
-  date: string;
-  status?: string;
-  alertStatus?: string;
-  priority?: string;
-  onOpen: () => void;
-};
-
-function todayLocal() {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, "0");
-  const day = String(today.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function addCalendarDays(dateStr: string, days: number) {
-  const date = new Date(`${dateStr}T12:00:00`);
-  date.setDate(date.getDate() + days);
-
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
-}
-
-function formatDisplayDate(dateStr?: string) {
-  if (!dateStr) return "Not set";
-
-  const date = new Date(`${dateStr.slice(0, 10)}T12:00:00`);
-
-  if (Number.isNaN(date.getTime())) return dateStr;
-
-  return date.toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
-}
-
-function isComplete(status?: string) {
-  return status === "Complete" || status === "Completed" || status === "100% complete";
-}
-
-function isActiveStatus(status?: string) {
-  return (
-    status === "In Progress" ||
-    status === "Developing (Content)" ||
-    status === "Developing (Canvas)" ||
-    status === "Scheduled"
-  );
-}
-
-function getAlertBadgeClass(alertStatus?: string) {
-  switch (alertStatus) {
-    case "High Priority Concerns":
-      return "bg-red-700 text-white";
-    case "Potential Concerns":
-      return "bg-orange-700 text-white";
-    default:
-      return "bg-slate-600 text-white";
-  }
-}
-
-function getPriorityBadgeClass(priority?: string) {
-  switch (priority) {
-    case "Critical":
-      return "bg-red-700 text-white";
-    case "High":
-      return "bg-orange-700 text-white";
-    case "Moderate":
-      return "bg-[#003E52] text-white";
-    default:
-      return "bg-slate-600 text-white";
-  }
-}
-
-function getCapacityLabel(total: number) {
-  if (total >= 30) return { label: "Very heavy workload", className: "text-red-700" };
-  if (total >= 15) return { label: "Heavy workload", className: "text-orange-700" };
-  if (total >= 6) return { label: "Moderate workload", className: "text-[#003E52]" };
-  return { label: "Light workload", className: "text-green-700" };
-}
-
-function getHeatMapLevel(count: number) {
-  if (count >= 9) {
-    return {
-      label: "Very Heavy",
-      badgeClass: "bg-red-700 text-white",
-      barClass: "bg-red-700",
-      rowClass: "border-red-200 bg-red-50",
-    };
-  }
-
-  if (count >= 6) {
-    return {
-      label: "Heavy",
-      badgeClass: "bg-orange-700 text-white",
-      barClass: "bg-orange-700",
-      rowClass: "border-orange-200 bg-orange-50",
-    };
-  }
-
-  if (count >= 3) {
-    return {
-      label: "Moderate",
-      badgeClass: "bg-[#003E52] text-white",
-      barClass: "bg-[#003E52]",
-      rowClass: "border-slate-200 bg-slate-50",
-    };
-  }
-
-  return {
-    label: "Light",
-    badgeClass: "bg-green-700 text-white",
-    barClass: "bg-green-700",
-    rowClass: "border-green-200 bg-green-50",
-  };
-}
-
-function getCourseCompletionDate(course: CourseDevelopment) {
-  const closeoutTask =
-    course.tasks?.find((task) =>
-      task.name?.toLowerCase().includes("project completion")
-    ) ||
-    course.tasks?.find((task) =>
-      task.phase?.toLowerCase().includes("project closeout")
-    ) ||
-    course.tasks?.find((task) =>
-      task.name?.toLowerCase().includes("course completion")
-    );
-
-  return (
-    (course as any).completionDate ||
-    (closeoutTask as any)?.completionDate ||
-    closeoutTask?.dueDate ||
-    course.termDeadline ||
-    ""
-  );
-}
-
-function getCourseProgress(course: CourseDevelopment) {
-  const tasks = Array.isArray(course.tasks) ? course.tasks : [];
-  const applicable = tasks.filter((task) => task.status !== "Not Applicable");
-
-  if (!applicable.length) return 0;
-
-  const complete = applicable.filter((task) => task.status === "Complete").length;
-  return Math.round((complete / applicable.length) * 100);
-}
-
-function getProjectProgress(project: LssProject) {
-  const tasks = Array.isArray(project.tasks) ? project.tasks : [];
-
-  if (!tasks.length) {
-    return project.status === "Complete" ? 100 : project.status === "In Progress" ? 50 : 0;
-  }
-
-  const complete = tasks.filter((task) => task.status === "Completed").length;
-  return Math.round((complete / tasks.length) * 100);
-}
-
 export function Dashboard({
   courseDevelopments,
   lssProjects,
@@ -201,530 +26,239 @@ export function Dashboard({
   onOpenProjects,
   onOpenTasks,
 }: DashboardProps) {
-  const safeCourses = Array.isArray(courseDevelopments) ? courseDevelopments : [];
-  const safeProjects = Array.isArray(lssProjects) ? lssProjects : [];
-  const safeTasks = Array.isArray(standaloneTasks) ? standaloneTasks : [];
+  const safeCourses = Array.isArray(courseDevelopments)
+    ? courseDevelopments.filter((course) => !course.archived)
+    : [];
+  const safeProjects = Array.isArray(lssProjects)
+    ? lssProjects.filter((project) => !project.archived)
+    : [];
+  const safeTasks = Array.isArray(standaloneTasks)
+    ? standaloneTasks.filter((task) => !task.archived)
+    : [];
 
-  const today = todayLocal();
-  const weekEnd = addCalendarDays(today, 7);
-  const thirtyDayEnd = addCalendarDays(today, 30);
+  const today = new Date().toISOString().split("T")[0];
 
-  const openCourseItem = (courseId: string) => {
-    localStorage.setItem("workloadHubSelectedCourseId", courseId);
-    onOpenCourseDevelopments();
-  };
-
-  const openProjectItem = (projectId: string) => {
-    localStorage.setItem("workloadHubSelectedProjectId", projectId);
-    onOpenProjects();
-  };
-
-  const openTaskItem = (taskId: string) => {
-    localStorage.setItem("workloadHubSelectedTaskId", taskId);
-    onOpenTasks();
-  };
-
-  const activeCourses = safeCourses.filter((course) =>
-    course.tasks?.some((task) => task.status !== "Complete" && task.status !== "Not Applicable")
-  );
-
-  const activeProjects = safeProjects.filter((project) => project.status !== "Complete");
-  const activeTasks = safeTasks.filter((task) => !isComplete(task.status));
-
-  const courseItems: UnifiedItem[] = safeCourses
-    .map((course) => {
-      const courseId = String(course.id || course.courseNumber);
-      const courseDate =
-        course.termDeadline ||
-        (course as any).calculatedDeadline ||
-        getCourseCompletionDate(course);
-
-      return {
-        id: courseId,
-        title: `${course.courseNumber}: ${course.courseTitle}`,
-        category: "Course Development" as const,
-        startDate: (course as any).startDate || "",
-        dueDate: courseDate,
-        date: courseDate,
-        status: `${getCourseProgress(course)}% complete`,
-        alertStatus: course.alertStatus,
-        onOpen: () => openCourseItem(courseId),
-      };
-    })
-    .filter((item) => !!item.date);
-
-  const projectItems: UnifiedItem[] = safeProjects
-    .map((project) => {
-      const projectId = String(project.id || project.title);
-
-      return {
-        id: projectId,
-        title: project.title,
-        category: "Project" as const,
-        startDate: project.startDate || "",
-        dueDate: project.targetCompletionDate || "",
-        date: project.targetCompletionDate || project.startDate || "",
-        status: project.status,
-        alertStatus: (project as any).alertStatus,
-        priority: project.priority,
-        onOpen: () => openProjectItem(projectId),
-      };
-    })
-    .filter((item) => !!item.date);
-
-  const taskItems: UnifiedItem[] = safeTasks
-    .map((task) => {
-      const taskId = String(task.id || task.title);
-
-      return {
-        id: taskId,
-        title: task.title,
-        category: "Task" as const,
-        startDate: task.startDate || "",
-        dueDate: task.dueDate || "",
-        date: task.dueDate || task.startDate || "",
-        status: task.status,
-        alertStatus: (task as any).alertStatus,
-        priority: task.priority,
-        onOpen: () => openTaskItem(taskId),
-      };
-    })
-    .filter((item) => !!item.date);
-
-  const unifiedItems = [...courseItems, ...projectItems, ...taskItems].sort((a, b) =>
-    a.date.localeCompare(b.date)
-  );
-
-  const overdueItems = unifiedItems.filter(
-    (item) => item.date < today && !isComplete(item.status)
-  );
-
-  const dueThisWeekItems = unifiedItems.filter(
-    (item) => item.date >= today && item.date <= weekEnd && !isComplete(item.status)
-  );
-
-  const upcomingThirtyDays = unifiedItems.filter(
-    (item) => item.date >= today && item.date <= thirtyDayEnd && !isComplete(item.status)
-  );
-
-  const highConcernItems = unifiedItems.filter(
-    (item) => item.alertStatus === "High Priority Concerns"
-  );
-
-  const todaysFocusItems = unifiedItems
-  .filter((item) => {
-    return (
-      !isComplete(item.status) &&
-      item.startDate &&
-      item.startDate === today
-    );
-  })
-  .sort((a, b) => {
-    const priorityRank = (priority?: string) => {
-      switch (priority) {
-        case "Critical":
-          return 1;
-        case "High":
-          return 2;
-        case "Moderate":
-          return 3;
-        default:
-          return 4;
-      }
-    };
-
-    const priorityDifference =
-      priorityRank(a.priority) - priorityRank(b.priority);
-
-    if (priorityDifference !== 0) {
-      return priorityDifference;
-    }
-
-    return (a.dueDate || a.date).localeCompare(b.dueDate || b.date);
+  const activeCourses = safeCourses.filter((course) => {
+    return course.tasks?.some((task) => task.status !== "Complete");
   });
 
-  const next7CourseCount = courseItems.filter(
-    (item) => item.date >= today && item.date <= weekEnd && !isComplete(item.status)
-  ).length;
+  const activeProjects = safeProjects.filter((project) => project.status !== "Complete");
 
-  const next7ProjectCount = projectItems.filter(
-    (item) => item.date >= today && item.date <= weekEnd && !isComplete(item.status)
-  ).length;
+  const activeTasks = safeTasks.filter((task) => task.status !== "Complete");
 
-  const next7TaskCount = taskItems.filter(
-    (item) => item.date >= today && item.date <= weekEnd && !isComplete(item.status)
-  ).length;
+  const dueTodayTasks = safeTasks.filter((task) => {
+    return task.dueDate === today && task.status !== "Complete";
+  });
 
-  const next30CourseCount = courseItems.filter(
-    (item) => item.date >= today && item.date <= thirtyDayEnd && !isComplete(item.status)
-  ).length;
+  const overdueTasks = safeTasks.filter((task) => {
+    return !!task.dueDate && task.dueDate < today && task.status !== "Complete";
+  });
 
-  const next30ProjectCount = projectItems.filter(
-    (item) => item.date >= today && item.date <= thirtyDayEnd && !isComplete(item.status)
-  ).length;
-
-  const next30TaskCount = taskItems.filter(
-    (item) => item.date >= today && item.date <= thirtyDayEnd && !isComplete(item.status)
-  ).length;
-
-  const next7Total = next7CourseCount + next7ProjectCount + next7TaskCount;
-  const next30Total = next30CourseCount + next30ProjectCount + next30TaskCount;
-
-  const next7Capacity = getCapacityLabel(next7Total);
-  const next30Capacity = getCapacityLabel(next30Total);
-
-  const heatMapByDate = upcomingThirtyDays.reduce<Record<string, UnifiedItem[]>>(
-    (acc, item) => {
-      const dueDate = item.dueDate || item.date;
-
-      if (!dueDate || dueDate < today || dueDate > thirtyDayEnd || isComplete(item.status)) {
-        return acc;
-      }
-
-      if (!acc[dueDate]) acc[dueDate] = [];
-      acc[dueDate].push(item);
-
-      return acc;
-    },
-    {}
+  const highConcernCourses = safeCourses.filter(
+    (course) => course.alertStatus === "High Priority Concerns"
   );
 
-  const heatMapDays = Object.entries(heatMapByDate)
-    .map(([date, items]) => ({
-      date,
-      items,
-      count: items.length,
-    }))
-    .sort((a, b) => a.date.localeCompare(b.date));
-
-  const maxHeatCount = Math.max(...heatMapDays.map((day) => day.count), 1);
-
-  const summaryItems = [
-    {
-      label: "Courses",
-      count: activeCourses.length,
-      icon: BookOpen,
-      className: "text-[#003E52]",
-    },
-    {
-      label: "Projects",
-      count: activeProjects.length,
-      icon: FolderGit,
-      className: "text-[#003E52]",
-    },
-    {
-      label: "Tasks",
-      count: activeTasks.length,
-      icon: CheckSquare,
-      className: "text-[#003E52]",
-    },
-    {
-      label: "Overdue",
-      count: overdueItems.length,
-      icon: AlertTriangle,
-      className: "text-red-700",
-    },
-    {
-      label: "Due This Week",
-      count: dueThisWeekItems.length,
-      icon: CalendarDays,
-      className: "text-orange-700",
-    },
-    {
-      label: "High Concerns",
-      count: highConcernItems.length,
-      icon: AlertTriangle,
-      className: "text-red-700",
-    },
-  ];
-
-  const renderUnifiedItem = (item: UnifiedItem) => (
-    <button
-      key={`${item.category}-${item.id}-${item.date}`}
-      type="button"
-      onClick={item.onOpen}
-      className="w-full rounded-xl border border-slate-200 bg-slate-50 p-4 text-left hover:bg-slate-100"
-    >
-      <div className="flex flex-col gap-2">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            {item.category}
-          </p>
-          <h4 className="mt-1 font-medium text-slate-900">{item.title}</h4>
-          <p className="mt-1 text-sm text-slate-600">
-            {formatDisplayDate(item.date)} · {item.status || "Status not set"}
-          </p>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          {item.priority && (
-            <span className={`rounded-full px-2 py-1 text-xs font-medium ${getPriorityBadgeClass(item.priority)}`}>
-              {item.priority}
-            </span>
-          )}
-          <span className={`rounded-full px-2 py-1 text-xs font-medium ${getAlertBadgeClass(item.alertStatus)}`}>
-            {item.alertStatus || "No Concerns"}
-          </span>
-        </div>
-      </div>
-    </button>
+  const highConcernProjects = safeProjects.filter(
+    (project) => project.alertStatus === "High Priority Concerns"
   );
 
-  const renderForecastCard = (
-    title: string,
-    total: number,
-    courseCount: number,
-    projectCount: number,
-    taskCount: number,
-    capacity: { label: string; className: string }
-  ) => (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-      <div className="mb-4 flex items-center gap-2">
-        <TrendingUp className="h-5 w-5 text-[#003E52]" aria-hidden="true" />
-        <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
-      </div>
-
-      <div className="rounded-xl bg-slate-50 p-4">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-          Total Upcoming Work
-        </p>
-        <p className="mt-1 text-3xl font-semibold text-slate-900">{total}</p>
-        <p className={`mt-1 text-sm font-semibold ${capacity.className}`}>
-          {capacity.label}
-        </p>
-      </div>
-
-      <div className="mt-4 divide-y divide-slate-100">
-        <div className="flex items-center justify-between gap-4 py-3 first:pt-0">
-          <div className="flex items-center gap-3">
-            <BookOpen className="h-5 w-5 text-[#003E52]" aria-hidden="true" />
-            <span className="text-sm font-medium text-slate-700">Course Developments</span>
-          </div>
-          <span className="text-lg font-semibold text-slate-900">{courseCount}</span>
-        </div>
-
-        <div className="flex items-center justify-between gap-4 py-3">
-          <div className="flex items-center gap-3">
-            <FolderGit className="h-5 w-5 text-[#003E52]" aria-hidden="true" />
-            <span className="text-sm font-medium text-slate-700">Projects</span>
-          </div>
-          <span className="text-lg font-semibold text-slate-900">{projectCount}</span>
-        </div>
-
-        <div className="flex items-center justify-between gap-4 py-3 last:pb-0">
-          <div className="flex items-center gap-3">
-            <CheckSquare className="h-5 w-5 text-[#003E52]" aria-hidden="true" />
-            <span className="text-sm font-medium text-slate-700">Tasks</span>
-          </div>
-          <span className="text-lg font-semibold text-slate-900">{taskCount}</span>
-        </div>
-      </div>
-    </div>
+  const highConcernTasks = safeTasks.filter(
+    (task) => task.alertStatus === "High Priority Concerns"
   );
 
-  const renderHeatMap = () => (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-      <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <CalendarDays className="h-5 w-5 text-[#003E52]" aria-hidden="true" />
-            <h3 className="text-lg font-semibold text-slate-900">
-              Workload Heat Map: Next 30 Days
-            </h3>
-          </div>
-          <p className="mt-1 text-sm text-slate-600">
-            Due-date congestion across Course Developments, Projects, and Tasks.
-          </p>
-        </div>
+  const getAlertBadgeClass = (alertStatus?: string) => {
+    switch (alertStatus) {
+      case "High Priority Concerns":
+        return "bg-red-700 text-white";
+      case "Potential Concerns":
+        return "bg-orange-700 text-white";
+      default:
+        return "bg-slate-600 text-white";
+    }
+  };
 
-        <div className="flex flex-wrap gap-2 text-xs">
-          <span className="rounded-full bg-green-700 px-2 py-1 font-medium text-white">
-            1–2 Light
-          </span>
-          <span className="rounded-full bg-[#003E52] px-2 py-1 font-medium text-white">
-            3–5 Moderate
-          </span>
-          <span className="rounded-full bg-orange-700 px-2 py-1 font-medium text-white">
-            6–8 Heavy
-          </span>
-          <span className="rounded-full bg-red-700 px-2 py-1 font-medium text-white">
-            9+ Very Heavy
-          </span>
-        </div>
-      </div>
+  const getCourseCompletionDate = (course: CourseDevelopment) => {
+    const closeoutTask =
+      course.tasks?.find((task) =>
+        task.name?.toLowerCase().includes("project completion")
+      ) ||
+      course.tasks?.find((task) =>
+        task.phase?.toLowerCase().includes("project closeout")
+      );
 
-      {heatMapDays.length === 0 ? (
-        <p className="text-sm text-slate-600">
-          No due-date workload is scheduled in the next 30 days.
-        </p>
-      ) : (
-        <div className="space-y-3">
-          {heatMapDays.map((day) => {
-            const heat = getHeatMapLevel(day.count);
-            const widthPercent = Math.max(8, Math.round((day.count / maxHeatCount) * 100));
-
-            return (
-              <div
-                key={day.date}
-                className={`rounded-xl border p-4 ${heat.rowClass}`}
-              >
-                <div className="grid gap-3 md:grid-cols-[140px_1fr_120px] md:items-center">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900">
-                      {formatDisplayDate(day.date)}
-                    </p>
-                    <p className="text-xs text-slate-600">
-                      {day.count} item{day.count === 1 ? "" : "s"}
-                    </p>
-                  </div>
-
-                  <div className="h-3 rounded-full bg-white">
-                    <div
-                      className={`h-3 rounded-full ${heat.barClass}`}
-                      style={{ width: `${widthPercent}%` }}
-                    />
-                  </div>
-
-                  <div className="flex md:justify-end">
-                    <span className={`rounded-full px-2 py-1 text-xs font-medium ${heat.badgeClass}`}>
-                      {heat.label}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {day.items.slice(0, 6).map((item) => (
-                    <button
-                      key={`${day.date}-${item.category}-${item.id}`}
-                      type="button"
-                      onClick={item.onOpen}
-                      className="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100"
-                    >
-                      {item.category === "Course Development"
-                        ? "Course"
-                        : item.category}
-                    </button>
-                  ))}
-
-                  {day.items.length > 6 && (
-                    <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-600">
-                      +{day.items.length - 6} more
-                    </span>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
+    return (
+      course.completionDate ||
+      closeoutTask?.completionDate ||
+      closeoutTask?.dueDate ||
+      course.termDeadline ||
+      "Not set"
+    );
+  };
 
   return (
     <section className="space-y-6 px-4 py-6 sm:px-6 lg:px-8">
-      {renderHeatMap()}
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+          <div>
+            <h2 className="text-2xl font-semibold text-slate-900">Dashboard</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              View all Course Developments, Projects, and Tasks in one place.
+            </p>
+          </div>
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+            Today: {today}
+          </p>
+        </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-3 flex items-center gap-3">
+            <div className="rounded-xl bg-[#003E52] p-3 text-white">
+              <BookOpen className="h-5 w-5" aria-hidden="true" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-slate-900">Course Developments</p>
+              <p className="text-xs text-slate-500">Active course workload</p>
+            </div>
+          </div>
+          <p className="text-3xl font-semibold text-slate-900">{activeCourses.length}</p>
+          <button
+            type="button"
+            onClick={onOpenCourseDevelopments}
+            className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-[#003E52] hover:underline"
+          >
+            View Course Developments
+            <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-3 flex items-center gap-3">
+            <div className="rounded-xl bg-[#073C5C] p-3 text-white">
+              <FolderGit className="h-5 w-5" aria-hidden="true" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-slate-900">Projects</p>
+              <p className="text-xs text-slate-500">Manual project work</p>
+            </div>
+          </div>
+          <p className="text-3xl font-semibold text-slate-900">{activeProjects.length}</p>
+          <button
+            type="button"
+            onClick={onOpenProjects}
+            className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-[#003E52] hover:underline"
+          >
+            View Projects
+            <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-3 flex items-center gap-3">
+            <div className="rounded-xl bg-[#087898] p-3 text-white">
+              <CheckSquare className="h-5 w-5" aria-hidden="true" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-slate-900">Tasks</p>
+              <p className="text-xs text-slate-500">Standalone action items</p>
+            </div>
+          </div>
+          <p className="text-3xl font-semibold text-slate-900">{activeTasks.length}</p>
+          <button
+            type="button"
+            onClick={onOpenTasks}
+            className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-[#003E52] hover:underline"
+          >
+            View Tasks
+            <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </div>
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="mb-4 flex items-center gap-2">
             <CalendarDays className="h-5 w-5 text-[#003E52]" aria-hidden="true" />
-            <h3 className="text-lg font-semibold text-slate-900">Today&apos;s Focus</h3>
+            <h3 className="text-lg font-semibold text-slate-900">Due Today</h3>
           </div>
 
-          {todaysFocusItems.length === 0 ? (
-            <p className="text-sm text-slate-600">No active focus items for today.</p>
+          {dueTodayTasks.length === 0 ? (
+            <p className="text-sm text-slate-600">No standalone tasks are due today.</p>
           ) : (
-            <div className="space-y-3">{todaysFocusItems.slice(0, 8).map(renderUnifiedItem)}</div>
+            <div className="space-y-3">
+              {dueTodayTasks.map((task) => (
+                <article
+                  key={task.id || task.title}
+                  className="rounded-xl border border-slate-200 bg-slate-50 p-4"
+                >
+                  <h4 className="font-medium text-slate-900">{task.title}</h4>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Status: {task.status} · Priority: {task.priority}
+                  </p>
+                </article>
+              ))}
+            </div>
           )}
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h3 className="mb-4 text-lg font-semibold text-slate-900">Workload Summary</h3>
-
-          <div className="divide-y divide-slate-100">
-            {summaryItems.map((item) => {
-              const Icon = item.icon;
-
-              return (
-                <div
-                  key={item.label}
-                  className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0"
-                >
-                  <div className="flex items-center gap-3">
-                    <Icon className={`h-5 w-5 ${item.className}`} aria-hidden="true" />
-                    <span className="text-sm font-medium text-slate-700">{item.label}</span>
-                  </div>
-                  <span className="text-lg font-semibold text-slate-900">{item.count}</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-2">
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="mb-4 flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 text-red-700" aria-hidden="true" />
             <h3 className="text-lg font-semibold text-slate-900">Needs Attention</h3>
           </div>
 
-          {overdueItems.length === 0 && highConcernItems.length === 0 ? (
-            <p className="text-sm text-slate-600">No overdue items or high-priority concerns.</p>
+          {overdueTasks.length === 0 &&
+          highConcernCourses.length === 0 &&
+          highConcernProjects.length === 0 &&
+          highConcernTasks.length === 0 ? (
+            <p className="text-sm text-slate-600">No high-priority concerns are currently flagged.</p>
           ) : (
             <div className="space-y-3">
-              {[...overdueItems, ...highConcernItems]
-                .filter(
-                  (item, index, array) =>
-                    array.findIndex(
-                      (candidate) =>
-                        candidate.id === item.id && candidate.category === item.category
-                    ) === index
-                )
-                .slice(0, 8)
-                .map(renderUnifiedItem)}
+              {overdueTasks.map((task) => (
+                <article
+                  key={task.id || task.title}
+                  className="rounded-xl border border-red-200 bg-red-50 p-4"
+                >
+                  <h4 className="font-medium text-red-900">{task.title}</h4>
+                  <p className="mt-1 text-sm text-red-800">Overdue since {task.dueDate}</p>
+                </article>
+              ))}
+
+              {highConcernCourses.map((course) => (
+                <article
+                  key={course.id || course.courseNumber}
+                  className="rounded-xl border border-red-200 bg-red-50 p-4"
+                >
+                  <h4 className="font-medium text-red-900">
+                    {course.courseNumber}: {course.courseTitle}
+                  </h4>
+                  <p className="mt-1 text-sm text-red-800">High Priority Concern</p>
+                </article>
+              ))}
+
+              {highConcernProjects.map((project) => (
+                <article
+                  key={project.id || project.title}
+                  className="rounded-xl border border-red-200 bg-red-50 p-4"
+                >
+                  <h4 className="font-medium text-red-900">{project.title}</h4>
+                  <p className="mt-1 text-sm text-red-800">High Priority Concern</p>
+                </article>
+              ))}
+
+              {highConcernTasks.map((task) => (
+                <article
+                  key={task.id || task.title}
+                  className="rounded-xl border border-red-200 bg-red-50 p-4"
+                >
+                  <h4 className="font-medium text-red-900">{task.title}</h4>
+                  <p className="mt-1 text-sm text-red-800">High Priority Concern</p>
+                </article>
+              ))}
             </div>
           )}
         </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-[#003E52]" aria-hidden="true" />
-              <h3 className="text-lg font-semibold text-slate-900">Upcoming 30 Days</h3>
-            </div>
-
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
-              {upcomingThirtyDays.length}
-            </span>
-          </div>
-
-          {upcomingThirtyDays.length === 0 ? (
-            <p className="text-sm text-slate-600">No upcoming workload items in the next 30 days.</p>
-          ) : (
-            <div className="space-y-3">{upcomingThirtyDays.slice(0, 8).map(renderUnifiedItem)}</div>
-          )}
-        </div>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        {renderForecastCard(
-          "Capacity Forecast: Next 7 Days",
-          next7Total,
-          next7CourseCount,
-          next7ProjectCount,
-          next7TaskCount,
-          next7Capacity
-        )}
-
-        {renderForecastCard(
-          "Capacity Forecast: Next 30 Days",
-          next30Total,
-          next30CourseCount,
-          next30ProjectCount,
-          next30TaskCount,
-          next30Capacity
-        )}
       </div>
 
       <div className="grid gap-6 xl:grid-cols-3">
@@ -734,9 +268,9 @@ export function Dashboard({
             <button
               type="button"
               onClick={onOpenCourseDevelopments}
-              className="inline-flex items-center gap-1 text-sm font-medium text-[#003E52] hover:underline"
+              className="text-sm font-medium text-[#003E52] hover:underline"
             >
-              Open <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              Open
             </button>
           </div>
 
@@ -744,38 +278,31 @@ export function Dashboard({
             <p className="text-sm text-slate-600">No course developments have been added yet.</p>
           ) : (
             <div className="space-y-3">
-              {safeCourses.slice(0, 6).map((course) => {
-                const progress = getCourseProgress(course);
-                const courseId = String(course.id || course.courseNumber);
-
-                return (
-                  <button
-                    key={courseId}
-                    type="button"
-                    onClick={() => openCourseItem(courseId)}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 p-4 text-left hover:bg-slate-100"
+              {safeCourses.map((course) => (
+                <button
+                  key={course.id || course.courseNumber}
+                  type="button"
+                  onClick={onOpenCourseDevelopments}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 p-4 text-left hover:bg-slate-100"
+                >
+                  <h4 className="font-medium text-slate-900">
+                    {course.courseNumber}: {course.courseTitle}
+                  </h4>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Deadline: {course.calculatedDeadline || course.termDeadline || "Not set"}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Completion: {getCourseCompletionDate(course)}
+                  </p>
+                  <span
+                    className={`mt-2 inline-flex rounded-full px-2 py-1 text-xs font-medium ${getAlertBadgeClass(
+                      course.alertStatus
+                    )}`}
                   >
-                    <h4 className="font-medium text-slate-900">
-                      {course.courseNumber}: {course.courseTitle}
-                    </h4>
-                    <p className="mt-1 text-sm text-slate-600">
-                      Deadline: {formatDisplayDate((course as any).calculatedDeadline || course.termDeadline)}
-                    </p>
-                    <div className="mt-3">
-                      <div className="mb-1 flex justify-between text-xs text-slate-600">
-                        <span>Progress</span>
-                        <span>{progress}%</span>
-                      </div>
-                      <div className="h-2 rounded-full bg-slate-200">
-                        <div
-                          className="h-2 rounded-full bg-[#33B1C8]"
-                          style={{ width: `${progress}%` }}
-                        />
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
+                    {course.alertStatus || "No Concerns"}
+                  </span>
+                </button>
+              ))}
             </div>
           )}
         </div>
@@ -786,9 +313,9 @@ export function Dashboard({
             <button
               type="button"
               onClick={onOpenProjects}
-              className="inline-flex items-center gap-1 text-sm font-medium text-[#003E52] hover:underline"
+              className="text-sm font-medium text-[#003E52] hover:underline"
             >
-              Open <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              Open
             </button>
           </div>
 
@@ -796,36 +323,26 @@ export function Dashboard({
             <p className="text-sm text-slate-600">No projects have been added yet.</p>
           ) : (
             <div className="space-y-3">
-              {safeProjects.slice(0, 6).map((project) => {
-                const progress = getProjectProgress(project);
-                const projectId = String(project.id || project.title);
-
-                return (
-                  <button
-                    key={projectId}
-                    type="button"
-                    onClick={() => openProjectItem(projectId)}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 p-4 text-left hover:bg-slate-100"
+              {safeProjects.map((project) => (
+                <button
+                  key={project.id || project.title}
+                  type="button"
+                  onClick={onOpenProjects}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 p-4 text-left hover:bg-slate-100"
+                >
+                  <h4 className="font-medium text-slate-900">{project.title}</h4>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Status: {project.status} · Target: {project.targetCompletionDate || "Not set"}
+                  </p>
+                  <span
+                    className={`mt-2 inline-flex rounded-full px-2 py-1 text-xs font-medium ${getAlertBadgeClass(
+                      project.alertStatus
+                    )}`}
                   >
-                    <h4 className="font-medium text-slate-900">{project.title}</h4>
-                    <p className="mt-1 text-sm text-slate-600">
-                      Target: {formatDisplayDate(project.targetCompletionDate)} · {project.status}
-                    </p>
-                    <div className="mt-3">
-                      <div className="mb-1 flex justify-between text-xs text-slate-600">
-                        <span>Progress</span>
-                        <span>{progress}%</span>
-                      </div>
-                      <div className="h-2 rounded-full bg-slate-200">
-                        <div
-                          className="h-2 rounded-full bg-[#33B1C8]"
-                          style={{ width: `${progress}%` }}
-                        />
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
+                    {project.alertStatus || "No Concerns"}
+                  </span>
+                </button>
+              ))}
             </div>
           )}
         </div>
@@ -836,9 +353,9 @@ export function Dashboard({
             <button
               type="button"
               onClick={onOpenTasks}
-              className="inline-flex items-center gap-1 text-sm font-medium text-[#003E52] hover:underline"
+              className="text-sm font-medium text-[#003E52] hover:underline"
             >
-              Open <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              Open
             </button>
           </div>
 
@@ -846,31 +363,26 @@ export function Dashboard({
             <p className="text-sm text-slate-600">No standalone tasks have been added yet.</p>
           ) : (
             <div className="space-y-3">
-              {safeTasks.slice(0, 6).map((task) => {
-                const taskId = String(task.id || task.title);
-
-                return (
-                  <button
-                    key={taskId}
-                    type="button"
-                    onClick={() => openTaskItem(taskId)}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 p-4 text-left hover:bg-slate-100"
+              {safeTasks.map((task) => (
+                <button
+                  key={task.id || task.title}
+                  type="button"
+                  onClick={onOpenTasks}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 p-4 text-left hover:bg-slate-100"
+                >
+                  <h4 className="font-medium text-slate-900">{task.title}</h4>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Status: {task.status} · Due: {task.dueDate || "Not set"}
+                  </p>
+                  <span
+                    className={`mt-2 inline-flex rounded-full px-2 py-1 text-xs font-medium ${getAlertBadgeClass(
+                      task.alertStatus
+                    )}`}
                   >
-                    <h4 className="font-medium text-slate-900">{task.title}</h4>
-                    <p className="mt-1 text-sm text-slate-600">
-                      Due: {formatDisplayDate(task.dueDate)} · {task.status}
-                    </p>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <span className={`rounded-full px-2 py-1 text-xs font-medium ${getPriorityBadgeClass(task.priority)}`}>
-                        {task.priority || "Priority not set"}
-                      </span>
-                      <span className={`rounded-full px-2 py-1 text-xs font-medium ${getAlertBadgeClass((task as any).alertStatus)}`}>
-                        {(task as any).alertStatus || "No Concerns"}
-                      </span>
-                    </div>
-                  </button>
-                );
-              })}
+                    {task.alertStatus || "No Concerns"}
+                  </span>
+                </button>
+              ))}
             </div>
           )}
         </div>
