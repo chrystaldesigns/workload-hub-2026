@@ -720,7 +720,7 @@ Archived developments will be hidden from the active Course Developments list bu
       <div className="flex justify-between items-center bg-white border border-[#E0DCD8] p-4 shadow-2xs">
         <div>
           <h2 className="text-lg font-semibold text-slate-800 uppercase tracking-wide">
-            Category 1: Course Developments
+            Course Developments
           </h2>
           <p className="text-xs text-slate-500">
             Course development timelines, task progress, weekly status, and milestone tracking
