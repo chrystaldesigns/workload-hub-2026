@@ -3,8 +3,6 @@ import {
   AlertTriangle,
   CheckCircle2,
   CheckSquare,
-  ChevronDown,
-  ChevronRight,
   Circle,
   Clock,
   Pencil,
@@ -12,6 +10,8 @@ import {
   Save,
   Trash2,
   X,
+  Archive,
+  RotateCcw,
 } from "lucide-react";
 import { StandaloneTask } from "../types";
 
@@ -103,66 +103,20 @@ export function Category3Tasks({
   const safeTasks = Array.isArray(standaloneTasks)
     ? (standaloneTasks as ExtendedStandaloneTask[])
     : [];
+  const [showArchived, setShowArchived] = useState(false);
+  const visibleTasks = safeTasks.filter((task) => showArchived || !task.archived);
+  const archivedTasks = safeTasks.filter((task) => task.archived);
 
-  const [selectedId, setSelectedId] = useState<string>(() => {
-    return localStorage.getItem("workloadHubSelectedTaskId") || "";
-  });
+  const [selectedId, setSelectedId] = useState<string>("");
   const [newTask, setNewTask] = useState<ExtendedStandaloneTask>(emptyTask);
   const [editingTask, setEditingTask] = useState<ExtendedStandaloneTask | null>(null);
-  const [showCreateForm, setShowCreateForm] = useState(false);
 
-  const sortedTasks = useMemo(() => sortTasksByDueDate(safeTasks), [safeTasks]);
+  const sortedTasks = useMemo(() => sortTasksByDueDate(visibleTasks), [visibleTasks]);
 
   const activeTask = useMemo(() => {
     if (!sortedTasks.length) return null;
     return sortedTasks.find((task) => task.id === selectedId) || sortedTasks[0];
   }, [sortedTasks, selectedId]);
-
-  const renderCreateTaskPanel = () => {
-    return (
-      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <button
-          type="button"
-          onClick={() => setShowCreateForm((prev) => !prev)}
-          className="flex w-full items-center justify-between gap-4 p-6 text-left"
-        >
-          <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-[#003E52] p-3 text-white">
-              <CheckSquare className="h-6 w-6" aria-hidden="true" />
-            </div>
-            <div>
-              <h2 className="text-xl font-semibold text-slate-900">Create Task</h2>
-              <p className="text-sm text-slate-600">
-                Open this panel only when creating a new standalone task.
-              </p>
-            </div>
-          </div>
-
-          {showCreateForm ? (
-            <ChevronDown className="h-5 w-5 text-slate-500" aria-hidden="true" />
-          ) : (
-            <ChevronRight className="h-5 w-5 text-slate-500" aria-hidden="true" />
-          )}
-        </button>
-
-        {showCreateForm && (
-          <div className="border-t border-slate-200 p-6">
-            <form onSubmit={handleCreateTask} className="space-y-4">
-              {renderTaskFields(newTask, handleNewTaskChange, "new-task")}
-
-              <button
-                type="submit"
-                className="inline-flex items-center gap-2 rounded-xl bg-[#003E52] px-4 py-2 font-medium text-white hover:bg-[#073C5C]"
-              >
-                <PlusCircle className="h-5 w-5" aria-hidden="true" />
-                Create Task
-              </button>
-            </form>
-          </div>
-        )}
-      </div>
-    );
-  };
 
   const handleNewTaskChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -226,7 +180,6 @@ export function Category3Tasks({
 
     onAddTask(taskToSave as StandaloneTask);
     setNewTask(emptyTask);
-    setShowCreateForm(false);
   };
 
   const startEditing = (task: ExtendedStandaloneTask) => {
@@ -300,10 +253,7 @@ export function Category3Tasks({
 
     if (confirmed) {
       onDeleteTask(task.id);
-      if (selectedId === task.id) {
-        setSelectedId("");
-        localStorage.removeItem("workloadHubSelectedTaskId");
-      }
+      if (selectedId === task.id) setSelectedId("");
     }
   };
 
@@ -524,25 +474,51 @@ export function Category3Tasks({
   return (
     <section className="space-y-6 px-4 py-6 sm:px-6 lg:px-8">
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex items-center gap-3">
+        <div className="mb-5 flex items-center gap-3">
           <div className="rounded-xl bg-[#003E52] p-3 text-white">
             <CheckSquare className="h-6 w-6" aria-hidden="true" />
           </div>
           <div>
-            <h1 className="text-2xl font-semibold text-slate-900">Tasks</h1>
+            <h2 className="text-xl font-semibold text-slate-900">Tasks</h2>
             <p className="text-sm text-slate-600">
-              View active standalone tasks first. Create new tasks from the collapsible panel below.
+              Add and manage standalone tasks that are not tied to Course Developments or Projects.
             </p>
           </div>
         </div>
+
+        <form onSubmit={handleCreateTask} className="space-y-4">
+          {renderTaskFields(newTask, handleNewTaskChange, "new-task")}
+
+          <button
+            type="submit"
+            className="inline-flex items-center gap-2 rounded-xl bg-[#003E52] px-4 py-2 font-medium text-white hover:bg-[#073C5C]"
+          >
+            <PlusCircle className="h-5 w-5" aria-hidden="true" />
+            Create Task
+          </button>
+        </form>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:sticky lg:top-24 lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto">
-          <h3 className="mb-4 text-lg font-semibold text-slate-900">Task List</h3>
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h3 className="text-lg font-semibold text-slate-900">Task List</h3>
+            <button
+              type="button"
+              onClick={() => setShowArchived((prev) => !prev)}
+              className={`inline-flex items-center gap-1 rounded-lg border px-3 py-1 text-xs font-medium ${
+                showArchived
+                  ? "border-[#B35C06] bg-[#B35C06] text-white"
+                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+              }`}
+            >
+              <Archive className="h-4 w-4" aria-hidden="true" />
+              {showArchived ? "Hide Archived" : `Show Archived (${archivedTasks.length})`}
+            </button>
+          </div>
 
           {sortedTasks.length === 0 ? (
-            <p className="text-sm text-slate-600">No tasks have been added yet.</p>
+            <p className="text-sm text-slate-600">{showArchived ? "No archived tasks found." : "No tasks have been added yet."}</p>
           ) : (
             <div className="space-y-3">
               {sortedTasks.map((task) => {
@@ -554,11 +530,7 @@ export function Category3Tasks({
                   <button
                     key={task.id || task.title}
                     type="button"
-                    onClick={() => {
-                      const nextId = task.id || "";
-                      setSelectedId(nextId);
-                      localStorage.setItem("workloadHubSelectedTaskId", nextId);
-                    }}
+                    onClick={() => setSelectedId(task.id || "")}
                     className={`w-full rounded-xl border p-4 text-left transition ${
                       isSelected
                         ? "border-[#003E52] bg-[#003E52] text-white shadow-sm"
@@ -577,6 +549,11 @@ export function Category3Tasks({
                         <p className={`mt-1 text-sm ${isSelected ? "text-slate-100" : "text-slate-600"}`}>
                           Due: {task.dueDate || "Not set"}
                         </p>
+                        {task.archived && (
+                          <p className={`mt-1 text-xs font-semibold uppercase ${isSelected ? "text-orange-100" : "text-[#B35C06]"}`}>
+                            Archived{task.archivedDate ? ` • ${task.archivedDate}` : ""}
+                          </p>
+                        )}
 
                         <div className="mt-2 flex flex-wrap gap-2">
                           {overdue && (
@@ -671,22 +648,53 @@ export function Category3Tasks({
                   <span className={`rounded-full px-3 py-1 text-xs font-medium ${getAlertBadgeClass(getTaskAlert(activeTask))}`}>
                     {getTaskAlert(activeTask)}
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => startEditing(activeTask)}
-                    className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                  >
-                    <Pencil className="h-4 w-4" aria-hidden="true" />
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(activeTask)}
-                    className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-white px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-50"
-                  >
-                    <Trash2 className="h-4 w-4" aria-hidden="true" />
-                    Delete
-                  </button>
+                  {activeTask.archived ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => handleRestore(activeTask)}
+                        className="inline-flex items-center gap-1 rounded-lg border border-[#003E52] bg-white px-3 py-1 text-xs font-medium text-[#003E52] hover:bg-slate-50"
+                      >
+                        <RotateCcw className="h-4 w-4" aria-hidden="true" />
+                        Restore
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(activeTask)}
+                        className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-white px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-4 w-4" aria-hidden="true" />
+                        Delete Permanently
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => startEditing(activeTask)}
+                        className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                      >
+                        <Pencil className="h-4 w-4" aria-hidden="true" />
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleArchive(activeTask)}
+                        className="inline-flex items-center gap-1 rounded-lg border border-orange-200 bg-white px-3 py-1 text-xs font-medium text-[#B35C06] hover:bg-orange-50"
+                      >
+                        <Archive className="h-4 w-4" aria-hidden="true" />
+                        Archive
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(activeTask)}
+                        className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-white px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-4 w-4" aria-hidden="true" />
+                        Delete
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -753,8 +761,6 @@ export function Category3Tasks({
           )}
         </div>
       </div>
-
-      {renderCreateTaskPanel()}
     </section>
   );
 }
