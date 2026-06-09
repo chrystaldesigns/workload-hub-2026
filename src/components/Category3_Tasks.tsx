@@ -243,6 +243,46 @@ export function Category3Tasks({
     onUpdateTask(updatedTask as StandaloneTask);
   };
 
+  const handleArchive = (task: ExtendedStandaloneTask) => {
+    if (!task.id) {
+      alert("This task is missing an ID and cannot be archived.");
+      return;
+    }
+
+    const confirmed = window.confirm(`Archive task "${task.title}"?`);
+
+    if (!confirmed) return;
+
+    const updatedTask: ExtendedStandaloneTask = {
+      ...task,
+      itemType: "standaloneTask",
+      archived: true,
+      archivedDate: getTodayDateString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    onUpdateTask(updatedTask as StandaloneTask);
+    if (selectedId === task.id) setSelectedId("");
+  };
+
+  const handleRestore = (task: ExtendedStandaloneTask) => {
+    if (!task.id) {
+      alert("This task is missing an ID and cannot be restored.");
+      return;
+    }
+
+    const updatedTask: ExtendedStandaloneTask = {
+      ...task,
+      itemType: "standaloneTask",
+      archived: false,
+      archivedDate: "",
+      updatedAt: new Date().toISOString(),
+    };
+
+    onUpdateTask(updatedTask as StandaloneTask);
+    setSelectedId(task.id);
+  };
+
   const handleDelete = (task: ExtendedStandaloneTask) => {
     if (!task.id) {
       alert("This task is missing an ID and cannot be deleted.");
