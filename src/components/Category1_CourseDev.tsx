@@ -853,11 +853,11 @@ Archived developments will be hidden from the active Course Developments list bu
               {/* STAKEHOLDERS METADATA CARDS */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-b border-dashed border-[#E0DCD8] pb-4 font-mono text-xs">
                 <div>
-                  <span className="text-slate-400 block uppercase text-[10px] mb-1">Division Sponsoring Program:</span>
+                  <span className="text-slate-400 block uppercase text-[10px] mb-1">Program:</span>
                   <span className="font-semibold text-slate-800 uppercase">{activeCourse.program}</span>
                 </div>
                 <div>
-                  <span className="text-slate-400 block uppercase text-[10px] mb-1">Canvas / Sandbox Workspace:</span>
+                  <span className="text-slate-400 block uppercase text-[10px] mb-1">Canvas Development:</span>
                   <span className="font-semibold text-slate-800">{activeCourse.canvasVersion}</span>
                 </div>
               </div>
@@ -865,7 +865,7 @@ Archived developments will be hidden from the active Course Developments list bu
               {/* DYNAMIC PROGRESS BAR GAUGE */}
               <div className="border border-slate-100 bg-[#F4F1ED]/40 p-4">
                 <div className="flex justify-between items-center text-xs font-semibold mb-1.5">
-                  <span className="uppercase text-slate-700">Course Design completeness matrix</span>
+                  <span className="uppercase text-slate-700">Course Development Progress</span>
                   <span className="text-[#006282] font-semibold">{calculateProgress(activeCourse)}% Completed</span>
                 </div>
                 <div className="w-full bg-slate-200 h-2">
