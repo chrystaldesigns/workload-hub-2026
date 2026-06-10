@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { CourseDevelopment, CourseDevelopmentTask } from '../types';
 import { 
   FileText, Calendar, Plus, Mail, CheckCircle2, AlertTriangle, 
   Trash2, Sliders, ChevronRight, Share2, Clipboard, ShieldAlert,
-  SlidersHorizontal, Sparkles, Pencil, Save, X, Archive, RotateCcw
+  SlidersHorizontal, Sparkles, Pencil, Save, X
 } from 'lucide-react';
 import { 
   calculateTimelineTasks, 
@@ -29,15 +29,11 @@ export function Category1CourseDev({
   onUpdateCourse, 
   onDeleteCourse 
 }: Category1Props) {
-  const [selectedId, setSelectedId] = useState<string>(() => {
-    if (typeof window === 'undefined') return courseDevelopments[0]?.id || '';
-    return localStorage.getItem('workloadHubSelectedCourseId') || courseDevelopments[0]?.id || '';
-  });
+  const [selectedId, setSelectedId] = useState<string>(courseDevelopments[0]?.id || '');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState<CourseDevelopmentTask | null>(null);
   const [editingCourse, setEditingCourse] = useState<typeof formData | null>(null);
   const [taskDrafts, setTaskDrafts] = useState<Record<string, Partial<CourseDevelopmentTask & { notes?: string }>>>({});
-  const [showArchived, setShowArchived] = useState(false);
 
   // Form states for new Course
   const [formData, setFormData] = useState({
@@ -62,40 +58,7 @@ export function Category1CourseDev({
     alertStatus: 'No Concerns' as const,
   });
 
-  const visibleCourses = courseDevelopments.filter((course) => showArchived || !(course as any).archived);
-  const activeCourses = courseDevelopments.filter((course) => !(course as any).archived);
-  const archivedCourses = courseDevelopments.filter((course) => (course as any).archived);
-  const activeCourse = visibleCourses.find(c => c.id === selectedId) || visibleCourses[0];
-
-  const selectCourse = (courseId: string) => {
-    setSelectedId(courseId);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('workloadHubSelectedCourseId', courseId);
-    }
-  };
-
-  useEffect(() => {
-    if (!visibleCourses.length) {
-      if (selectedId !== '') setSelectedId('');
-      return;
-    }
-
-    const stillExists = visibleCourses.some((course) => course.id === selectedId);
-    if (selectedId && stillExists) return;
-
-    const storedId = typeof window !== 'undefined'
-      ? localStorage.getItem('workloadHubSelectedCourseId')
-      : '';
-
-    const nextId = visibleCourses.find((course) => course.id === storedId)?.id || visibleCourses[0]?.id || '';
-
-    if (nextId && nextId !== selectedId) {
-      setSelectedId(nextId);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('workloadHubSelectedCourseId', nextId);
-      }
-    }
-  }, [courseDevelopments, selectedId, showArchived]);
+  const activeCourse = courseDevelopments.find(c => c.id === selectedId) || courseDevelopments[0];
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -250,26 +213,9 @@ export function Category1CourseDev({
       };
     });
 
-    const scrollX = window.scrollX;
-    const scrollY = window.scrollY;
-    const preservedSelectedId = activeCourse.id || selectedId;
-
-    if (preservedSelectedId && typeof window !== 'undefined') {
-      localStorage.setItem('workloadHubSelectedCourseId', preservedSelectedId);
-    }
-
     await onUpdateCourse({
       ...activeCourse,
       tasks: updatedTasks,
-    });
-
-    if (preservedSelectedId) {
-      setSelectedId(preservedSelectedId);
-    }
-
-    window.requestAnimationFrame(() => {
-      window.scrollTo(scrollX, scrollY);
-      window.setTimeout(() => window.scrollTo(scrollX, scrollY), 0);
     });
 
     clearTaskDraft(task);
@@ -288,26 +234,9 @@ export function Category1CourseDev({
       };
     });
 
-    const scrollX = window.scrollX;
-    const scrollY = window.scrollY;
-    const preservedSelectedId = activeCourse.id || selectedId;
-
-    if (preservedSelectedId && typeof window !== 'undefined') {
-      localStorage.setItem('workloadHubSelectedCourseId', preservedSelectedId);
-    }
-
     await onUpdateCourse({
       ...activeCourse,
       tasks: updatedTasks,
-    });
-
-    if (preservedSelectedId) {
-      setSelectedId(preservedSelectedId);
-    }
-
-    window.requestAnimationFrame(() => {
-      window.scrollTo(scrollX, scrollY);
-      window.setTimeout(() => window.scrollTo(scrollX, scrollY), 0);
     });
 
     clearTaskDraft(task);
@@ -455,41 +384,6 @@ export function Category1CourseDev({
     };
     await onUpdateCourse(updatedCourse);
   };
-
-  const handleArchiveCourse = async (course: CourseDevelopment) => {
-    if (!course?.id) return;
-
-    const confirmed = window.confirm(
-      `Archive ${course.courseNumber}: ${course.courseTitle}?
-
-Archived developments will be hidden from the active Course Developments list but will remain saved in Firestore.`
-    );
-
-    if (!confirmed) return;
-
-    const nextActiveCourse = activeCourses.find((item) => item.id !== course.id);
-
-    await onUpdateCourse({
-      ...course,
-      archived: true,
-      archivedDate: new Date().toISOString().split('T')[0],
-    } as CourseDevelopment & { archived?: boolean; archivedDate?: string });
-
-    selectCourse(nextActiveCourse?.id || '');
-  };
-
-  const handleRestoreCourse = async (course: CourseDevelopment) => {
-    if (!course?.id) return;
-
-    await onUpdateCourse({
-      ...course,
-      archived: false,
-      archivedDate: '',
-    } as CourseDevelopment & { archived?: boolean; archivedDate?: string });
-
-    selectCourse(course.id || '');
-  };
-
 
   const handleAlertStatusChange = async (status: 'No Concerns' | 'Potential Concerns' | 'High Priority Concerns') => {
     if (!activeCourse) return;
@@ -743,27 +637,12 @@ Archived developments will be hidden from the active Course Developments list bu
             Course development timelines, task progress, weekly status, and milestone tracking
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setShowArchived((prev) => !prev)}
-            className={`border px-4 py-2 text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 transition-colors cursor-pointer ${
-              showArchived
-                ? 'border-[#B35C06] bg-[#B35C06] text-white'
-                : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
-            }`}
-          >
-            <Archive className="w-4 h-4" />
-            {showArchived ? 'Hide Archived' : `Show Archived (${archivedCourses.length})`}
-          </button>
-
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="bg-[#006282] hover:bg-[#076092] text-white px-4 py-2 text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 transition-colors cursor-pointer"
-          >
-            <Plus className="w-4 h-4" /> Add Academic Course
-          </button>
-        </div>
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="bg-[#006282] hover:bg-[#076092] text-white px-4 py-2 text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 transition-colors cursor-pointer"
+        >
+          <Plus className="w-4 h-4" /> Add Academic Course
+        </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -777,18 +656,18 @@ Archived developments will be hidden from the active Course Developments list bu
           </div>
 
           <div className="flex flex-col gap-2 max-h-[550px] overflow-y-auto pr-1">
-            {visibleCourses.length === 0 ? (
+            {courseDevelopments.length === 0 ? (
               <div className="p-6 bg-slate-50 text-center text-slate-400 border border-dashed border-slate-200">
-                {showArchived ? 'No archived course developments found.' : 'No active course development schedules loaded. Click "+ Add Academic Course" to begin.'}
+                No course development schedules loaded. Click "+ Add Academic Course" to begin.
               </div>
             ) : (
-              visibleCourses.map(c => {
+              courseDevelopments.map(c => {
                 const isSelected = c.id === (activeCourse?.id || '');
                 const prog = calculateProgress(c);
                 return (
                   <button
                     key={c.id}
-                    onClick={() => selectCourse(c.id || '')}
+                    onClick={() => setSelectedId(c.id || '')}
                     className={`p-4 border text-left bg-white transition-all flex flex-col gap-2 select-none cursor-pointer outline-none relative overflow-hidden ${
                       isSelected 
                         ? 'border-[#006282] ring-1 ring-[#006282] shadow-xs' 
@@ -814,11 +693,6 @@ Archived developments will be hidden from the active Course Developments list bu
                       <p className="text-[10px] text-slate-500 font-medium font-mono uppercase mt-0.5">
                         {c.program}
                       </p>
-                      {(c as any).archived && (
-                        <p className="mt-1 text-[10px] font-semibold uppercase text-[#B35C06]">
-                          Archived{(c as any).archivedDate ? ` • ${(c as any).archivedDate}` : ''}
-                        </p>
-                      )}
                     </div>
 
                     {/* Progress Bar Mini */}
@@ -944,7 +818,7 @@ Archived developments will be hidden from the active Course Developments list bu
                       className="text-left text-slate-600 hover:text-slate-900 font-semibold uppercase flex items-center gap-1 cursor-pointer select-none"
                     >
                       <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
-                      <span>{activeCourse.hideCompletedTasks ? 'Show Completed Tasks' : 'Hide Completed Tasks'}</span>
+                      <span>{activeCourse.hideCompletedTasks ? 'Showing All Tasks' : 'Hide Completed Tasks'}</span>
                     </button>
                   </div>
                 </div>
@@ -1147,99 +1021,56 @@ Archived developments will be hidden from the active Course Developments list bu
               )}
 
               {/* COURSE ACTIONS */}
-              <div className="flex flex-wrap justify-end items-center gap-x-4 gap-y-2 bg-white py-2 text-[11px] border-b border-[#E0DCD8]/80">
-                {(activeCourse as any).archived ? (
-                  <>
-                    <span className="mr-auto text-[11px] font-semibold uppercase tracking-wider text-[#B35C06]">
-                      Archived{(activeCourse as any).archivedDate ? ` ${(activeCourse as any).archivedDate}` : ''}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleRestoreCourse(activeCourse)}
-                      className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-[#006282] hover:text-[#073C5C]"
-                    >
-                      <RotateCcw className="w-3.5 h-3.5" /> Restore
-                    </button>
+              <div className="flex flex-wrap justify-end items-center gap-2 bg-white p-3 border border-[#E0DCD8]/80">
+                <button
+                  onClick={() => startEditingCourse(activeCourse)}
+                  className="px-3 py-1.5 border border-slate-300 text-slate-800 hover:bg-slate-50 text-2xs font-semibold uppercase tracking-wider flex items-center gap-1 cursor-pointer"
+                >
+                  <Pencil className="w-3.5 h-3.5 text-slate-600" /> Edit Course Development
+                </button>
+                <button
+                  onClick={() => handleCopyStatusReport(activeCourse)}
+                  className="px-3 py-1.5 border border-[#006282] text-slate-800 hover:bg-slate-50 text-2xs font-semibold uppercase tracking-wider flex items-center gap-1 cursor-pointer"
+                >
+                  <Clipboard className="w-3.5 h-3.5 text-[#006282]" /> Course Dev. Weekly Status QB
+                </button>
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (confirm("Delete this archived course development permanently from Firestore? This cannot be undone.")) {
-                          onDeleteCourse(activeCourse.id || '');
-                        }
-                      }}
-                      className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-rose-700 hover:text-rose-900"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" /> Delete Permanently
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => startEditingCourse(activeCourse)}
-                      className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-slate-700 hover:text-[#006282]"
-                    >
-                      <Pencil className="w-3.5 h-3.5" /> Edit
-                    </button>
+                <button
+                  onClick={() => triggerWeeklyStatusEmailDraft(activeCourse)}
+                  className="px-3 py-1.5 border border-[#087834] text-slate-800 hover:bg-slate-50 text-2xs font-semibold uppercase tracking-wider flex items-center gap-1 cursor-pointer"
+                >
+                  <Mail className="w-3.5 h-3.5 text-[#087834]" /> Course Dev. Weekly Status Email
+                </button>
 
-                    <button
-                      type="button"
-                      onClick={() => handleCopyStatusReport(activeCourse)}
-                      className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-slate-700 hover:text-[#006282]"
-                    >
-                      <Clipboard className="w-3.5 h-3.5" /> Status QB
-                    </button>
+                <button
+                  onClick={() => triggerCompensationDraft(activeCourse)}
+                  className="px-3 py-1.5 border border-[#087834] text-slate-800 hover:bg-slate-50 text-2xs font-semibold uppercase tracking-wider flex items-center gap-1 cursor-pointer"
+                >
+                  <Mail className="w-3.5 h-3.5 text-[#087834]" /> SME Compensation Notification
+                </button>
 
-                    <button
-                      type="button"
-                      onClick={() => triggerWeeklyStatusEmailDraft(activeCourse)}
-                      className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-slate-700 hover:text-[#087834]"
-                    >
-                      <Mail className="w-3.5 h-3.5" /> Status Email
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => triggerCompensationDraft(activeCourse)}
-                      className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-slate-700 hover:text-[#087834]"
-                    >
-                      <Mail className="w-3.5 h-3.5" /> SME Compensation
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleArchiveCourse(activeCourse)}
-                      className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-slate-700 hover:text-[#B35C06]"
-                    >
-                      <Archive className="w-3.5 h-3.5" /> Archive
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (confirm("Are you sure you want to delete this course development from Firestore permanently?")) {
-                          onDeleteCourse(activeCourse.id || '');
-                        }
-                      }}
-                      className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-rose-700 hover:text-rose-900"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" /> Delete
-                    </button>
-                  </>
-                )}
+                <button
+                  onClick={() => {
+                    if (confirm("Are you sure you want to delete this course schedule from Firestore permanently?")) {
+                      onDeleteCourse(activeCourse.id || '');
+                    }
+                  }}
+                  className="px-2.5 py-1.5 text-rose-700 hover:bg-rose-50 text-2xs font-semibold uppercase flex items-center gap-1 cursor-pointer outline-none"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-600" /> Delete Project
+                </button>
               </div>
 
               {/* TASKS TABLE MATRIX */}
               <div className="border border-slate-200 mt-2">
-                <div className="bg-slate-50 p-2.5 border-b border-slate-200 flex flex-col gap-1 sm:flex-row sm:justify-between sm:items-center">
+                <div className="bg-slate-50 p-2 border-b border-slate-200 flex flex-col gap-1 sm:flex-row sm:justify-between sm:items-center">
                   <span className="text-xs uppercase font-semibold text-slate-700">Cascade Timeline Milestones</span>
                   <span className="text-2xs text-slate-400 font-mono">Task edits auto-save when changed</span>
                 </div>
 
-                <div className="max-h-[680px] overflow-y-auto p-3 space-y-3">
+                <div className="max-h-[680px] overflow-y-auto p-2 space-y-2">
                   {activeCourse.tasks
-                    .filter(t => activeCourse.hideCompletedTasks === false || (t.status !== 'Complete' && t.status !== 'Not Applicable'))
+                    .filter(t => activeCourse.hideCompletedTasks === false || t.status !== 'Complete')
                     .map((task) => {
                       const draft = getTaskDraft(task);
                       const currentStatus = draft.status || task.status;
@@ -1253,12 +1084,12 @@ Archived developments will be hidden from the active Course Developments list bu
                       return (
                         <article
                           key={task.id}
-                          className={`rounded-xl border p-4 ${isNA ? 'border-slate-200 bg-slate-50/70' : 'border-slate-200 bg-white'}`}
+                          className={`rounded-lg border p-3 ${isNA ? 'border-slate-200 bg-slate-50/70' : 'border-slate-200 bg-white'}`}
                         >
-                          <div className="flex flex-col gap-4">
-                            <div className="flex flex-col gap-2">
+                          <div className="flex flex-col gap-2">
+                            <div className="flex flex-col gap-1">
                               <div className="flex flex-wrap items-center gap-2">
-                                <span className={`font-semibold ${isComp ? 'line-through text-slate-400' : 'text-slate-900'}`}>
+                                <span className={`text-sm font-semibold ${isComp ? 'line-through text-slate-400' : 'text-slate-900'}`}>
                                   {task.id}. {displayTaskName}
                                 </span>
                                 {isEmailTask && (
@@ -1272,13 +1103,13 @@ Archived developments will be hidden from the active Course Developments list bu
                               </div>
                             </div>
 
-                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 text-xs">
+                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4 text-xs">
                               <label className="flex flex-col gap-1">
                                 <span className="text-[10px] uppercase text-slate-500 font-semibold">Owner</span>
                                 <select
                                   value={draft.assignedTo || ''}
                                   onChange={(e) => autoSaveTaskField(task, 'assignedTo', e.target.value)}
-                                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                                  className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs"
                                 >
                                   <option>Operations</option>
                                   <option>Instructional Designer</option>
@@ -1294,7 +1125,7 @@ Archived developments will be hidden from the active Course Developments list bu
                                 <select
                                   value={draft.status || 'Not Started'}
                                   onChange={(e) => autoSaveTaskField(task, 'status', e.target.value)}
-                                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                                  className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs"
                                 >
                                   <option>Not Started</option>
                                   <option>In Progress</option>
@@ -1314,7 +1145,7 @@ Archived developments will be hidden from the active Course Developments list bu
                                   type="date"
                                   value={draft.startDate || ''}
                                   onChange={(e) => autoSaveTaskField(task, 'startDate', e.target.value)}
-                                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                                  className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs"
                                 />
                                 <span className="text-[10px] text-slate-500">{formatDisplayDate(draft.startDate)}</span>
                               </label>
@@ -1325,7 +1156,7 @@ Archived developments will be hidden from the active Course Developments list bu
                                   type="date"
                                   value={draft.dueDate || ''}
                                   onChange={(e) => autoSaveTaskField(task, 'dueDate', e.target.value)}
-                                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                                  className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs"
                                 />
                                 <span className="text-[10px] text-slate-500">{formatDisplayDate(draft.dueDate)}</span>
                               </label>
@@ -1339,13 +1170,13 @@ Archived developments will be hidden from the active Course Developments list bu
                                 onBlur={() => saveTaskNotesOnBlur(task)}
                                 rows={2}
                                 placeholder="Add task-specific notes..."
-                                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                                className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs"
                               />
                             </label>
 
                             <div className="flex justify-end text-[10px] font-mono text-slate-400">
                               <span>
-                                {task.phase}{task.durationDays > 0 ? ` • ${task.durationDays} working days` : ''}
+                                {task.phase}{task.durationDays > 0 ? ` • ${task.durationDays} days` : ''}
                               </span>
                             </div>
                           </div>
