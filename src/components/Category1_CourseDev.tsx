@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { CourseDevelopment, CourseDevelopmentTask } from '../types';
 import { 
   FileText, Calendar, Plus, Mail, CheckCircle2, AlertTriangle, 
   Trash2, Sliders, ChevronRight, Share2, Clipboard, ShieldAlert,
-  SlidersHorizontal, Sparkles, Pencil, Save, X
+  SlidersHorizontal, Sparkles, Pencil, Save, X, Archive
 } from 'lucide-react';
 import { 
   calculateTimelineTasks, 
@@ -29,7 +29,10 @@ export function Category1CourseDev({
   onUpdateCourse, 
   onDeleteCourse 
 }: Category1Props) {
-  const [selectedId, setSelectedId] = useState<string>(courseDevelopments[0]?.id || '');
+  const [selectedId, setSelectedId] = useState<string>(() => {
+    if (typeof window === 'undefined') return courseDevelopments[0]?.id || '';
+    return localStorage.getItem('workloadHubSelectedCourseId') || courseDevelopments[0]?.id || '';
+  });
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState<CourseDevelopmentTask | null>(null);
   const [editingCourse, setEditingCourse] = useState<typeof formData | null>(null);
@@ -58,7 +61,38 @@ export function Category1CourseDev({
     alertStatus: 'No Concerns' as const,
   });
 
-  const activeCourse = courseDevelopments.find(c => c.id === selectedId) || courseDevelopments[0];
+  const activeCourses = courseDevelopments.filter((course) => !(course as any).archived);
+  const activeCourse = activeCourses.find(c => c.id === selectedId) || activeCourses[0];
+
+  const selectCourse = (courseId: string) => {
+    setSelectedId(courseId);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('workloadHubSelectedCourseId', courseId);
+    }
+  };
+
+  useEffect(() => {
+    if (!activeCourses.length) {
+      if (selectedId !== '') setSelectedId('');
+      return;
+    }
+
+    const stillExists = activeCourses.some((course) => course.id === selectedId);
+    if (selectedId && stillExists) return;
+
+    const storedId = typeof window !== 'undefined'
+      ? localStorage.getItem('workloadHubSelectedCourseId')
+      : '';
+
+    const nextId = activeCourses.find((course) => course.id === storedId)?.id || activeCourses[0]?.id || '';
+
+    if (nextId && nextId !== selectedId) {
+      setSelectedId(nextId);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('workloadHubSelectedCourseId', nextId);
+      }
+    }
+  }, [courseDevelopments, selectedId]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -213,9 +247,26 @@ export function Category1CourseDev({
       };
     });
 
+    const scrollX = window.scrollX;
+    const scrollY = window.scrollY;
+    const preservedSelectedId = activeCourse.id || selectedId;
+
+    if (preservedSelectedId && typeof window !== 'undefined') {
+      localStorage.setItem('workloadHubSelectedCourseId', preservedSelectedId);
+    }
+
     await onUpdateCourse({
       ...activeCourse,
       tasks: updatedTasks,
+    });
+
+    if (preservedSelectedId) {
+      setSelectedId(preservedSelectedId);
+    }
+
+    window.requestAnimationFrame(() => {
+      window.scrollTo(scrollX, scrollY);
+      window.setTimeout(() => window.scrollTo(scrollX, scrollY), 0);
     });
 
     clearTaskDraft(task);
@@ -234,9 +285,26 @@ export function Category1CourseDev({
       };
     });
 
+    const scrollX = window.scrollX;
+    const scrollY = window.scrollY;
+    const preservedSelectedId = activeCourse.id || selectedId;
+
+    if (preservedSelectedId && typeof window !== 'undefined') {
+      localStorage.setItem('workloadHubSelectedCourseId', preservedSelectedId);
+    }
+
     await onUpdateCourse({
       ...activeCourse,
       tasks: updatedTasks,
+    });
+
+    if (preservedSelectedId) {
+      setSelectedId(preservedSelectedId);
+    }
+
+    window.requestAnimationFrame(() => {
+      window.scrollTo(scrollX, scrollY);
+      window.setTimeout(() => window.scrollTo(scrollX, scrollY), 0);
     });
 
     clearTaskDraft(task);
@@ -383,6 +451,27 @@ export function Category1CourseDev({
       hideCompletedTasks: !activeCourse.hideCompletedTasks
     };
     await onUpdateCourse(updatedCourse);
+  };
+
+  const handleArchiveCourse = async (course: CourseDevelopment) => {
+    if (!course?.id) return;
+
+    const confirmed = window.confirm(
+      `Archive ${course.courseNumber}: ${course.courseTitle}?
+
+Archived developments will be hidden from the active Course Developments list but will remain saved in Firestore.`
+    );
+
+    if (!confirmed) return;
+
+    const nextActiveCourse = activeCourses.find((item) => item.id !== course.id);
+
+    await onUpdateCourse({
+      ...course,
+      archived: true,
+    } as CourseDevelopment & { archived?: boolean });
+
+    selectCourse(nextActiveCourse?.id || '');
   };
 
   const handleAlertStatusChange = async (status: 'No Concerns' | 'Potential Concerns' | 'High Priority Concerns') => {
@@ -631,7 +720,7 @@ export function Category1CourseDev({
       <div className="flex justify-between items-center bg-white border border-[#E0DCD8] p-4 shadow-2xs">
         <div>
           <h2 className="text-lg font-semibold text-slate-800 uppercase tracking-wide">
-            Category 1: Course Developments
+            Course Developments
           </h2>
           <p className="text-xs text-slate-500">
             Course development timelines, task progress, weekly status, and milestone tracking
@@ -656,18 +745,18 @@ export function Category1CourseDev({
           </div>
 
           <div className="flex flex-col gap-2 max-h-[550px] overflow-y-auto pr-1">
-            {courseDevelopments.length === 0 ? (
+            {activeCourses.length === 0 ? (
               <div className="p-6 bg-slate-50 text-center text-slate-400 border border-dashed border-slate-200">
-                No course development schedules loaded. Click "+ Add Academic Course" to begin.
+                No active course development schedules loaded. Click "+ Add Academic Course" to begin.
               </div>
             ) : (
-              courseDevelopments.map(c => {
+              activeCourses.map(c => {
                 const isSelected = c.id === (activeCourse?.id || '');
                 const prog = calculateProgress(c);
                 return (
                   <button
                     key={c.id}
-                    onClick={() => setSelectedId(c.id || '')}
+                    onClick={() => selectCourse(c.id || '')}
                     className={`p-4 border text-left bg-white transition-all flex flex-col gap-2 select-none cursor-pointer outline-none relative overflow-hidden ${
                       isSelected 
                         ? 'border-[#006282] ring-1 ring-[#006282] shadow-xs' 
@@ -818,7 +907,7 @@ export function Category1CourseDev({
                       className="text-left text-slate-600 hover:text-slate-900 font-semibold uppercase flex items-center gap-1 cursor-pointer select-none"
                     >
                       <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
-                      <span>{activeCourse.hideCompletedTasks ? 'Showing All Tasks' : 'Hide Completed Tasks'}</span>
+                      <span>{activeCourse.hideCompletedTasks ? 'Show Completed Tasks' : 'Hide Completed Tasks'}</span>
                     </button>
                   </div>
                 </div>
@@ -1021,56 +1110,70 @@ export function Category1CourseDev({
               )}
 
               {/* COURSE ACTIONS */}
-              <div className="flex flex-wrap justify-end items-center gap-2 bg-white p-3 border border-[#E0DCD8]/80">
+              <div className="flex flex-wrap justify-end items-center gap-x-4 gap-y-2 bg-white py-2 text-[11px] border-b border-[#E0DCD8]/80">
                 <button
+                  type="button"
                   onClick={() => startEditingCourse(activeCourse)}
-                  className="px-3 py-1.5 border border-slate-300 text-slate-800 hover:bg-slate-50 text-2xs font-semibold uppercase tracking-wider flex items-center gap-1 cursor-pointer"
+                  className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-slate-700 hover:text-[#006282]"
                 >
-                  <Pencil className="w-3.5 h-3.5 text-slate-600" /> Edit Course Development
+                  <Pencil className="w-3.5 h-3.5" /> Edit
                 </button>
+
                 <button
+                  type="button"
                   onClick={() => handleCopyStatusReport(activeCourse)}
-                  className="px-3 py-1.5 border border-[#006282] text-slate-800 hover:bg-slate-50 text-2xs font-semibold uppercase tracking-wider flex items-center gap-1 cursor-pointer"
+                  className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-slate-700 hover:text-[#006282]"
                 >
-                  <Clipboard className="w-3.5 h-3.5 text-[#006282]" /> Course Dev. Weekly Status QB
+                  <Clipboard className="w-3.5 h-3.5" /> Status QB
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => triggerWeeklyStatusEmailDraft(activeCourse)}
-                  className="px-3 py-1.5 border border-[#087834] text-slate-800 hover:bg-slate-50 text-2xs font-semibold uppercase tracking-wider flex items-center gap-1 cursor-pointer"
+                  className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-slate-700 hover:text-[#087834]"
                 >
-                  <Mail className="w-3.5 h-3.5 text-[#087834]" /> Course Dev. Weekly Status Email
+                  <Mail className="w-3.5 h-3.5" /> Status Email
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => triggerCompensationDraft(activeCourse)}
-                  className="px-3 py-1.5 border border-[#087834] text-slate-800 hover:bg-slate-50 text-2xs font-semibold uppercase tracking-wider flex items-center gap-1 cursor-pointer"
+                  className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-slate-700 hover:text-[#087834]"
                 >
-                  <Mail className="w-3.5 h-3.5 text-[#087834]" /> SME Compensation Notification
+                  <Mail className="w-3.5 h-3.5" /> SME Compensation
                 </button>
 
                 <button
+                  type="button"
+                  onClick={() => handleArchiveCourse(activeCourse)}
+                  className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-slate-700 hover:text-[#B35C06]"
+                >
+                  <Archive className="w-3.5 h-3.5" /> Archive
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => {
-                    if (confirm("Are you sure you want to delete this course schedule from Firestore permanently?")) {
+                    if (confirm("Are you sure you want to delete this course development from Firestore permanently?")) {
                       onDeleteCourse(activeCourse.id || '');
                     }
                   }}
-                  className="px-2.5 py-1.5 text-rose-700 hover:bg-rose-50 text-2xs font-semibold uppercase flex items-center gap-1 cursor-pointer outline-none"
+                  className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-rose-700 hover:text-rose-900"
                 >
-                  <Trash2 className="w-3.5 h-3.5 text-rose-600" /> Delete Project
+                  <Trash2 className="w-3.5 h-3.5" /> Delete
                 </button>
               </div>
 
               {/* TASKS TABLE MATRIX */}
               <div className="border border-slate-200 mt-2">
-                <div className="bg-slate-50 p-2 border-b border-slate-200 flex flex-col gap-1 sm:flex-row sm:justify-between sm:items-center">
+                <div className="bg-slate-50 px-3 py-2 border-b border-slate-200 flex flex-col gap-1 sm:flex-row sm:justify-between sm:items-center">
                   <span className="text-xs uppercase font-semibold text-slate-700">Cascade Timeline Milestones</span>
                   <span className="text-2xs text-slate-400 font-mono">Task edits auto-save when changed</span>
                 </div>
 
                 <div className="max-h-[680px] overflow-y-auto p-2 space-y-2">
                   {activeCourse.tasks
-                    .filter(t => activeCourse.hideCompletedTasks === false || t.status !== 'Complete')
+                    .filter(t => activeCourse.hideCompletedTasks === false || (t.status !== 'Complete' && t.status !== 'Not Applicable'))
                     .map((task) => {
                       const draft = getTaskDraft(task);
                       const currentStatus = draft.status || task.status;
@@ -1084,28 +1187,29 @@ export function Category1CourseDev({
                       return (
                         <article
                           key={task.id}
-                          className={`rounded-lg border p-3 ${isNA ? 'border-slate-200 bg-slate-50/70' : 'border-slate-200 bg-white'}`}
+                          className={`rounded-lg border px-3 py-2 ${isNA ? 'border-slate-200 bg-slate-50/70' : 'border-slate-200 bg-white'}`}
                         >
                           <div className="flex flex-col gap-2">
-                            <div className="flex flex-col gap-1">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className={`text-sm font-semibold ${isComp ? 'line-through text-slate-400' : 'text-slate-900'}`}>
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                                <span className={`text-sm font-semibold leading-tight ${isComp ? 'line-through text-slate-400' : 'text-slate-900'}`}>
                                   {task.id}. {displayTaskName}
                                 </span>
                                 {isEmailTask && (
-                                  <Mail className="h-4 w-4 text-[#006282]" aria-label="Email task" />
-                                )}
-                                {isOver && (
-                                  <span className="rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-semibold uppercase text-white animate-pulse">
-                                    Overdue Alert
-                                  </span>
+                                  <Mail className="h-3.5 w-3.5 shrink-0 text-[#006282]" aria-label="Email task" />
                                 )}
                               </div>
+
+                              {isOver && (
+                                <span className="shrink-0 rounded-full bg-rose-600 px-2 py-0.5 text-[9px] font-semibold uppercase text-white animate-pulse">
+                                  Overdue
+                                </span>
+                              )}
                             </div>
 
-                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4 text-xs">
-                              <label className="flex flex-col gap-1">
-                                <span className="text-[10px] uppercase text-slate-500 font-semibold">Owner</span>
+                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4 text-xs">
+                              <label className="flex flex-col gap-0.5">
+                                <span className="text-[9px] uppercase text-slate-500 font-semibold">Owner</span>
                                 <select
                                   value={draft.assignedTo || ''}
                                   onChange={(e) => autoSaveTaskField(task, 'assignedTo', e.target.value)}
@@ -1120,8 +1224,8 @@ export function Category1CourseDev({
                                 </select>
                               </label>
 
-                              <label className="flex flex-col gap-1">
-                                <span className="text-[10px] uppercase text-slate-500 font-semibold">Status</span>
+                              <label className="flex flex-col gap-0.5">
+                                <span className="text-[9px] uppercase text-slate-500 font-semibold">Status</span>
                                 <select
                                   value={draft.status || 'Not Started'}
                                   onChange={(e) => autoSaveTaskField(task, 'status', e.target.value)}
@@ -1139,45 +1243,45 @@ export function Category1CourseDev({
                                 </select>
                               </label>
 
-                              <label className="flex flex-col gap-1">
-                                <span className="text-[10px] uppercase text-slate-500 font-semibold">Start Date</span>
+                              <label className="flex flex-col gap-0.5">
+                                <span className="text-[9px] uppercase text-slate-500 font-semibold">Start</span>
                                 <input
                                   type="date"
                                   value={draft.startDate || ''}
                                   onChange={(e) => autoSaveTaskField(task, 'startDate', e.target.value)}
                                   className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs"
                                 />
-                                <span className="text-[10px] text-slate-500">{formatDisplayDate(draft.startDate)}</span>
                               </label>
 
-                              <label className="flex flex-col gap-1">
-                                <span className="text-[10px] uppercase text-slate-500 font-semibold">Due Date</span>
+                              <label className="flex flex-col gap-0.5">
+                                <span className="text-[9px] uppercase text-slate-500 font-semibold">Due</span>
                                 <input
                                   type="date"
                                   value={draft.dueDate || ''}
                                   onChange={(e) => autoSaveTaskField(task, 'dueDate', e.target.value)}
                                   className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs"
                                 />
-                                <span className="text-[10px] text-slate-500">{formatDisplayDate(draft.dueDate)}</span>
                               </label>
                             </div>
 
-                            <label className="flex flex-col gap-1 text-xs">
-                              <span className="text-[10px] uppercase text-slate-500 font-semibold">Task Notes</span>
-                              <textarea
-                                value={draft.notes || ''}
-                                onChange={(e) => updateTaskDraft(task, 'notes', e.target.value)}
-                                onBlur={() => saveTaskNotesOnBlur(task)}
-                                rows={2}
-                                placeholder="Add task-specific notes..."
-                                className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs"
-                              />
-                            </label>
+                            <div className="grid grid-cols-1 gap-2 lg:grid-cols-[1fr_auto] lg:items-end">
+                              <label className="flex flex-col gap-0.5 text-xs">
+                                <span className="text-[9px] uppercase text-slate-500 font-semibold">Notes</span>
+                                <textarea
+                                  value={draft.notes || ''}
+                                  onChange={(e) => updateTaskDraft(task, 'notes', e.target.value)}
+                                  onBlur={() => saveTaskNotesOnBlur(task)}
+                                  rows={1}
+                                  placeholder="Add task-specific notes..."
+                                  className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs"
+                                />
+                              </label>
 
-                            <div className="flex justify-end text-[10px] font-mono text-slate-400">
-                              <span>
-                                {task.phase}{task.durationDays > 0 ? ` • ${task.durationDays} days` : ''}
-                              </span>
+                              <div className="flex justify-end text-[10px] font-mono text-slate-400 lg:pb-1">
+                                <span>
+                                  {task.phase}{task.durationDays > 0 ? ` • ${task.durationDays} days` : ''}
+                                </span>
+                              </div>
                             </div>
                           </div>
                         </article>
