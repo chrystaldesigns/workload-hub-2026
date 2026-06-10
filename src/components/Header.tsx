@@ -46,18 +46,19 @@ export function Header({
 
   return (
     <header className="bg-[#006282] text-white border-b border-[#076092] px-6 py-5">
-      <div className="max-w-7xl mx-auto flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <div className="max-w-7xl mx-auto flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">
             Workload Hub Dashboard
           </h1>
         </div>
 
-        <div className="flex flex-wrap items-center gap-4 font-mono text-xs">
+        <div className="flex flex-wrap items-center gap-3 font-mono text-xs">
           <div className="bg-[#076092]/40 border border-[#33B1C8]/20 px-3 py-1.5 text-[#33B1C8]">
             <span className="text-[9px] uppercase block opacity-60">
               System Clock (Eastern)
             </span>
+
             <span className="font-semibold text-white tracking-wide">
               {today} • {time || "Loading Clock..."}
             </span>
@@ -68,6 +69,7 @@ export function Header({
               <span className="text-[9px] uppercase block opacity-60">
                 Next Holiday / Event
               </span>
+
               <span className="font-semibold text-white tracking-wide">
                 {nextHoliday}
               </span>
@@ -79,6 +81,7 @@ export function Header({
               <span className="text-[9px] uppercase block opacity-60">
                 Next Milestone
               </span>
+
               <span className="font-semibold text-white tracking-wide">
                 {nextMilestone}
               </span>
