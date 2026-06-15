@@ -1090,7 +1090,7 @@ Archived developments will be hidden from the active Course Developments list bu
         </div>
 
         {/* DETAILS SECTION */}
-        <div className="w-full">
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(300px,420px)_1fr] gap-4">
           {activeCourse ? (
             <div className="flex flex-col gap-6 bg-white border border-[#E0DCD8] p-6 shadow-xs relative">
               
@@ -1180,7 +1180,7 @@ Archived developments will be hidden from the active Course Developments list bu
                         type="date"
                         value={activeCourse.termDeadline}
                         onChange={(e) => handleRecalculateTimeline(e.target.value)}
-                        className="w-full max-w-[180px] text-xs px-2 py-1.5 border border-slate-300 bg-white focus:outline-none"
+                        className="w-full max-w-[225px] text-xs px-2 py-1.5 border border-slate-300 bg-white focus:outline-none"
                       />
                       <span className="text-[10px] text-slate-500">
                         Start of Term: {formatDisplayDateShort(activeCourse.termDeadline)}
@@ -1191,7 +1191,7 @@ Archived developments will be hidden from the active Course Developments list bu
                       <span className="text-[10px] text-slate-500 uppercase font-semibold font-mono">
                         Projected Course Completion
                       </span>
-                      <div className="w-full max-w-[180px] border border-slate-200 bg-white px-2 py-1.5 text-xs font-semibold text-slate-800">
+                      <div className="w-full max-w-[225px] border border-slate-200 bg-white px-2 py-1.5 text-xs font-semibold text-slate-800">
                         {formatDisplayDateShort(getProjectedCompletionDate(activeCourse))}
                       </div>
                     </div>
