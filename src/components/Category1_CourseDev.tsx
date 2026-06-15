@@ -62,7 +62,11 @@ const normalizeTimelineSubtasks = (subtasks?: Array<string | Partial<TimelineSub
 };
 
 const buildCourseDevelopmentTimeline = (projectedCourseCompletionDate: string, onboarding: boolean): CourseDevelopmentTask[] => {
-  const finalReviewStart = projectedCourseCompletionDate;
+  // Projected Course Completion is the final development-completion anchor.
+  // Final Review must occur at least one week before development completion.
+  // Midpoint Review must occur at least 30 days after Kickoff.
+  const developmentCompletionStart = projectedCourseCompletionDate;
+  const finalReviewStart = addCalendarDays(developmentCompletionStart, -7);
   const midpointStart = addCalendarDays(finalReviewStart, -60);
   const kickoffStart = addCalendarDays(midpointStart, -30);
   const completeCourseDesignPlanStart = addCalendarDays(kickoffStart, -14);
@@ -176,7 +180,7 @@ const buildCourseDevelopmentTimeline = (projectedCourseCompletionDate: string, o
     task(43, 'Send final review reminder and agenda', 'Stakeholder Engagement', 'Instructional Designer', addCalendarDays(finalReviewStart, -2), addCalendarDays(finalReviewStart, -2), 0, undefined, undefined, '15 minutes'),
     task(44, 'Conduct final review', 'Milestone', 'Instructional Designer', finalReviewStart, finalReviewStart, 1, ['Send final review meeting recap']),
     task(45, 'End compensation', 'Project Closeout', 'Instructional Designer', finalReviewStart, finalReviewStart, 1, ['Send stipend notification email', 'Request stipend completion in Quickbase', 'Request code check and archive in Quickbase']),
-    task(46, 'Course completion', 'Milestone', 'Instructional Designer', finalReviewStart, finalReviewStart, 5, ['Multimedia complete code check and archive', 'Request course completion in Quickbase', 'Send project completion notification email'])
+    task(46, 'Course completion', 'Milestone', 'Instructional Designer', developmentCompletionStart, developmentCompletionStart, 5, ['Multimedia complete code check and archive', 'Request course completion in Quickbase', 'Send project completion notification email'])
   );
 
   if (!onboarding) {
@@ -919,12 +923,9 @@ Archived developments will be hidden from the active Course Developments list bu
     );
   };
 
-  const findMilestoneTask = (course: CourseDevelopment, keywords: string[]) => {
-    return (course.tasks || []).find((task) => {
-      const name = (task.name || "").toLowerCase();
-      const phase = (task.phase || "").toLowerCase();
-      return keywords.some((keyword) => name.includes(keyword) || phase.includes(keyword));
-    });
+  const findTimelineTaskByExactName = (course: CourseDevelopment, taskName: string) => {
+    const targetName = taskName.trim().toLowerCase();
+    return (course.tasks || []).find((task) => (task.name || '').trim().toLowerCase() === targetName);
   };
 
   const formatMilestoneLine = (label: string, task?: CourseDevelopmentTask) => {
@@ -940,14 +941,14 @@ Archived developments will be hidden from the active Course Developments list bu
     const qaTasks = getRoleInProgressTasks(course, "QA");
 
     const milestones = [
-      formatMilestoneLine("ONBOARDING", findMilestoneTask(course, ["onboarding"])),
-      formatMilestoneLine("INITIAL MEETING", findMilestoneTask(course, ["initial meeting"])),
-      formatMilestoneLine("COURSE DESIGN PLAN DUE", findMilestoneTask(course, ["course design plan", "design plan"])),
-      formatMilestoneLine("KICKOFF", findMilestoneTask(course, ["kickoff", "kick-off"])),
-      formatMilestoneLine("MIDPOINT REVIEW", findMilestoneTask(course, ["midpoint", "mid-point"])),
-      formatMilestoneLine("FINAL REVIEW", findMilestoneTask(course, ["final review"])),
-      formatMilestoneLine("SME DELIVERABLES COMPLETE", findMilestoneTask(course, ["sme deliverables", "deliverables complete"])),
-      formatMilestoneLine("DEVELOPMENT COMPLETION", findMilestoneTask(course, ["development completion", "project completion", "course completion"])),
+      formatMilestoneLine("ONBOARDING", findTimelineTaskByExactName(course, "Conduct onboarding meeting")),
+      formatMilestoneLine("INITIAL MEETING", findTimelineTaskByExactName(course, "Conduct initial meeting")),
+      formatMilestoneLine("COURSE DESIGN PLAN DUE", findTimelineTaskByExactName(course, "Complete Course Design Plan")),
+      formatMilestoneLine("KICKOFF", findTimelineTaskByExactName(course, "Conduct kickoff meeting")),
+      formatMilestoneLine("MIDPOINT REVIEW", findTimelineTaskByExactName(course, "Conduct midpoint review")),
+      formatMilestoneLine("FINAL REVIEW", findTimelineTaskByExactName(course, "Conduct final review")),
+      formatMilestoneLine("SME DELIVERABLES COMPLETE", findTimelineTaskByExactName(course, "Finalize course documents")),
+      formatMilestoneLine("DEVELOPMENT COMPLETION", findTimelineTaskByExactName(course, "Course completion")),
     ];
 
     const offTime = customBlocked.length
@@ -1090,7 +1091,7 @@ Archived developments will be hidden from the active Course Developments list bu
         </div>
 
         {/* DETAILS SECTION */}
-        <div className="grid grid-cols-1 xl:grid-cols-[minmax(300px,420px)_1fr] gap-4">
+        <div className="w-full">
           {activeCourse ? (
             <div className="flex flex-col gap-6 bg-white border border-[#E0DCD8] p-6 shadow-xs relative">
               
@@ -1180,7 +1181,7 @@ Archived developments will be hidden from the active Course Developments list bu
                         type="date"
                         value={activeCourse.termDeadline}
                         onChange={(e) => handleRecalculateTimeline(e.target.value)}
-                        className="w-full max-w-[225px] text-xs px-2 py-1.5 border border-slate-300 bg-white focus:outline-none"
+                        className="w-full max-w-[180px] text-xs px-2 py-1.5 border border-slate-300 bg-white focus:outline-none"
                       />
                       <span className="text-[10px] text-slate-500">
                         Start of Term: {formatDisplayDateShort(activeCourse.termDeadline)}
@@ -1191,7 +1192,7 @@ Archived developments will be hidden from the active Course Developments list bu
                       <span className="text-[10px] text-slate-500 uppercase font-semibold font-mono">
                         Projected Course Completion
                       </span>
-                      <div className="w-full max-w-[225px] border border-slate-200 bg-white px-2 py-1.5 text-xs font-semibold text-slate-800">
+                      <div className="w-full max-w-[180px] border border-slate-200 bg-white px-2 py-1.5 text-xs font-semibold text-slate-800">
                         {formatDisplayDateShort(getProjectedCompletionDate(activeCourse))}
                       </div>
                     </div>
@@ -1421,7 +1422,7 @@ Archived developments will be hidden from the active Course Developments list bu
               )}
 
               {/* COURSE ACTIONS */}
-              <div className="flex flex-wrap justify-center items-center gap-x-4 gap-y-2 bg-white py-2 text-[11px] border-b border-[#E0DCD8]/80">
+              <div className="flex flex-wrap justify-end items-center gap-x-4 gap-y-2 bg-white py-2 text-[11px] border-b border-[#E0DCD8]/80">
                 <button
                   type="button"
                   onClick={() => startEditingCourse(activeCourse)}
