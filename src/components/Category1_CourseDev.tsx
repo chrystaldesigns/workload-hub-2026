@@ -1421,7 +1421,7 @@ Archived developments will be hidden from the active Course Developments list bu
               )}
 
               {/* COURSE ACTIONS */}
-              <div className="flex flex-wrap justify-end items-center gap-x-4 gap-y-2 bg-white py-2 text-[11px] border-b border-[#E0DCD8]/80">
+              <div className="flex flex-wrap justify-center items-center gap-x-4 gap-y-2 bg-white py-2 text-[11px] border-b border-[#E0DCD8]/80">
                 <button
                   type="button"
                   onClick={() => startEditingCourse(activeCourse)}
