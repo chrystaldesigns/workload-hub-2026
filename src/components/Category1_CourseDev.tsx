@@ -6,7 +6,6 @@ import {
   SlidersHorizontal, Sparkles, Pencil, Save, X, Archive
 } from 'lucide-react';
 import { 
-  calculateTimelineTasks, 
   countWorkingDaysBetween, 
   formatDate,
   parseDate,
@@ -20,6 +19,172 @@ interface Category1Props {
   onAddCourse: (course: CourseDevelopment) => Promise<void>;
   onUpdateCourse: (course: CourseDevelopment) => Promise<void>;
   onDeleteCourse: (id: string) => Promise<void>;
+}
+
+
+type TimelineSubtask = {
+  id: string;
+  title: string;
+  complete: boolean;
+};
+
+type TimelineTaskExtra = CourseDevelopmentTask & {
+  notes?: string;
+  subtasks?: TimelineSubtask[];
+  durationLabel?: string;
+};
+
+const addCalendarDays = (dateStr: string, days: number) => {
+  const date = new Date(`${dateStr.slice(0, 10)}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return '';
+  date.setDate(date.getDate() + days);
+  return formatDate(date);
+};
+
+const normalizeTimelineSubtasks = (subtasks?: Array<string | Partial<TimelineSubtask>>): TimelineSubtask[] => {
+  if (!subtasks?.length) return [];
+
+  return subtasks.map((subtask, index) => {
+    if (typeof subtask === 'string') {
+      return {
+        id: `subtask-${index + 1}`,
+        title: subtask,
+        complete: false,
+      };
+    }
+
+    return {
+      id: subtask.id || `subtask-${index + 1}`,
+      title: subtask.title || '',
+      complete: !!subtask.complete,
+    };
+  });
+};
+
+const buildCourseDevelopmentTimeline = (projectedCourseCompletionDate: string, onboarding: boolean): CourseDevelopmentTask[] => {
+  const finalReviewStart = projectedCourseCompletionDate;
+  const midpointStart = addCalendarDays(finalReviewStart, -45);
+  const kickoffStart = addCalendarDays(midpointStart, -20);
+  const completeCourseDesignPlanStart = addCalendarDays(kickoffStart, -7);
+  const finalizeCourseDesignPlanStart = addCalendarDays(completeCourseDesignPlanStart, -5);
+  const initialMeetingStart = finalizeCourseDesignPlanStart;
+  const onboardingMeetingStart = addCalendarDays(initialMeetingStart, -7);
+  const introductionEmailStart = addCalendarDays(onboardingMeetingStart, -7);
+  const startCompensationStart = addCalendarDays(introductionEmailStart, -7);
+  const moduleTemplateStart = completeCourseDesignPlanStart;
+  const moduleTemplateDue = addCalendarDays(moduleTemplateStart, 14);
+
+  const task = (
+    id: number,
+    name: string,
+    category: string,
+    owner: string,
+    startDate: string,
+    dueDate: string,
+    durationDays: number,
+    subtasks?: string[],
+    notes?: string,
+    durationLabel?: string
+  ): TimelineTaskExtra => ({
+    id,
+    name,
+    phase: category,
+    assignedTo: owner,
+    startDate,
+    dueDate,
+    durationDays,
+    status: 'Not Started',
+    notes: notes || '',
+    subtasks: normalizeTimelineSubtasks(subtasks),
+    durationLabel: durationLabel || (durationDays > 0 ? `${durationDays} days` : ''),
+  } as TimelineTaskExtra);
+
+  const moduleTasks = (moduleNumber: number, offsetFromTemplates: number, multimediaDueAnchor: string): TimelineTaskExtra[] => {
+    const developStart = addCalendarDays(moduleTemplateStart, offsetFromTemplates);
+    const developDue = addCalendarDays(developStart, 5);
+    const reviewStart = addCalendarDays(developDue, 1);
+    const reviewDue = reviewStart;
+    const multimediaStart = reviewDue;
+    const multimediaDue = addCalendarDays(multimediaDueAnchor, -5);
+    const baseId = 14 + ((moduleNumber - 1) * 3);
+
+    return [
+      task(baseId, `Develop Module ${moduleNumber} content`, 'Course Development', 'Subject Matter Expert', developStart, developDue, 5),
+      task(baseId + 1, `Review & Build Module ${moduleNumber} content`, 'Course Development', 'Instructional Designer', reviewStart, reviewDue, 1, [`Enter Module ${moduleNumber} multimedia task in Quickbase`]),
+      task(baseId + 2, `Develop Module ${moduleNumber} multimedia content`, 'Course Development', 'Multimedia', multimediaStart, multimediaDue, 0),
+    ];
+  };
+
+  const tasks: TimelineTaskExtra[] = [
+    task(1, 'Start compensation', 'Milestone', 'Operations', startCompensationStart, finalReviewStart, 0),
+    task(2, 'Send SME introduction email', 'Project Management', 'Instructional Designer', introductionEmailStart, introductionEmailStart, 0, ['Schedule onboarding meeting', 'Customize onboarding presentation'], undefined, '5 hours'),
+    task(3, 'Send onboarding reminder', 'Discovery & Planning', 'Instructional Designer', addCalendarDays(onboardingMeetingStart, -2), addCalendarDays(onboardingMeetingStart, -2), 0, undefined, undefined, '15 minutes'),
+    task(4, 'Conduct onboarding meeting', 'Discovery & Planning; Project Management', 'Instructional Designer', onboardingMeetingStart, onboardingMeetingStart, 1, ['Finalize timeline', 'Send recap email', 'Schedule initial meeting', 'Enter course development tasks into Quickbase', 'Obtain course outline']),
+    task(5, 'Schedule initial meeting', 'Project Management', 'Instructional Designer', addCalendarDays(initialMeetingStart, -2), addCalendarDays(initialMeetingStart, -2), 0, undefined, `Schedule meeting the week of ${formatDisplayDateShortSafe(initialMeetingStart)}`, '15 minutes'),
+    task(6, 'Conduct initial meeting', 'Project Management; Course Design', 'Instructional Designer', initialMeetingStart, initialMeetingStart, 1, ['Draft Course Design Plan', 'Send Course Design Plan draft to SME']),
+    task(7, 'Finalize Course Design Plan', 'Course Design', 'Subject Matter Expert', finalizeCourseDesignPlanStart, addCalendarDays(finalizeCourseDesignPlanStart, 5), 5),
+    task(8, 'Schedule kickoff meeting', 'Project Management', 'Instructional Designer', addCalendarDays(initialMeetingStart, -2), addCalendarDays(initialMeetingStart, -2), 0, undefined, `Schedule meeting the week of ${formatDisplayDateShortSafe(kickoffStart)}`, '15 minutes'),
+    task(9, 'Complete Course Design Plan', 'Course Design', 'Instructional Designer', completeCourseDesignPlanStart, completeCourseDesignPlanStart, 1, ['Analyze instructional material accessibility']),
+    task(10, 'Send kickoff reminder and agenda', 'Stakeholder Engagement', 'Instructional Designer', addCalendarDays(kickoffStart, -2), addCalendarDays(kickoffStart, -2), 0, undefined, undefined, '15 minutes'),
+    task(11, 'Conduct kickoff meeting', 'Milestone', 'Instructional Designer', kickoffStart, kickoffStart, 1, ['Send kickoff meeting recap', 'Enter instructional materials into Quickbase', 'Request Canvas shell in Quickbase']),
+    task(12, 'Schedule midpoint meeting', 'Project Management', 'Instructional Designer', addCalendarDays(initialMeetingStart, -2), addCalendarDays(initialMeetingStart, -2), 0, undefined, `Schedule meeting the week of ${formatDisplayDateShortSafe(midpointStart)}`, '15 minutes'),
+    task(13, 'Create module templates', 'Course Development', 'Instructional Designer', moduleTemplateStart, moduleTemplateDue, 14, ['Coordinate module delivery schedule', 'Configure calendar reminders', 'Module 1', 'Module 2', 'Module 3', 'Module 4', 'Module 5', 'Module 6', 'Module 7']),
+    ...moduleTasks(1, 2, midpointStart),
+    ...moduleTasks(2, 7, midpointStart),
+    ...moduleTasks(3, 12, midpointStart),
+    task(23, 'Send midpoint reminder and agenda', 'Stakeholder Engagement', 'Instructional Designer', addCalendarDays(midpointStart, -2), addCalendarDays(midpointStart, -2), 0, undefined, undefined, '15 minutes'),
+    task(24, 'Conduct midpoint review', 'Milestone', 'Instructional Designer', midpointStart, midpointStart, 1, ['Send midpoint review meeting recap']),
+    task(25, 'Schedule final meeting', 'Project Management', 'Instructional Designer', addCalendarDays(initialMeetingStart, -2), addCalendarDays(initialMeetingStart, -2), 0, undefined, `Schedule meeting the week of ${formatDisplayDateShortSafe(addCalendarDays(midpointStart, 40))}`, '15 minutes'),
+    ...moduleTasks(4, 17, finalReviewStart),
+    ...moduleTasks(5, 22, finalReviewStart),
+    ...moduleTasks(6, 27, finalReviewStart),
+    ...moduleTasks(7, 32, finalReviewStart),
+  ];
+
+  const reviewBuildModule7 = tasks.find((item) => item.name === 'Review & Build Module 7 content');
+  const finalizeDocsStart = addCalendarDays(reviewBuildModule7?.startDate || moduleTemplateStart, 1);
+  const finalizeDocsDue = addCalendarDays(finalizeDocsStart, 3);
+  const proofRequestStart = finalizeDocsDue;
+  const proofRequestDue = addCalendarDays(proofRequestStart, 1);
+  const proofreadingStart = proofRequestDue;
+  const proofreadingDue = addCalendarDays(proofreadingStart, 5);
+  const preQaStart = proofreadingDue;
+  const preQaDue = addCalendarDays(preQaStart, 1);
+  const qaStart = preQaDue;
+  const qaDue = addCalendarDays(qaStart, 5);
+
+  tasks.push(
+    task(38, 'Finalize course documents', 'Course Development', 'Subject Matter Expert', finalizeDocsStart, finalizeDocsDue, 3),
+    task(39, 'Submit proofreading request', 'Quality Assurance', 'Instructional Designer', proofRequestStart, proofRequestDue, 1),
+    task(40, 'Complete proofreading', 'Quality Assurance', 'Quality Assurance', proofreadingStart, proofreadingDue, 5),
+    task(41, 'Complete pre-QA checklist', 'Quality Assurance', 'Instructional Designer', preQaStart, preQaDue, 1, ['Request QA review in Quickbase']),
+    task(42, 'Complete QA review', 'Quality Assurance', 'Quality Assurance', qaStart, qaDue, 5, ['Address QA findings']),
+    task(43, 'Send final review reminder and agenda', 'Stakeholder Engagement', 'Instructional Designer', addCalendarDays(finalReviewStart, -2), addCalendarDays(finalReviewStart, -2), 0, undefined, undefined, '15 minutes'),
+    task(44, 'Conduct final review', 'Milestone', 'Instructional Designer', finalReviewStart, finalReviewStart, 1, ['Send final review meeting recap']),
+    task(45, 'End compensation', 'Project Closeout', 'Instructional Designer', finalReviewStart, finalReviewStart, 1, ['Send stipend notification email', 'Request stipend completion in Quickbase', 'Request code check and archive in Quickbase']),
+    task(46, 'Course completion', 'Milestone', 'Instructional Designer', finalReviewStart, finalReviewStart, 5, ['Multimedia complete code check and archive', 'Request course completion in Quickbase', 'Send project completion notification email'])
+  );
+
+  if (!onboarding) {
+    return tasks.map((item) => {
+      if ([2, 3, 4].includes(item.id as number)) {
+        return { ...item, status: 'Not Applicable' };
+      }
+      return item;
+    });
+  }
+
+  return tasks;
+};
+
+function formatDisplayDateShortSafe(dateStr?: string) {
+  if (!dateStr) return 'TBD';
+  const date = new Date(`${dateStr.slice(0, 10)}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return 'TBD';
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const year = String(date.getFullYear()).slice(-2);
+  return `${month}-${day}-${year}`;
 }
 
 export function Category1CourseDev({ 
@@ -361,7 +526,7 @@ export function Category1CourseDev({
     // Start of Term is the static anchor. Projected Course Completion is 30 calendar days before it.
     const startOfTerm = formData.termDeadline;
     const projectedCompletionDate = calculateProjectedCompletionDate(startOfTerm);
-    const generatedTasks = calculateTimelineTasks(projectedCompletionDate, formData.onboarding, customBlocked);
+    const generatedTasks = buildCourseDevelopmentTimeline(projectedCompletionDate, formData.onboarding);
     
     const newCourse: CourseDevelopment = {
       program: formData.program,
@@ -439,17 +604,51 @@ export function Category1CourseDev({
     await onUpdateCourse(updatedCourse);
   };
 
+
+  const handleToggleSubtask = async (taskId: number, subtaskId: string) => {
+    if (!activeCourse) return;
+
+    const updatedTasks = activeCourse.tasks.map((task) => {
+      if (task.id !== taskId) return task;
+
+      const subtasks = normalizeTimelineSubtasks((task as any).subtasks).map((subtask) => {
+        if (subtask.id !== subtaskId) return subtask;
+        return {
+          ...subtask,
+          complete: !subtask.complete,
+        };
+      });
+
+      return {
+        ...task,
+        subtasks,
+      };
+    });
+
+    await onUpdateCourse({
+      ...activeCourse,
+      tasks: updatedTasks,
+    });
+  };
+
   const handleRecalculateTimeline = async (newStartOfTerm: string) => {
     if (!activeCourse) return;
 
     const projectedCompletionDate = calculateProjectedCompletionDate(newStartOfTerm);
-    const recalculatedTasks = calculateTimelineTasks(projectedCompletionDate, activeCourse.onboarding, customBlocked);
+    const recalculatedTasks = buildCourseDevelopmentTimeline(projectedCompletionDate, activeCourse.onboarding);
 
     // Maintain completed status for identical names if possible
     recalculatedTasks.forEach(newTask => {
       const existing = activeCourse.tasks.find(ot => ot.name === newTask.name);
-      if (existing && existing.status === 'Complete') {
-        newTask.status = 'Complete';
+      if (existing) {
+        newTask.status = existing.status;
+        (newTask as any).notes = (existing as any).notes || (newTask as any).notes || '';
+        const existingSubtasks = normalizeTimelineSubtasks((existing as any).subtasks);
+        const nextSubtasks = normalizeTimelineSubtasks((newTask as any).subtasks);
+        (newTask as any).subtasks = nextSubtasks.map((subtask) => {
+          const matchingExisting = existingSubtasks.find((item) => item.title === subtask.title);
+          return matchingExisting ? { ...subtask, complete: matchingExisting.complete } : subtask;
+        });
       }
     });
 
@@ -466,7 +665,7 @@ export function Category1CourseDev({
   const handleToggleOnboarding = async () => {
     if (!activeCourse) return;
     const nextOnboarding = !activeCourse.onboarding;
-    const recalculatedTasks = calculateTimelineTasks(getProjectedCompletionDate(activeCourse), nextOnboarding, customBlocked);
+    const recalculatedTasks = buildCourseDevelopmentTimeline(getProjectedCompletionDate(activeCourse), nextOnboarding);
     const updatedCourse = {
       ...activeCourse,
       onboarding: nextOnboarding,
@@ -572,7 +771,7 @@ Archived developments will be hidden from the active Course Developments list bu
 
   // Draft compensation email 21 days prior
   const triggerCompensationDraft = (course: CourseDevelopment) => {
-    const task8 = course.tasks.find(t => t.id === 8 || t.id === 25 || t.name.toLowerCase().includes("develop module 1 content")); // "Develop Module 1 Content"
+    const task8 = course.tasks.find(t => t.name.toLowerCase().includes("start compensation") || t.name.toLowerCase().includes("develop module 1 content"));
     if (!task8 || !task8.startDate) {
       alert("Please ensure Module 1 start date is active before drafting compensation notifications.");
       return;
@@ -732,7 +931,7 @@ Archived developments will be hidden from the active Course Developments list bu
 
   // Compliance business rule calculation: check if Closeout is >= 30 days
   const getCloseoutCompliance = (course: CourseDevelopment) => {
-    const task26 = course.tasks.find(t => t.id === 26 || t.id === 62 || t.name.toLowerCase().includes("code check and archive")); // "Code Check & Archive"
+    const task26 = course.tasks.find(t => t.name.toLowerCase().includes("course completion") || t.name.toLowerCase().includes("code check and archive"));
     if (!task26 || !task26.dueDate) return { success: true, count: 30 };
     
     const count = countWorkingDaysBetween(task26.dueDate, course.termDeadline, customBlocked);
@@ -912,7 +1111,7 @@ Archived developments will be hidden from the active Course Developments list bu
                       className="text-left text-slate-600 hover:text-slate-900 font-semibold uppercase flex items-center gap-1 cursor-pointer select-none"
                     >
                       <Sparkles className="w-3.5 h-3.5 text-[#33B1C8]" />
-                      <span>Onboarding: {activeCourse.onboarding ? 'Active (28 Tasks)' : 'Bypassed (23 Tasks)'}</span>
+                      <span>Onboarding: {activeCourse.onboarding ? 'Active' : 'Bypassed'}</span>
                     </button>
 
                     <button
@@ -1278,6 +1477,33 @@ Archived developments will be hidden from the active Course Developments list bu
                               </label>
                             </div>
 
+                            {draft.notes && (
+                              <div className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs text-slate-700">
+                                {draft.notes}
+                              </div>
+                            )}
+
+                            {normalizeTimelineSubtasks((task as any).subtasks).length > 0 && (
+                              <div className="rounded-md border border-slate-200 bg-white px-2.5 py-2">
+                                <div className="mb-1.5 text-[9px] font-semibold uppercase tracking-wide text-slate-500">Subtasks</div>
+                                <div className="flex flex-col gap-1.5">
+                                  {normalizeTimelineSubtasks((task as any).subtasks).map((subtask) => (
+                                    <label key={subtask.id} className="flex items-center gap-2 text-xs text-slate-700">
+                                      <input
+                                        type="checkbox"
+                                        checked={subtask.complete}
+                                        onChange={() => handleToggleSubtask(task.id as number, subtask.id)}
+                                        className="h-3.5 w-3.5 rounded border-slate-300 accent-[#006282]"
+                                      />
+                                      <span className={subtask.complete ? 'line-through text-slate-400' : ''}>
+                                        {subtask.title}
+                                      </span>
+                                    </label>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
                             <div className="grid grid-cols-1 gap-2 lg:grid-cols-[1fr_auto] lg:items-end">
                               <label className="flex flex-col gap-0.5 text-xs">
                                 <span className="text-[9px] uppercase text-slate-500 font-semibold">Notes</span>
@@ -1293,7 +1519,7 @@ Archived developments will be hidden from the active Course Developments list bu
 
                               <div className="flex justify-end text-[10px] font-mono text-slate-400 lg:pb-1">
                                 <span>
-                                  {task.phase}{task.durationDays > 0 ? ` • ${task.durationDays} days` : ''}
+                                  {task.phase}{(task as any).durationLabel ? ` • ${(task as any).durationLabel}` : task.durationDays > 0 ? ` • ${task.durationDays} days` : ''}
                                 </span>
                               </div>
                             </div>
@@ -1594,7 +1820,7 @@ Archived developments will be hidden from the active Course Developments list bu
 
 // Quick helper to evaluate activeCourse compliance outside of the component body
 function complianceRule(course: CourseDevelopment, customBlocked: string[]): boolean {
-  const task26 = course.tasks.find(t => t.id === 26 || t.id === 62 || t.name.toLowerCase().includes("code check and archive"));
+  const task26 = course.tasks.find(t => t.name.toLowerCase().includes("course completion") || t.name.toLowerCase().includes("code check and archive"));
   if (!task26 || !task26.dueDate) return true;
   
   const count = countWorkingDaysBetween(task26.dueDate, course.termDeadline, customBlocked);
