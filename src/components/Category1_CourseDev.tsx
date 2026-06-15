@@ -63,12 +63,12 @@ const normalizeTimelineSubtasks = (subtasks?: Array<string | Partial<TimelineSub
 
 const buildCourseDevelopmentTimeline = (projectedCourseCompletionDate: string, onboarding: boolean): CourseDevelopmentTask[] => {
   const finalReviewStart = projectedCourseCompletionDate;
-  const midpointStart = addCalendarDays(finalReviewStart, -45);
-  const kickoffStart = addCalendarDays(midpointStart, -20);
-  const completeCourseDesignPlanStart = addCalendarDays(kickoffStart, -7);
-  const finalizeCourseDesignPlanStart = addCalendarDays(completeCourseDesignPlanStart, -5);
+  const midpointStart = addCalendarDays(finalReviewStart, -60);
+  const kickoffStart = addCalendarDays(midpointStart, -30);
+  const completeCourseDesignPlanStart = addCalendarDays(kickoffStart, -14);
+  const finalizeCourseDesignPlanStart = addCalendarDays(completeCourseDesignPlanStart, -10);
   const initialMeetingStart = finalizeCourseDesignPlanStart;
-  const onboardingMeetingStart = addCalendarDays(initialMeetingStart, -7);
+  const onboardingMeetingStart = addCalendarDays(initialMeetingStart, -14);
   const introductionEmailStart = addCalendarDays(onboardingMeetingStart, -7);
   const startCompensationStart = addCalendarDays(introductionEmailStart, -7);
   const moduleTemplateStart = completeCourseDesignPlanStart;
