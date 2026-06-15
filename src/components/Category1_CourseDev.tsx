@@ -99,6 +99,20 @@ const buildCourseDevelopmentTimeline = (projectedCourseCompletionDate: string, o
     durationLabel: durationLabel || (durationDays > 0 ? `${durationDays} days` : ''),
   } as TimelineTaskExtra);
 
+  const getModuleBaseId = (moduleNumber: number) => {
+    const baseIds: Record<number, number> = {
+      1: 14,
+      2: 17,
+      3: 20,
+      4: 26,
+      5: 29,
+      6: 32,
+      7: 35,
+    };
+
+    return baseIds[moduleNumber];
+  };
+
   const moduleTasks = (moduleNumber: number, offsetFromTemplates: number, multimediaDueAnchor: string): TimelineTaskExtra[] => {
     const developStart = addCalendarDays(moduleTemplateStart, offsetFromTemplates);
     const developDue = addCalendarDays(developStart, 5);
@@ -106,7 +120,7 @@ const buildCourseDevelopmentTimeline = (projectedCourseCompletionDate: string, o
     const reviewDue = reviewStart;
     const multimediaStart = reviewDue;
     const multimediaDue = addCalendarDays(multimediaDueAnchor, -5);
-    const baseId = 14 + ((moduleNumber - 1) * 3);
+    const baseId = getModuleBaseId(moduleNumber);
 
     return [
       task(baseId, `Develop Module ${moduleNumber} content`, 'Course Development', 'Subject Matter Expert', developStart, developDue, 5),
@@ -733,6 +747,11 @@ export function Category1CourseDev({
     await onUpdateCourse(updatedCourse);
   };
 
+  const handleRecalculateCurrentTimeline = async () => {
+    if (!activeCourse) return;
+    await handleRecalculateTimeline(activeCourse.termDeadline);
+  };
+
   const handleToggleOnboarding = async () => {
     if (!activeCourse) return;
     const nextOnboarding = !activeCourse.onboarding;
@@ -1176,6 +1195,14 @@ Archived developments will be hidden from the active Course Developments list bu
                         {formatDisplayDateShort(getProjectedCompletionDate(activeCourse))}
                       </div>
                     </div>
+
+                    <button
+                      type="button"
+                      onClick={handleRecalculateCurrentTimeline}
+                      className="w-fit rounded-md border border-[#006282] bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors cursor-pointer select-none"
+                    >
+                      Recalculate Timeline
+                    </button>
 
                     <button
                       onClick={handleToggleOnboarding}
