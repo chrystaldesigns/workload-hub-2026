@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { CourseDevelopment, CourseDevelopmentTask } from '../types';
 import { 
   FileText, Calendar, Plus, Mail, CheckCircle2, AlertTriangle, 
@@ -202,6 +202,15 @@ export function Category1CourseDev({
   const [showEmailModal, setShowEmailModal] = useState<CourseDevelopmentTask | null>(null);
   const [editingCourse, setEditingCourse] = useState<typeof formData | null>(null);
   const [taskDrafts, setTaskDrafts] = useState<Record<string, Partial<CourseDevelopmentTask & { notes?: string }>>>({});
+  const taskListRef = useRef<HTMLDivElement | null>(null);
+  const pendingTaskScrollRestoreRef = useRef<{
+    taskId: number | string;
+    scrollTop: number;
+    scrollLeft: number;
+    windowX: number;
+    windowY: number;
+    activeElementName: string;
+  } | null>(null);
 
   // Form states for new Course
   const [formData, setFormData] = useState({
@@ -396,6 +405,74 @@ export function Category1CourseDev({
     });
   };
 
+  const restorePendingTaskScroll = () => {
+    const pending = pendingTaskScrollRestoreRef.current;
+    if (!pending) return;
+
+    const taskList = taskListRef.current;
+
+    if (taskList) {
+      taskList.scrollTop = pending.scrollTop;
+      taskList.scrollLeft = pending.scrollLeft;
+
+      const editedTask = taskList.querySelector(`[data-task-id="${pending.taskId}"]`) as HTMLElement | null;
+      if (editedTask) {
+        const listRect = taskList.getBoundingClientRect();
+        const taskRect = editedTask.getBoundingClientRect();
+
+        if (taskRect.top < listRect.top || taskRect.bottom > listRect.bottom) {
+          editedTask.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        }
+      }
+    }
+
+    window.scrollTo(pending.windowX, pending.windowY);
+
+    if (pending.activeElementName) {
+      const focusedTaskField = document.querySelector(
+        `[data-task-id="${pending.taskId}"] [name="${pending.activeElementName}"]`
+      ) as HTMLElement | null;
+      focusedTaskField?.focus?.({ preventScroll: true } as FocusOptions);
+    }
+  };
+
+  useLayoutEffect(() => {
+    if (!pendingTaskScrollRestoreRef.current) return;
+
+    restorePendingTaskScroll();
+    window.requestAnimationFrame(() => {
+      restorePendingTaskScroll();
+      window.setTimeout(restorePendingTaskScroll, 0);
+      window.setTimeout(restorePendingTaskScroll, 100);
+      window.setTimeout(() => {
+        restorePendingTaskScroll();
+        pendingTaskScrollRestoreRef.current = null;
+      }, 250);
+    });
+  }, [courseDevelopments]);
+
+  const preserveTaskListScroll = async (taskId: number | string, callback: () => Promise<void> | void) => {
+    const taskList = taskListRef.current;
+    const activeElement = document.activeElement as HTMLElement | null;
+
+    pendingTaskScrollRestoreRef.current = {
+      taskId,
+      scrollTop: taskList?.scrollTop ?? 0,
+      scrollLeft: taskList?.scrollLeft ?? 0,
+      windowX: window.scrollX,
+      windowY: window.scrollY,
+      activeElementName: activeElement?.getAttribute('name') || '',
+    };
+
+    await callback();
+
+    window.requestAnimationFrame(() => {
+      restorePendingTaskScroll();
+      window.setTimeout(restorePendingTaskScroll, 0);
+      window.setTimeout(restorePendingTaskScroll, 100);
+    });
+  };
+
   const saveTaskChanges = async (task: CourseDevelopmentTask) => {
     if (!activeCourse) return;
 
@@ -413,29 +490,24 @@ export function Category1CourseDev({
       };
     });
 
-    const scrollX = window.scrollX;
-    const scrollY = window.scrollY;
     const preservedSelectedId = activeCourse.id || selectedId;
 
     if (preservedSelectedId && typeof window !== 'undefined') {
       localStorage.setItem('workloadHubSelectedCourseId', preservedSelectedId);
     }
 
-    await onUpdateCourse({
-      ...activeCourse,
-      tasks: updatedTasks,
+    await preserveTaskListScroll(task.id, async () => {
+      await onUpdateCourse({
+        ...activeCourse,
+        tasks: updatedTasks,
+      });
+
+      if (preservedSelectedId) {
+        setSelectedId(preservedSelectedId);
+      }
+
+      clearTaskDraft(task);
     });
-
-    if (preservedSelectedId) {
-      setSelectedId(preservedSelectedId);
-    }
-
-    window.requestAnimationFrame(() => {
-      window.scrollTo(scrollX, scrollY);
-      window.setTimeout(() => window.scrollTo(scrollX, scrollY), 0);
-    });
-
-    clearTaskDraft(task);
   };
 
 
@@ -451,29 +523,24 @@ export function Category1CourseDev({
       };
     });
 
-    const scrollX = window.scrollX;
-    const scrollY = window.scrollY;
     const preservedSelectedId = activeCourse.id || selectedId;
 
     if (preservedSelectedId && typeof window !== 'undefined') {
       localStorage.setItem('workloadHubSelectedCourseId', preservedSelectedId);
     }
 
-    await onUpdateCourse({
-      ...activeCourse,
-      tasks: updatedTasks,
+    await preserveTaskListScroll(task.id, async () => {
+      await onUpdateCourse({
+        ...activeCourse,
+        tasks: updatedTasks,
+      });
+
+      if (preservedSelectedId) {
+        setSelectedId(preservedSelectedId);
+      }
+
+      clearTaskDraft(task);
     });
-
-    if (preservedSelectedId) {
-      setSelectedId(preservedSelectedId);
-    }
-
-    window.requestAnimationFrame(() => {
-      window.scrollTo(scrollX, scrollY);
-      window.setTimeout(() => window.scrollTo(scrollX, scrollY), 0);
-    });
-
-    clearTaskDraft(task);
   };
 
   const saveTaskNotesOnBlur = async (task: CourseDevelopmentTask) => {
@@ -601,7 +668,9 @@ export function Category1CourseDev({
       tasks: updatedTasks
     };
 
-    await onUpdateCourse(updatedCourse);
+    await preserveTaskListScroll(taskId, async () => {
+      await onUpdateCourse(updatedCourse);
+    });
   };
 
 
@@ -625,9 +694,11 @@ export function Category1CourseDev({
       };
     });
 
-    await onUpdateCourse({
-      ...activeCourse,
-      tasks: updatedTasks,
+    await preserveTaskListScroll(taskId, async () => {
+      await onUpdateCourse({
+        ...activeCourse,
+        tasks: updatedTasks,
+      });
     });
   };
 
@@ -1384,7 +1455,7 @@ Archived developments will be hidden from the active Course Developments list bu
                   <span className="text-2xs text-slate-400 font-mono">Task edits auto-save when changed</span>
                 </div>
 
-                <div className="max-h-[680px] overflow-y-auto p-2 space-y-2">
+                <div ref={taskListRef} className="max-h-[680px] overflow-y-auto p-2 space-y-2">
                   {activeCourse.tasks
                     .filter(t => activeCourse.hideCompletedTasks === false || (t.status !== 'Complete' && t.status !== 'Not Applicable'))
                     .map((task) => {
@@ -1400,6 +1471,7 @@ Archived developments will be hidden from the active Course Developments list bu
                       return (
                         <article
                           key={task.id}
+                          data-task-id={task.id}
                           className={`rounded-lg border-y border-dashed px-3 py-2 ${isNA ? 'border-slate-200 bg-slate-50/70' : 'border-[#E0DCD8] bg-white'}`}
                         >
                           <div className="flex flex-col gap-2">
@@ -1424,6 +1496,7 @@ Archived developments will be hidden from the active Course Developments list bu
                               <label className="flex flex-col gap-0.5">
                                 <span className="text-[9px] uppercase text-slate-500 font-semibold">Owner</span>
                                 <select
+                                  name="assignedTo"
                                   value={draft.assignedTo || ''}
                                   onChange={(e) => autoSaveTaskField(task, 'assignedTo', e.target.value)}
                                   className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs"
@@ -1440,6 +1513,7 @@ Archived developments will be hidden from the active Course Developments list bu
                               <label className="flex flex-col gap-0.5">
                                 <span className="text-[9px] uppercase text-slate-500 font-semibold">Status</span>
                                 <select
+                                  name="status"
                                   value={draft.status || 'Not Started'}
                                   onChange={(e) => autoSaveTaskField(task, 'status', e.target.value)}
                                   className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs"
@@ -1460,6 +1534,7 @@ Archived developments will be hidden from the active Course Developments list bu
                                 <span className="text-[9px] uppercase text-slate-500 font-semibold">Start</span>
                                 <input
                                   type="date"
+                                  name="startDate"
                                   value={draft.startDate || ''}
                                   onChange={(e) => autoSaveTaskField(task, 'startDate', e.target.value)}
                                   className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs"
@@ -1470,6 +1545,7 @@ Archived developments will be hidden from the active Course Developments list bu
                                 <span className="text-[9px] uppercase text-slate-500 font-semibold">Due</span>
                                 <input
                                   type="date"
+                                  name="dueDate"
                                   value={draft.dueDate || ''}
                                   onChange={(e) => autoSaveTaskField(task, 'dueDate', e.target.value)}
                                   className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs"
@@ -1508,6 +1584,7 @@ Archived developments will be hidden from the active Course Developments list bu
                               <label className="flex flex-col gap-0.5 text-xs">
                                 <span className="text-[9px] uppercase text-slate-500 font-semibold">Notes</span>
                                 <textarea
+                                  name="notes"
                                   value={draft.notes || ''}
                                   onChange={(e) => updateTaskDraft(task, 'notes', e.target.value)}
                                   onBlur={() => saveTaskNotesOnBlur(task)}
