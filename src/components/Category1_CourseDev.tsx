@@ -975,6 +975,40 @@ Archived developments will be hidden from the active Course Developments list bu
     );
   };
 
+  const getRoleOpenTasks = (course: CourseDevelopment, role: "SME" | "ID" | "MULTIMEDIA" | "QA") => {
+    return (course.tasks || []).filter((task) => {
+      const status = task.status || "Not Started";
+      return (
+        roleMatches(task.assignedTo, role) &&
+        status !== "Complete" &&
+        status !== "Not Applicable"
+      );
+    });
+  };
+
+  const formatBulletedTaskList = (tasks: CourseDevelopmentTask[]) => {
+    if (!tasks.length) return "- None at this time.";
+
+    return tasks
+      .map((task) => {
+        const date = task.dueDate || task.startDate;
+        const dateLabel = date ? ` (${formatShortDate(date)})` : "";
+        return `- ${task.name}${dateLabel}, ${task.status || "Not Started"}`;
+      })
+      .join("\n");
+  };
+
+  const calculateModuleBuildProgress = (course: CourseDevelopment) => {
+    const moduleBuildTasks = (course.tasks || []).filter((task) =>
+      /^Review & Build Module \d+ content$/i.test(task.name || "")
+    );
+
+    if (!moduleBuildTasks.length) return 0;
+
+    const completed = moduleBuildTasks.filter((task) => task.status === "Complete").length;
+    return Math.round((completed / moduleBuildTasks.length) * 100);
+  };
+
   const findTimelineTaskByExactName = (course: CourseDevelopment, taskName: string) => {
     const targetName = taskName.trim().toLowerCase();
     return (course.tasks || []).find((task) => (task.name || '').trim().toLowerCase() === targetName);
@@ -1166,6 +1200,71 @@ Attachments: Course Outline, Course Design Plan
 Good ${greetingTime},
 
 This email is a friendly reminder that we'll hold our midpoint review meeting for ${course.courseNumber} on ${midpointDate} at ${midpointTime} to assess progress against the design plan, address any feedback or concerns, and confirm approval to move forward with the remaining development. This is also an opportunity to discuss any needed timeline adjustments.`;
+
+    openCommunicationToolWindow(popupTitle, clipboardMessage, content);
+  };
+
+  const handleMidpointRecap = (course: CourseDevelopment) => {
+    const hour = new Date().getHours();
+    const greetingTime = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
+    const moduleProgressPercent = calculateModuleBuildProgress(course);
+
+    const smeOpenTasks = getRoleOpenTasks(course, "SME");
+    const idOpenTasks = getRoleOpenTasks(course, "ID");
+
+    const stakeholderMilestoneTasks = [
+      ["MIDPOINT REVIEW", findTimelineTaskByExactName(course, "Conduct midpoint review")],
+      ["FINAL REVIEW", findTimelineTaskByExactName(course, "Conduct final review")],
+      ["SME DELIVERABLES COMPLETE", findTimelineTaskByExactName(course, "End compensation")],
+      ["DEVELOPMENT COMPLETION", findTimelineTaskByExactName(course, "Course completion")],
+    ] as Array<[string, CourseDevelopmentTask | undefined]>;
+
+    const remainingStakeholderMilestones = stakeholderMilestoneTasks
+      .filter(([, task]) => {
+        if (!task) return true;
+        const status = task.status || "Not Started";
+        return status === "Scheduled" || status === "In Progress" || status === "Not Started";
+      })
+      .map(([label, task]) => formatMilestoneLine(label, task))
+      .join("\n");
+
+    const to = [
+      "Golf.K@fscj.edu",
+      "cel@fscj.edu",
+      course.deptTeam.smeEmail,
+      course.deptTeam.deanEmail,
+      course.deptTeam.managerEmail,
+    ].filter(Boolean).join("; ");
+
+    const popupTitle = `${course.courseNumber} Midpoint Review Meeting Recap for Course Development`;
+    const clipboardMessage = "Midpoint recap copied to clipboard. You may also copy/edit from the text box below.";
+
+    const content = `To: ${to}
+Cc: christina.perrin@fscj.edu
+Subject: ${course.courseNumber} Midpoint Review Meeting Recap for Course Development
+Attachments: N/A
+
+Good ${greetingTime},
+
+Thank you for attending and taking part in today's Midpoint Review. If there is anything I misinterpreted or missed during our discussion, please do not hesitate to Reply All for clarification.
+
+<h1>MEETING OUTCOMES</h1>
+- Stakeholders reviewed approximately ${moduleProgressPercent}% of completed modules in Canvas and (approved the development progress | identified areas requiring modification).
+- Professor ${course.deptTeam.smeName || "SME"}, the Subject Matter Expert, provided feedback on (specific topics) and (all concerns were addressed | the following items require follow-up: action items).
+- The timeline for completing the remaining course development (confirmed as feasible | adjusted to accommodate, specific changes).
+- Stakeholders (approved continuation of development for the remaining course modules | requested review of modifications before proceeding).
+
+<h1>ACTION ITEMS</h1>
+<h2>Subject Matter Expert: Professor ${course.deptTeam.smeName || "SME"}</h2>
+${formatBulletedTaskList(smeOpenTasks)}
+
+<h2>Instructional Designer: Chrystal Wickline</h2>
+${formatBulletedTaskList(idOpenTasks)}
+
+Thank you for joining the Midpoint Review Meeting today. I'm here to support you throughout this process, so please reach out anytime.
+
+<h1>REMAINING STAKEHOLDER MILESTONE</h1>
+${remainingStakeholderMilestones || "None at this time."}`;
 
     openCommunicationToolWindow(popupTitle, clipboardMessage, content);
   };
@@ -1663,6 +1762,15 @@ This email is a friendly reminder that we'll hold our midpoint review meeting fo
                                     className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
                                   >
                                     <Mail className="h-3.5 w-3.5" /> Midpoint Reminder and Agenda
+                                  </button>
+                                )}
+                                {Number(task.id) === 24 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleMidpointRecap(activeCourse)}
+                                    className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
+                                  >
+                                    <Mail className="h-3.5 w-3.5" /> Midpoint Recap
                                   </button>
                                 )}
                               </div>
