@@ -959,7 +959,31 @@ Archived developments will be hidden from the active Course Developments list bu
   };
 
   const handleCopyStatusReport = (course: CourseDevelopment) => {
-    const blockText = generateWeeklyStatusReport(course);
+    const today = new Date().toLocaleDateString("en-US", {
+      month: "2-digit",
+      day: "2-digit",
+      year: "2-digit",
+    });
+
+    const to = course.deptTeam.smeEmail || "";
+    const cc = [course.deptTeam.deanEmail, course.deptTeam.managerEmail].filter(Boolean).join(",");
+    const subject = `${course.courseNumber} Course Development Status ${today}`;
+    const statusReport = generateWeeklyStatusReport(course);
+
+    const body = `This is a friendly update on the status of the course development. You do not need to take any action or respond to this email. It is for your information only.\n\n${statusReport}`;
+
+    const blockText = `TO:
+${to}
+
+CC:
+${cc}
+
+SUBJECT:
+${subject}
+
+BODY:
+${body}`;
+
     navigator.clipboard.writeText(blockText);
 
     const statusWindow = window.open("", "_blank", "width=800,height=700,scrollbars=yes,resizable=yes");
@@ -978,45 +1002,14 @@ Archived developments will be hidden from the active Course Developments list bu
           </head>
           <body>
             <h1>${course.courseNumber}: ${course.courseTitle}</h1>
-            <p>Weekly status summary copied to clipboard. You may also copy/edit from the text box below.</p>
+            <p>Status QB email package copied to clipboard. You may also copy/edit from the text box below.</p>
             <textarea>${blockText.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</textarea>
           </body>
         </html>
       `);
       statusWindow.document.close();
     } else {
-      alert("Weekly status summary copied to clipboard. Pop-up was blocked by the browser.");
-    }
-  };
-
-  const triggerWeeklyStatusEmailDraft = (course: CourseDevelopment) => {
-    const today = new Date().toLocaleDateString("en-US", {
-      month: "2-digit",
-      day: "2-digit",
-      year: "2-digit",
-    });
-
-    const to = course.deptTeam.smeEmail || "";
-    const cc = [course.deptTeam.deanEmail, course.deptTeam.managerEmail].filter(Boolean).join(",");
-    const subject = `${course.courseNumber} Course Development Status ${today}`;
-    const statusReport = generateWeeklyStatusReport(course);
-
-    const body = `This is a friendly update on the status of the course development. You do not need to take any action or respond to this email. It is for your information only.\n\n${statusReport}`;
-
-    // Keep the body available even if Outlook or the browser limits long compose URLs.
-    navigator.clipboard?.writeText(body).catch(() => undefined);
-
-    const outlookUrl =
-      `https://outlook.office.com/mail/deeplink/compose` +
-      `?to=${encodeURIComponent(to)}` +
-      `&cc=${encodeURIComponent(cc)}` +
-      `&subject=${encodeURIComponent(subject)}` +
-      `&body=${encodeURIComponent(body)}`;
-
-    const composeWindow = window.open(outlookUrl, "_blank", "noopener,noreferrer");
-
-    if (!composeWindow) {
-      alert("The email body was copied to your clipboard, but the Outlook compose window was blocked by the browser.");
+      alert("Status QB email package copied to clipboard. Pop-up was blocked by the browser.");
     }
   };
 
@@ -1439,13 +1432,6 @@ Archived developments will be hidden from the active Course Developments list bu
                   <Clipboard className="w-3.5 h-3.5" /> Status QB
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => triggerWeeklyStatusEmailDraft(activeCourse)}
-                  className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-slate-700 hover:text-[#087834]"
-                >
-                  <Mail className="w-3.5 h-3.5" /> Status Email
-                </button>
 
                 <button
                   type="button"
