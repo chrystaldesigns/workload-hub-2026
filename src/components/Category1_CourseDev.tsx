@@ -1017,6 +1017,87 @@ ${body}`;
     }
   };
 
+  const escapeHtml = (value: string) => {
+    return value
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+  };
+
+  const formatMeetingTime = (timeStr?: string) => {
+    if (!timeStr) return "TBD";
+    const parsed = new Date(`2000-01-01T${timeStr}`);
+    if (Number.isNaN(parsed.getTime())) return timeStr;
+    return parsed.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  };
+
+  const openCommunicationToolWindow = (
+    popupTitle: string,
+    clipboardMessage: string,
+    content: string
+  ) => {
+    navigator.clipboard?.writeText(content).catch(() => undefined);
+
+    const popupWindow = window.open("", "_blank", "width=800,height=700,scrollbars=yes,resizable=yes");
+
+    if (popupWindow) {
+      popupWindow.document.write(`
+        <html>
+          <head>
+            <title>${escapeHtml(popupTitle)}</title>
+            <style>
+              body { font-family: Arial, sans-serif; padding: 24px; background: #f8fafc; color: #0f172a; }
+              textarea { width: 100%; height: 560px; padding: 16px; font-family: Arial, sans-serif; font-size: 14px; line-height: 1.5; border: 1px solid #cbd5e1; border-radius: 8px; }
+              h1 { font-size: 20px; margin-bottom: 8px; }
+              p { color: #475569; }
+            </style>
+          </head>
+          <body>
+            <h1>${escapeHtml(popupTitle)}</h1>
+            <p>${escapeHtml(clipboardMessage)}</p>
+            <textarea>${escapeHtml(content)}</textarea>
+          </body>
+        </html>
+      `);
+      popupWindow.document.close();
+    } else {
+      alert(clipboardMessage.replace("You may also copy/edit from the text box below.", "Pop-up was blocked by the browser."));
+    }
+  };
+
+  const handleMidpointReminderAgenda = (course: CourseDevelopment) => {
+    const hour = new Date().getHours();
+    const greetingTime = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
+    const midpointTask = findTimelineTaskByExactName(course, "Conduct midpoint review");
+    const midpointDate = formatDisplayDateShort(midpointTask?.startDate || midpointTask?.dueDate || "");
+    const midpointTime = formatMeetingTime((midpointTask as any)?.meetingTime);
+
+    const to = [
+      "Golf.K@fscj.edu",
+      "cel@fscj.edu",
+      course.deptTeam.smeEmail,
+      course.deptTeam.deanEmail,
+      course.deptTeam.managerEmail,
+    ].filter(Boolean).join("; ");
+
+    const popupTitle = `${course.courseNumber} Midpoint Review Meeting Reminder for Course Development`;
+    const clipboardMessage = "Midpoint reminder copied to clipboard. You may also copy/edit from the text box below.";
+
+    const content = `To: ${to}
+Cc: christina.perrin@fscj.edu
+Subject: ${course.courseNumber} Midpoint Review Meeting Reminder for Course Development
+Attachments: Course Outline, Course Design Plan
+
+Good ${greetingTime},
+
+This email is a friendly reminder that we'll hold our midpoint review meeting for ${course.courseNumber} on ${midpointDate} at ${midpointTime} to assess progress against the design plan, address any feedback or concerns, and confirm approval to move forward with the remaining development. This is also an opportunity to discuss any needed timeline adjustments.`;
+
+    openCommunicationToolWindow(popupTitle, clipboardMessage, content);
+  };
+
   // Compliance business rule calculation: check if Closeout is >= 30 days
   const getCloseoutCompliance = (course: CourseDevelopment) => {
     const task26 = course.tasks.find(t => t.name.toLowerCase().includes("course completion") || t.name.toLowerCase().includes("code check and archive"));
@@ -1502,6 +1583,15 @@ ${body}`;
                                 </span>
                                 {isEmailTask && (
                                   <Mail className="h-3.5 w-3.5 shrink-0 text-[#006282]" aria-label="Email task" />
+                                )}
+                                {Number(task.id) === 23 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleMidpointReminderAgenda(activeCourse)}
+                                    className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
+                                  >
+                                    <Mail className="h-3.5 w-3.5" /> Midpoint Reminder and Agenda
+                                  </button>
                                 )}
                               </div>
 
