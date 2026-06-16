@@ -32,6 +32,7 @@ type TimelineTaskExtra = CourseDevelopmentTask & {
   notes?: string;
   subtasks?: TimelineSubtask[];
   durationLabel?: string;
+  meetingTime?: string;
 };
 
 const addCalendarDays = (dateStr: string, days: number) => {
@@ -219,7 +220,7 @@ export function Category1CourseDev({
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState<CourseDevelopmentTask | null>(null);
   const [editingCourse, setEditingCourse] = useState<typeof formData | null>(null);
-  const [taskDrafts, setTaskDrafts] = useState<Record<string, Partial<CourseDevelopmentTask & { notes?: string }>>>({});
+  const [taskDrafts, setTaskDrafts] = useState<Record<string, Partial<CourseDevelopmentTask & { notes?: string; meetingTime?: string }>>>({});
   const taskListRef = useRef<HTMLDivElement | null>(null);
   const pendingTaskScrollRestoreRef = useRef<{
     taskId: number | string;
@@ -397,6 +398,7 @@ export function Category1CourseDev({
       status: stored.status ?? task.status,
       assignedTo: stored.assignedTo ?? task.assignedTo ?? '',
       notes: stored.notes ?? (task as any).notes ?? '',
+      meetingTime: (stored as any).meetingTime ?? (task as any).meetingTime ?? '',
     };
   };
 
@@ -505,6 +507,7 @@ export function Category1CourseDev({
         dueDate: draft.dueDate || '',
         status: draft.status || item.status,
         notes: draft.notes || '',
+        meetingTime: (draft as any).meetingTime || '',
       };
     });
 
@@ -732,6 +735,7 @@ export function Category1CourseDev({
       if (existing) {
         newTask.status = existing.status;
         (newTask as any).notes = (existing as any).notes || (newTask as any).notes || '';
+        (newTask as any).meetingTime = (existing as any).meetingTime || (newTask as any).meetingTime || '';
         const existingSubtasks = normalizeTimelineSubtasks((existing as any).subtasks);
         const nextSubtasks = normalizeTimelineSubtasks((newTask as any).subtasks);
         (newTask as any).subtasks = nextSubtasks.map((subtask) => {
@@ -929,21 +933,9 @@ Archived developments will be hidden from the active Course Developments list bu
   };
 
   const formatMilestoneLine = (label: string, task?: CourseDevelopmentTask) => {
-  if (!task) return `${label}: TBD, Not Started`;
-
-  const meetingTime = (task as any).meetingTime;
-
-  const formattedTime = meetingTime
-    ? new Date(`2000-01-01T${meetingTime}`).toLocaleTimeString("en-US", {
-        hour: "numeric",
-        minute: "2-digit",
-      })
-    : "Time TBD";
-
-  return `${label}: ${formatShortDate(
-    task.dueDate || task.startDate
-  )} at ${formattedTime}, ${task.status || "Not Started"}`;
-};
+    if (!task) return `${label}: TBD, Not Started`;
+    return `${label}: ${formatShortDate(task.dueDate || task.startDate)}, ${task.status || "Not Started"}`;
+  };
 
   const generateWeeklyStatusReport = (course: CourseDevelopment) => {
     const completeTasks = (course.tasks || []).filter((task) => task.status === "Complete");
@@ -1493,6 +1485,8 @@ ${body}`;
                       const isOver = currentStatus !== 'Complete' && !isNA && task.dueDate && task.dueDate < today;
                       const isEmailTask = /\[Email\]/i.test(task.name || '');
                       const displayTaskName = (task.name || '').replace(/\s*\[Email\]\s*/gi, '').trim();
+                      const meetingTaskIds = [4, 6, 11, 24, 44];
+                      const showMeetingTime = meetingTaskIds.includes(Number(task.id));
 
                       return (
                         <article
@@ -1518,7 +1512,7 @@ ${body}`;
                               )}
                             </div>
 
-                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4 text-xs">
+                            <div className={`grid grid-cols-1 gap-2 sm:grid-cols-2 text-xs ${showMeetingTime ? 'xl:grid-cols-5' : 'xl:grid-cols-4'}`}>
                               <label className="flex flex-col gap-0.5">
                                 <span className="text-[9px] uppercase text-slate-500 font-semibold">Owner</span>
                                 <select
@@ -1577,6 +1571,19 @@ ${body}`;
                                   className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs"
                                 />
                               </label>
+
+                              {showMeetingTime && (
+                                <label className="flex flex-col gap-0.5">
+                                  <span className="text-[9px] uppercase text-slate-500 font-semibold">Meeting Time</span>
+                                  <input
+                                    type="time"
+                                    name="meetingTime"
+                                    value={(draft as any).meetingTime || ''}
+                                    onChange={(e) => autoSaveTaskField(task, 'meetingTime', e.target.value)}
+                                    className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs"
+                                  />
+                                </label>
+                              )}
                             </div>
 
                             {draft.notes && (
