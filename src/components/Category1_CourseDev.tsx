@@ -1269,6 +1269,44 @@ ${remainingStakeholderMilestones || "None at this time."}`;
     openCommunicationToolWindow(popupTitle, clipboardMessage, content);
   };
 
+  const handleScheduleFinalReview = (course: CourseDevelopment) => {
+    const hour = new Date().getHours();
+    const greetingTime = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
+    const finalReviewTask = findTimelineTaskByExactName(course, "Conduct final review");
+    const finalReviewDate = formatDisplayDateShort(finalReviewTask?.startDate || finalReviewTask?.dueDate || "");
+    const finalReviewTime = formatMeetingTime((finalReviewTask as any)?.meetingTime);
+
+    const to = [
+      "Golf.K@fscj.edu",
+      "cel@fscj.edu",
+      course.deptTeam.smeEmail,
+      course.deptTeam.deanEmail,
+      course.deptTeam.managerEmail,
+    ].filter(Boolean).join("; ");
+
+    const popupTitle = `${course.courseNumber} Final Review Meeting for Course Development`;
+    const clipboardMessage = "Final review meeting for Course Development copied to clipboard. You may also copy/edit from the text box below.";
+
+    const content = `To: ${to}
+Cc: christina.perrin@fscj.edu; Ansa.Reams.Johnson@fscj.edu; kris.kristen@fscj.edu
+Subject: ${course.courseNumber} Final Review Meeting for Course Development
+Attachments: N/A
+
+Good ${greetingTime},
+
+We will hold our final review meeting for ${course.courseNumber} on ${finalReviewDate} at ${finalReviewTime}.
+Please let me know of any stakeholders we may have missed, and I can add them, or feel free to forward this invite. Thank you. I look forward to confirming the successful release of the course.
+
+<h1>AGENDA</h1>
+- Brief introduction of participants
+- Present and discuss the course materials: Learning Grading Plan and Outcomes Map
+- Present and discuss the course (Canvas review)
+- Confirm approval to finalize the course development`;
+
+    openCommunicationToolWindow(popupTitle, clipboardMessage, content);
+  };
+
+
   // Compliance business rule calculation: check if Closeout is >= 30 days
   const getCloseoutCompliance = (course: CourseDevelopment) => {
     const task26 = course.tasks.find(t => t.name.toLowerCase().includes("course completion") || t.name.toLowerCase().includes("code check and archive"));
@@ -1771,6 +1809,15 @@ ${remainingStakeholderMilestones || "None at this time."}`;
                                     className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
                                   >
                                     <Mail className="h-3.5 w-3.5" /> Midpoint Recap
+                                  </button>
+                                )}
+                                {Number(task.id) === 25 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleScheduleFinalReview(activeCourse)}
+                                    className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
+                                  >
+                                    <Calendar className="h-3.5 w-3.5" /> Schedule Final Review
                                   </button>
                                 )}
                               </div>
