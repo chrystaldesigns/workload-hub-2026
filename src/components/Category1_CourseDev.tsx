@@ -929,9 +929,21 @@ Archived developments will be hidden from the active Course Developments list bu
   };
 
   const formatMilestoneLine = (label: string, task?: CourseDevelopmentTask) => {
-    if (!task) return `${label}: TBD, Not Started`;
-    return `${label}: ${formatShortDate(task.dueDate || task.startDate)}, ${task.status || "Not Started"}`;
-  };
+  if (!task) return `${label}: TBD, Not Started`;
+
+  const meetingTime = (task as any).meetingTime;
+
+  const formattedTime = meetingTime
+    ? new Date(`2000-01-01T${meetingTime}`).toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+      })
+    : "Time TBD";
+
+  return `${label}: ${formatShortDate(
+    task.dueDate || task.startDate
+  )} at ${formattedTime}, ${task.status || "Not Started"}`;
+};
 
   const generateWeeklyStatusReport = (course: CourseDevelopment) => {
     const completeTasks = (course.tasks || []).filter((task) => task.status === "Complete");
