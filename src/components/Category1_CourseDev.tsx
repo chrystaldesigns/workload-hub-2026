@@ -934,7 +934,31 @@ Archived developments will be hidden from the active Course Developments list bu
 
   const formatMilestoneLine = (label: string, task?: CourseDevelopmentTask) => {
     if (!task) return `${label}: TBD, Not Started`;
-    return `${label}: ${formatShortDate(task.dueDate || task.startDate)}, ${task.status || "Not Started"}`;
+
+    const showTime = [
+      "ONBOARDING",
+      "INITIAL MEETING",
+      "KICKOFF",
+      "MIDPOINT REVIEW",
+      "FINAL REVIEW",
+    ].includes(label);
+
+    const meetingTime = (task as any).meetingTime;
+
+    const formattedTime =
+      showTime && meetingTime
+        ? ` at ${new Date(`2000-01-01T${meetingTime}`).toLocaleTimeString(
+            "en-US",
+            {
+              hour: "numeric",
+              minute: "2-digit",
+            }
+          )}`
+        : "";
+
+    return `${label}: ${formatShortDate(
+      task.dueDate || task.startDate
+    )}${formattedTime}, ${task.status || "Not Started"}`;
   };
 
   const generateWeeklyStatusReport = (course: CourseDevelopment) => {
@@ -951,7 +975,7 @@ Archived developments will be hidden from the active Course Developments list bu
       formatMilestoneLine("KICKOFF", findTimelineTaskByExactName(course, "Conduct kickoff meeting")),
       formatMilestoneLine("MIDPOINT REVIEW", findTimelineTaskByExactName(course, "Conduct midpoint review")),
       formatMilestoneLine("FINAL REVIEW", findTimelineTaskByExactName(course, "Conduct final review")),
-      formatMilestoneLine("SME DELIVERABLES COMPLETE", findTimelineTaskByExactName(course, "Finalize course documents")),
+      formatMilestoneLine("SME DELIVERABLES COMPLETE", findTimelineTaskByExactName(course, "End compensation")),
       formatMilestoneLine("DEVELOPMENT COMPLETION", findTimelineTaskByExactName(course, "Course completion")),
     ];
 
