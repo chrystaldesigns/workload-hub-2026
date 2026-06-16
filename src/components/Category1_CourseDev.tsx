@@ -898,9 +898,57 @@ Archived developments will be hidden from the active Course Developments list bu
 
   const formatTaskList = (tasks: CourseDevelopmentTask[]) => {
     if (!tasks.length) return "None at this time.";
-    return tasks
-      .map((task) => `- ${task.name}${task.dueDate ? ` (${formatShortDate(task.dueDate)})` : ""}`)
-      .join("\n");
+
+    const taskNames = tasks.map((task) => task.name || "");
+
+    const completedModules = taskNames
+      .filter((name) => /Module \d+/.test(name))
+      .map((name) => Number(name.match(/Module (\d+)/)?.[1]))
+      .filter(Boolean);
+
+    const uniqueModules = [...new Set(completedModules)].sort((a, b) => a - b);
+    const nonModuleTasks = taskNames.filter((name) => !/Module \d+/.test(name));
+
+    const cleanedTasks = nonModuleTasks.map((name) => {
+      return name
+        .replace(/^Start compensation$/i, "started compensation")
+        .replace(/^Send SME introduction email$/i, "sent SME introduction email")
+        .replace(/^Send onboarding reminder$/i, "sent onboarding reminder")
+        .replace(/^Conduct onboarding meeting$/i, "conducted onboarding meeting")
+        .replace(/^Schedule initial meeting$/i, "scheduled initial meeting")
+        .replace(/^Conduct initial meeting$/i, "conducted initial meeting")
+        .replace(/^Finalize Course Design Plan$/i, "finalized Course Design Plan")
+        .replace(/^Schedule kickoff meeting$/i, "scheduled kickoff meeting")
+        .replace(/^Complete Course Design Plan$/i, "completed Course Design Plan")
+        .replace(/^Send kickoff reminder and agenda$/i, "sent kickoff reminder and agenda")
+        .replace(/^Conduct kickoff meeting$/i, "conducted kickoff meeting")
+        .replace(/^Schedule midpoint meeting$/i, "scheduled midpoint meeting")
+        .replace(/^Send midpoint reminder and agenda$/i, "sent midpoint reminder and agenda")
+        .replace(/^Conduct midpoint review$/i, "conducted midpoint review")
+        .replace(/^Schedule final meeting$/i, "scheduled final meeting")
+        .replace(/^Finalize course documents$/i, "finalized course documents")
+        .replace(/^Submit proofreading request$/i, "submitted proofreading request")
+        .replace(/^Complete proofreading$/i, "completed proofreading")
+        .replace(/^Complete pre-QA checklist$/i, "completed pre-QA checklist")
+        .replace(/^Complete QA review$/i, "completed QA review")
+        .replace(/^Send final review reminder and agenda$/i, "sent final review reminder and agenda")
+        .replace(/^Conduct final review$/i, "conducted final review")
+        .replace(/^End compensation$/i, "ended compensation")
+        .replace(/^Course completion$/i, "completed course development");
+    });
+
+    if (uniqueModules.length > 0) {
+      const firstModule = uniqueModules[0];
+      const lastModule = uniqueModules[uniqueModules.length - 1];
+
+      cleanedTasks.push(
+        firstModule === lastModule
+          ? `developed and built Module ${firstModule}`
+          : `developed and built Module ${firstModule}–${lastModule}`
+      );
+    }
+
+    return `${cleanedTasks.join(", ")}.`;
   };
 
   const roleMatches = (assignedTo: string | undefined, role: "SME" | "ID" | "MULTIMEDIA" | "QA") => {
