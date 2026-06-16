@@ -1174,7 +1174,7 @@ ${body}`;
                         type="date"
                         value={activeCourse.termDeadline}
                         onChange={(e) => handleRecalculateTimeline(e.target.value)}
-                        className="w-full max-w-[180px] text-xs px-2 py-1.5 border border-slate-300 bg-white focus:outline-none"
+                        className="w-full max-w-[225px] text-xs px-2 py-1.5 border border-slate-300 bg-white focus:outline-none"
                       />
                       <span className="text-[10px] text-slate-500">
                         Start of Term: {formatDisplayDateShort(activeCourse.termDeadline)}
@@ -1185,7 +1185,7 @@ ${body}`;
                       <span className="text-[10px] text-slate-500 uppercase font-semibold font-mono">
                         Projected Course Completion
                       </span>
-                      <div className="w-full max-w-[180px] border border-slate-200 bg-white px-2 py-1.5 text-xs font-semibold text-slate-800">
+                      <div className="w-full max-w-[225px] border border-slate-200 bg-white px-2 py-1.5 text-xs font-semibold text-slate-800">
                         {formatDisplayDateShort(getProjectedCompletionDate(activeCourse))}
                       </div>
                     </div>
@@ -1415,7 +1415,7 @@ ${body}`;
               )}
 
               {/* COURSE ACTIONS */}
-              <div className="flex flex-wrap justify-end items-center gap-x-4 gap-y-2 bg-white py-2 text-[11px] border-b border-[#E0DCD8]/80">
+              <div className="flex flex-wrap justify-center items-center gap-x-4 gap-y-2 bg-white py-2 text-[11px] border-b border-[#E0DCD8]/80">
                 <button
                   type="button"
                   onClick={() => startEditingCourse(activeCourse)}
