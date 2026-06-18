@@ -1182,7 +1182,7 @@ ${body}`;
     const midpointTime = formatMeetingTime((midpointTask as any)?.meetingTime);
 
     const to = [
-      "Golf.K@fscj.edu",
+      "Ansa.Reams.Johnson@fscj.edu",
       "cel@fscj.edu",
       course.deptTeam.smeEmail,
       course.deptTeam.deanEmail,
@@ -1193,7 +1193,8 @@ ${body}`;
     const clipboardMessage = "Midpoint reminder copied to clipboard. You may also copy/edit from the text box below.";
 
     const content = `To: ${to}
-Cc: christina.perrin@fscj.edu
+Cc: christina.perrin@fscj.edu; Golf.K@fscj.edu; kris.kristen@fscj.edu
+`;
 Subject: ${course.courseNumber} Midpoint Review Meeting Reminder for Course Development
 Attachments: Course Outline, Course Design Plan
 
@@ -1229,7 +1230,7 @@ This email is a friendly reminder that we'll hold our midpoint review meeting fo
       .join("\n");
 
     const to = [
-      "Golf.K@fscj.edu",
+      "Ansa.Reams.Johnson@fscj.edu",
       "cel@fscj.edu",
       course.deptTeam.smeEmail,
       course.deptTeam.deanEmail,
@@ -1240,7 +1241,8 @@ This email is a friendly reminder that we'll hold our midpoint review meeting fo
     const clipboardMessage = "Midpoint recap copied to clipboard. You may also copy/edit from the text box below.";
 
     const content = `To: ${to}
-Cc: christina.perrin@fscj.edu
+Cc: christina.perrin@fscj.edu; Golf.K@fscj.edu; kris.kristen@fscj.edu
+`;
 Subject: ${course.courseNumber} Midpoint Review Meeting Recap for Course Development
 Attachments: N/A
 
@@ -1277,7 +1279,7 @@ ${remainingStakeholderMilestones || "None at this time."}`;
     const finalReviewTime = formatMeetingTime((finalReviewTask as any)?.meetingTime);
 
     const to = [
-      "Golf.K@fscj.edu",
+      "Ansa.Reams.Johnson@fscj.edu",
       "cel@fscj.edu",
       course.deptTeam.smeEmail,
       course.deptTeam.deanEmail,
@@ -1287,8 +1289,9 @@ ${remainingStakeholderMilestones || "None at this time."}`;
     const popupTitle = `${course.courseNumber} Final Review Meeting for Course Development`;
     const clipboardMessage = "Final review meeting for Course Development copied to clipboard. You may also copy/edit from the text box below.";
 
-    const content = `To: ${to}
-Cc: christina.perrin@fscj.edu; Ansa.Reams.Johnson@fscj.edu; kris.kristen@fscj.edu
+        const content = `To: ${to}
+Cc: christina.perrin@fscj.edu; Golf.K@fscj.edu; kris.kristen@fscj.edu
+`;
 Subject: ${course.courseNumber} Final Review Meeting for Course Development
 Attachments: N/A
 
@@ -1860,6 +1863,7 @@ Please let me know of any stakeholders we may have missed, and I can add them, o
                                   <option>Developing (Content)</option>
                                   <option>Developing (Canvas)</option>
                                   <option>Scheduled</option>
+                                  <option>Projected</option>
                                   <option>On Hold</option>
                                   <option>Submission Late (SME)</option>
                                   <option>Complete</option>
