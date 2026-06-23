@@ -1863,7 +1863,7 @@ Please let me know of any stakeholders we may have missed, and I can add them, o
                                   <option>Developing (Content)</option>
                                   <option>Developing (Canvas)</option>
                                   <option>Scheduled</option>
-                                  <option>Projected</option>
+                                  <option value="Projected">Projected</option>
                                   <option>On Hold</option>
                                   <option>Submission Late (SME)</option>
                                   <option>Complete</option>
