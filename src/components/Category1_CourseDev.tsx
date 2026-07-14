@@ -1194,7 +1194,6 @@ ${body}`;
 
     const content = `To: ${to}
 Cc: christina.perrin@fscj.edu; Golf.K@fscj.edu; kris.kristen@fscj.edu
-`;
 Subject: ${course.courseNumber} Midpoint Review Meeting Reminder for Course Development
 Attachments: Course Outline, Course Design Plan
 
@@ -1242,7 +1241,6 @@ This email is a friendly reminder that we'll hold our midpoint review meeting fo
 
     const content = `To: ${to}
 Cc: christina.perrin@fscj.edu; Golf.K@fscj.edu; kris.kristen@fscj.edu
-`;
 Subject: ${course.courseNumber} Midpoint Review Meeting Recap for Course Development
 Attachments: N/A
 
@@ -1289,9 +1287,8 @@ ${remainingStakeholderMilestones || "None at this time."}`;
     const popupTitle = `${course.courseNumber} Final Review Meeting for Course Development`;
     const clipboardMessage = "Final review meeting for Course Development copied to clipboard. You may also copy/edit from the text box below.";
 
-        const content = `To: ${to}
+    const content = `To: ${to}
 Cc: christina.perrin@fscj.edu; Golf.K@fscj.edu; kris.kristen@fscj.edu
-`;
 Subject: ${course.courseNumber} Final Review Meeting for Course Development
 Attachments: N/A
 
@@ -1305,6 +1302,67 @@ Please let me know of any stakeholders we may have missed, and I can add them, o
 - Present and discuss the course materials: Learning Grading Plan and Outcomes Map
 - Present and discuss the course (Canvas review)
 - Confirm approval to finalize the course development`;
+
+    openCommunicationToolWindow(popupTitle, clipboardMessage, content);
+  };
+
+  const handleCourseDocumentsEmail = (course: CourseDevelopment) => {
+    const hour = new Date().getHours();
+    const greetingTime = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
+    const courseDocumentsTask = findTimelineTaskByExactName(course, "Finalize course documents");
+    const dueDateValue = courseDocumentsTask?.dueDate || courseDocumentsTask?.startDate || "";
+
+    const shortDueDate = dueDateValue
+      ? new Date(`${dueDateValue.slice(0, 10)}T12:00:00`).toLocaleDateString("en-US", {
+          month: "2-digit",
+          day: "2-digit",
+          year: "2-digit",
+        })
+      : "TBD";
+
+    const longDueDate = dueDateValue
+      ? new Date(`${dueDateValue.slice(0, 10)}T12:00:00`).toLocaleDateString("en-US", {
+          weekday: "long",
+          month: "long",
+          day: "numeric",
+          year: "numeric",
+        })
+      : "TBD";
+
+    const to = course.deptTeam.smeEmail || "";
+    const popupTitle = `${course.courseNumber} Course Documents`;
+    const clipboardMessage = "Course documents email copied to clipboard. You may also copy/edit from the text box below.";
+
+    const content = `To: ${to}
+Cc:
+Subject: ${course.courseNumber} Course Documents (Please review & return by ${shortDueDate})
+Attachments: Outcomes Map, Course-Specific Information, and Learning Grading Plan
+
+Good ${greetingTime},
+
+Please find attached the CeL course document templates as part of the CeL process. These documents are ready for your review and completion. The due date for returning them to me is ${longDueDate}. You are welcome to submit them earlier at your convenience.
+
+I have pre-populated the documents based on the course design plan and other module documentation you have submitted to me.
+
+<h1>OUTCOMES MAP ACTION ITEMS</h1>
+Please:
+
+- Review and confirm that all items are accurate and that alignment is identified and correct.
+- Complete any content that is highlighted in blue.
+
+<h1>COURSE-SPECIFIC INFORMATION ACTION ITEMS</h1>
+Please:
+
+- Review and confirm that all items are accurate.
+- Complete any content that is highlighted in blue.
+- Ensure the Suggested Teaching Schedule for Different Session Lengths section is organized in the way you believe is most effective for students.
+- Ensure the Suggested Activities for Teaching Different Class Types (Modality) section provides accurate and suitable suggestions for other faculty and adjuncts when they teach this course. While hybrid courses may not be offered at this time, this information will serve as guidance for instructors and adjunct faculty should a hybrid section be available in the future. Feel free to include any additional information you think would be beneficial for instructors.
+
+<h1>LEARNING GRADING PLAN ACTION ITEMS</h1>
+Please:
+
+- Review and confirm that all items are accurate.
+- Complete any content that is highlighted in blue.`;
 
     openCommunicationToolWindow(popupTitle, clipboardMessage, content);
   };
@@ -1821,6 +1879,15 @@ Please let me know of any stakeholders we may have missed, and I can add them, o
                                     className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
                                   >
                                     <Calendar className="h-3.5 w-3.5" /> Schedule Final Review
+                                  </button>
+                                )}
+                                {Number(task.id) === 38 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCourseDocumentsEmail(activeCourse)}
+                                    className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
+                                  >
+                                    <Mail className="h-3.5 w-3.5" /> Course Documents
                                   </button>
                                 )}
                               </div>
