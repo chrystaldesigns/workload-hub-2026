@@ -1368,6 +1368,81 @@ Please:
   };
 
 
+  const handleFinalReviewReminderAgenda = (course: CourseDevelopment) => {
+    const hour = new Date().getHours();
+    const greetingTime = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
+    const finalReviewTask = findTimelineTaskByExactName(course, "Conduct final review");
+    const finalReviewDateValue = finalReviewTask?.startDate || finalReviewTask?.dueDate || "";
+
+    const finalReviewDateTime = finalReviewDateValue
+      ? `${new Date(`${finalReviewDateValue.slice(0, 10)}T12:00:00`).toLocaleDateString("en-US", {
+          weekday: "long",
+          month: "long",
+          day: "numeric",
+          year: "numeric",
+        })} at ${formatMeetingTime((finalReviewTask as any)?.meetingTime)}`
+      : "TBD";
+
+    const to = [
+      "Ansa.Reams.Johnson@fscj.edu",
+      "cel@fscj.edu",
+      course.deptTeam.smeEmail,
+      course.deptTeam.deanEmail,
+    ].filter(Boolean).join("; ");
+
+    const popupTitle = `${course.courseNumber} Final Review Meeting Reminder for Course Development`;
+    const clipboardMessage = "Final review reminder copied to clipboard. You may also copy/edit from the text box below.";
+
+    const content = `To: ${to}
+Cc: christina.perrin@fscj.edu
+Subject: ${course.courseNumber} Final Review Meeting for Course Development
+Attachments: Outcomes Map and Learning Grading Plan
+
+Good ${greetingTime},
+
+This email is a friendly reminder that we will hold our final review meeting for ${course.courseNumber} on ${finalReviewDateTime} to confirm readiness prior to release.`;
+
+    openCommunicationToolWindow(popupTitle, clipboardMessage, content);
+  };
+
+  const handleRequestQaReviewQuickbase = (course: CourseDevelopment) => {
+    const finalReviewTask = findTimelineTaskByExactName(course, "Conduct final review");
+    const finalReviewDate = finalReviewTask?.startDate || finalReviewTask?.dueDate
+      ? formatDisplayDateShort(finalReviewTask?.startDate || finalReviewTask?.dueDate || "")
+      : "TBD";
+
+    const popupTitle = `${course.courseNumber} Quality Assurance Review`;
+    const clipboardMessage = "Quality assurance review request copied to clipboard. You may also copy/edit from the text box below.";
+
+    const content = `${course.courseNumber} Quality Assurance Review
+
+------------------------------------------------
+ONEDRIVE COURSE DOCUMENTS FOLDER
+------------------------------------------------
+User to insert link
+
+------------------------------------------------
+ONEDRIVE QUALITY ASSURANCE FOLDER
+------------------------------------------------
+User to insert link
+
+------------------------------------------------
+FINAL REVIEW DATE
+------------------------------------------------
+${finalReviewDate}
+
+------------------------------------------------
+NOTES
+------------------------------------------------
+(1) This course is ready for quality assurance review.
+(2) The pre-check is complete.
+(3) The course documents have been proofread.
+(4) The assigned reviewer has been added to the course.`;
+
+    openCommunicationToolWindow(popupTitle, clipboardMessage, content);
+  };
+
+
   // Compliance business rule calculation: check if Closeout is >= 30 days
   const getCloseoutCompliance = (course: CourseDevelopment) => {
     const task26 = course.tasks.find(t => t.name.toLowerCase().includes("course completion") || t.name.toLowerCase().includes("code check and archive"));
@@ -1888,6 +1963,24 @@ Please:
                                     className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
                                   >
                                     <Mail className="h-3.5 w-3.5" /> Course Documents
+                                  </button>
+                                )}
+                                {Number(task.id) === 41 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRequestQaReviewQuickbase(activeCourse)}
+                                    className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
+                                  >
+                                    <Clipboard className="h-3.5 w-3.5" /> Request QA Review [Quickbase]
+                                  </button>
+                                )}
+                                {Number(task.id) === 43 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleFinalReviewReminderAgenda(activeCourse)}
+                                    className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
+                                  >
+                                    <Mail className="h-3.5 w-3.5" /> Final Review Reminder and Agenda
                                   </button>
                                 )}
                               </div>
