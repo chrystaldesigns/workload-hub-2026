@@ -1400,7 +1400,13 @@ Attachments: Outcomes Map and Learning Grading Plan
 
 Good ${greetingTime},
 
-This email is a friendly reminder that we will hold our final review meeting for ${course.courseNumber} on ${finalReviewDateTime} to confirm readiness prior to release.`;
+This email is a friendly reminder that we will hold our final review meeting for ${course.courseNumber} on ${finalReviewDateTime} to confirm readiness prior to release.
+
+<h1>AGENDA</h1>
+- Brief introduction of participants
+- Present and discuss the course materials: Learning Grading Plan and Outcomes Map
+- Present and discuss the course (Canvas review)
+- Confirm approval to finalize the course development`;
 
     openCommunicationToolWindow(popupTitle, clipboardMessage, content);
   };
