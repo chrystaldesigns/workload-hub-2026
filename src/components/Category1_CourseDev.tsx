@@ -297,18 +297,57 @@ export function Category1CourseDev({
 
 
 
-  const handleEditingChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const handleEditingChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+  ) => {
     if (!editingCourse) return;
 
     const { name, value } = e.target;
-    setEditingCourse(prev => prev ? ({
-      ...prev,
-      [name]: name === 'versionNumber' || name === 'devStagger'
-        ? Number(value)
-        : name === 'onboarding'
-          ? value === 'true'
-          : value
-    }) : prev);
+
+    setEditingCourse(prev => {
+      if (!prev) return prev;
+
+      if (name === 'courseNumber') {
+        const courseNumber = value.toUpperCase();
+        const previousPrefix = prev.courseNumber
+          ? `cel-${prev.courseNumber.toLowerCase()}-v`
+          : '';
+
+        const currentSuffix =
+          previousPrefix && prev.canvasVersion.startsWith(previousPrefix)
+            ? prev.canvasVersion.slice(previousPrefix.length)
+            : '';
+
+        return {
+          ...prev,
+          courseNumber,
+          canvasVersion: courseNumber
+            ? `cel-${courseNumber.toLowerCase()}-v${currentSuffix}`
+            : '',
+        };
+      }
+
+      if (name === 'canvasVersion') {
+        const cleanedValue = value
+          .toLowerCase()
+          .replace(/[^a-z0-9.-]/g, '');
+
+        return {
+          ...prev,
+          canvasVersion: cleanedValue,
+        };
+      }
+
+      return {
+        ...prev,
+        [name]:
+          name === 'versionNumber' || name === 'devStagger'
+            ? Number(value)
+            : name === 'onboarding'
+              ? value === 'true'
+              : value,
+      };
+    });
   };
 
   const startEditingCourse = (course: CourseDevelopment) => {
@@ -362,8 +401,8 @@ export function Category1CourseDev({
       program: editingCourse.program.trim(),
       courseNumber: editingCourse.courseNumber.trim().toUpperCase(),
       courseTitle: editingCourse.courseTitle.trim(),
-      canvasVersion: editingCourse.canvasVersion.trim(),
-      workshopCourse: editingCourse.workshopCourse.trim(),
+      canvasVersion: editingCourse.canvasVersion.trim().toLowerCase(),
+      workshopCourse: editingCourse.workshopCourse.trim().toLowerCase(),
       devType: editingCourse.devType,
       versionNumber: Number(editingCourse.versionNumber || 1),
       termRelease: editingCourse.termRelease,
@@ -1855,7 +1894,16 @@ NOTES
 
                     <label className="flex flex-col gap-1">
                       <span className="text-[10px] uppercase text-slate-500 font-semibold">Course Number</span>
-                      <input name="courseNumber" value={editingCourse.courseNumber} onChange={handleEditingChange} className="px-3 py-2 border border-slate-300 bg-white uppercase" />
+                      <input
+  type="text"
+  name="courseNumber"
+  value={editingCourse.courseNumber}
+  onChange={handleEditingChange}
+  placeholder="CTS1131C"
+  pattern="[A-Za-z]{3}[0-9]{4}[A-Za-z]?"
+  title="Enter three letters, four numbers, and an optional final letter, such as CTS1131C."
+  className="px-3 py-2 border border-slate-300 bg-white uppercase"
+/>
                     </label>
 
                     <label className="md:col-span-2 flex flex-col gap-1">
@@ -1865,7 +1913,16 @@ NOTES
 
                     <label className="flex flex-col gap-1">
                       <span className="text-[10px] uppercase text-slate-500 font-semibold">Canvas Version</span>
-                      <input name="canvasVersion" value={editingCourse.canvasVersion} onChange={handleEditingChange} className="px-3 py-2 border border-slate-300 bg-white" />
+                      <input
+  type="text"
+  name="canvasVersion"
+  value={editingCourse.canvasVersion}
+  onChange={handleEditingChange}
+  placeholder="cel-cts1131c-v3a"
+  pattern="cel-[a-z]{3}[0-9]{4}[a-z]?-v[a-z0-9.-]+"
+  title="After the v, you may enter lowercase letters, numbers, periods, and hyphens, such as 3a or 2.a.1."
+  className="px-3 py-2 border border-slate-300 bg-white lowercase font-mono"
+/>
                     </label>
 
                     <label className="flex flex-col gap-1">
