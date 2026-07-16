@@ -969,10 +969,26 @@ Archived developments will be hidden from the active Course Developments list bu
     return owner.includes("qa") || owner.includes("quality") || owner.includes("assurance");
   };
 
-  const getRoleInProgressTasks = (course: CourseDevelopment, role: "SME" | "ID" | "MULTIMEDIA" | "QA") => {
-    return (course.tasks || []).filter(
-      (task) => task.status === "In Progress" && roleMatches(task.assignedTo, role)
-    );
+  const getRoleActiveTasks = (
+    course: CourseDevelopment,
+    role: "SME" | "ID" | "MULTIMEDIA" | "QA"
+  ) => {
+    return (course.tasks || [])
+      .filter((task) => {
+        const status = task.status || "Not Started";
+
+        return (
+          roleMatches(task.assignedTo, role) &&
+          status !== "Complete" &&
+          status !== "Not Applicable"
+        );
+      })
+      .sort((a, b) => {
+        const firstDate = a.dueDate || a.startDate || "9999-12-31";
+        const secondDate = b.dueDate || b.startDate || "9999-12-31";
+
+        return firstDate.localeCompare(secondDate);
+      });
   };
 
   const getRoleOpenTasks = (course: CourseDevelopment, role: "SME" | "ID" | "MULTIMEDIA" | "QA") => {
@@ -984,6 +1000,21 @@ Archived developments will be hidden from the active Course Developments list bu
         status !== "Not Applicable"
       );
     });
+  };
+
+    const formatStatusTaskList = (tasks: CourseDevelopmentTask[]) => {
+    if (!tasks.length) return "";
+
+    return tasks
+      .map((task) => {
+        const dueDate = task.dueDate || task.startDate;
+        const dueDateLabel = dueDate
+          ? ` (due ${formatShortDate(dueDate)})`
+          : "";
+
+        return `- ${task.name} — ${task.status || "Not Started"}${dueDateLabel}`;
+      })
+      .join("\n");
   };
 
   const formatBulletedTaskList = (tasks: CourseDevelopmentTask[]) => {
@@ -1043,29 +1074,85 @@ Archived developments will be hidden from the active Course Developments list bu
     )}${formattedTime}, ${task.status || "Not Started"}`;
   };
 
-  const generateWeeklyStatusReport = (course: CourseDevelopment) => {
-    const completeTasks = (course.tasks || []).filter((task) => task.status === "Complete");
-    const smeTasks = getRoleInProgressTasks(course, "SME");
-    const idTasks = getRoleInProgressTasks(course, "ID");
-    const multimediaTasks = getRoleInProgressTasks(course, "MULTIMEDIA");
-    const qaTasks = getRoleInProgressTasks(course, "QA");
+    const generateWeeklyStatusReport = (course: CourseDevelopment) => {
+    const progress = calculateProgress(course);
+
+    const smeTasks = getRoleActiveTasks(course, "SME");
+    const idTasks = getRoleActiveTasks(course, "ID");
+    const multimediaTasks = getRoleActiveTasks(course, "MULTIMEDIA");
+    const qaTasks = getRoleActiveTasks(course, "QA");
 
     const milestones = [
-      formatMilestoneLine("ONBOARDING", findTimelineTaskByExactName(course, "Conduct onboarding meeting")),
-      formatMilestoneLine("INITIAL MEETING", findTimelineTaskByExactName(course, "Conduct initial meeting")),
-      formatMilestoneLine("COURSE DESIGN PLAN DUE", findTimelineTaskByExactName(course, "Complete Course Design Plan")),
-      formatMilestoneLine("KICKOFF", findTimelineTaskByExactName(course, "Conduct kickoff meeting")),
-      formatMilestoneLine("MIDPOINT REVIEW", findTimelineTaskByExactName(course, "Conduct midpoint review")),
-      formatMilestoneLine("FINAL REVIEW", findTimelineTaskByExactName(course, "Conduct final review")),
-      formatMilestoneLine("SME DELIVERABLES COMPLETE", findTimelineTaskByExactName(course, "End compensation")),
-      formatMilestoneLine("DEVELOPMENT COMPLETION", findTimelineTaskByExactName(course, "Course completion")),
+      formatMilestoneLine(
+        "ONBOARDING",
+        findTimelineTaskByExactName(course, "Conduct onboarding meeting")
+      ),
+      formatMilestoneLine(
+        "INITIAL MEETING",
+        findTimelineTaskByExactName(course, "Conduct initial meeting")
+      ),
+      formatMilestoneLine(
+        "COURSE DESIGN PLAN DUE",
+        findTimelineTaskByExactName(course, "Complete Course Design Plan")
+      ),
+      formatMilestoneLine(
+        "KICKOFF",
+        findTimelineTaskByExactName(course, "Conduct kickoff meeting")
+      ),
+      formatMilestoneLine(
+        "MIDPOINT REVIEW",
+        findTimelineTaskByExactName(course, "Conduct midpoint review")
+      ),
+      formatMilestoneLine(
+        "FINAL REVIEW",
+        findTimelineTaskByExactName(course, "Conduct final review")
+      ),
+      formatMilestoneLine(
+        "SME DELIVERABLES COMPLETE",
+        findTimelineTaskByExactName(course, "End compensation")
+      ),
+      formatMilestoneLine(
+        "DEVELOPMENT COMPLETION",
+        findTimelineTaskByExactName(course, "Course completion")
+      ),
     ];
 
-    const offTime = customBlocked.length
-      ? customBlocked.map((date) => `- ${formatShortDate(date)}`).join("\n")
-      : "None listed.";
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-    return `COMPLETE:\n${formatTaskList(completeTasks)}\n\nSUBJECT MATTER EXPERT:\n${formatTaskList(smeTasks)}\n\nINSTRUCTIONAL DESIGNER:\n${formatTaskList(idTasks)}\n\nMULTIMEDIA:\n${formatTaskList(multimediaTasks)}\n\nCEL QUALITY ASSURANCE:\n${formatTaskList(qaTasks)}\n\nNOTES:\n${course.courseNotes || "None at this time."}\n\nALERTS: ${course.alertStatus || "No Concerns"}\n\nMILESTONES & OFF-TIME\n${milestones.join("\n")}\n\nCollege Closed / Vacation / Out-of-Office Dates:\n${offTime}`;
+    const futureOffTime = customBlocked
+      .filter((dateStr) => {
+        const date = new Date(`${dateStr.slice(0, 10)}T12:00:00`);
+
+        return !Number.isNaN(date.getTime()) && date > today;
+      })
+      .sort()
+      .map((date) => `- ${formatShortDate(date)}`)
+      .join("\n");
+
+    const offTimeSection = futureOffTime
+      ? `\n\nCollege Closed / Vacation / Out-of-Office Dates:\n${futureOffTime}`
+      : "";
+
+    return `Overall Progress: Course design and development is ${progress}% complete.
+
+SUBJECT MATTER EXPERT:
+${formatStatusTaskList(smeTasks)}
+
+INSTRUCTIONAL DESIGNER:
+${formatStatusTaskList(idTasks)}
+
+MULTIMEDIA:
+${formatStatusTaskList(multimediaTasks)}
+
+CEL QUALITY ASSURANCE:
+${formatStatusTaskList(qaTasks)}
+
+NOTES: ${course.courseNotes || "None at this time."}
+ALERTS: ${course.alertStatus || "No Concerns"}
+
+MILESTONES & OFF-TIME
+${milestones.join("\n")}${offTimeSection}`;
   };
 
   const handleCopyStatusReport = (course: CourseDevelopment) => {
@@ -1082,14 +1169,9 @@ Archived developments will be hidden from the active Course Developments list bu
 
     const body = `This is a friendly update on the status of the course development. You do not need to take any action or respond to this email. It is for your information only.\n\n${statusReport}`;
 
-    const blockText = `TO:
-${to}
-
-CC:
-${cc}
-
-SUBJECT:
-${subject}
+    const blockText = `TO: ${to}
+CC: ${cc}
+SUBJECT: ${subject}
 
 BODY:
 ${body}`;
