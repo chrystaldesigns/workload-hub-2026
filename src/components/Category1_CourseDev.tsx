@@ -1104,8 +1104,8 @@ ${body}`;
           <head>
             <title>${course.courseNumber} Weekly Status QB</title>
             <style>
-              body { font-family: Arial, sans-serif; padding: 24px; background: #f8fafc; color: #0f172a; }
-              textarea { width: 100%; height: 560px; padding: 16px; font-family: Arial, sans-serif; font-size: 14px; line-height: 1.5; border: 1px solid #cbd5e1; border-radius: 8px; }
+              body { font-family: Aptos, sans-serif; padding: 24px; background: #f8fafc; color: #0f172a; }
+              textarea { width: 100%; height: 560px; padding: 16px; font-family: Aptos, sans-serif; font-size: 14px; line-height: 1.5; border: 1px solid #cbd5e1; border-radius: 8px; }
               h1 { font-size: 20px; margin-bottom: 8px; }
               p { color: #475569; }
             </style>
@@ -1155,8 +1155,8 @@ ${body}`;
           <head>
             <title>${escapeHtml(popupTitle)}</title>
             <style>
-              body { font-family: Arial, sans-serif; padding: 24px; background: #f8fafc; color: #0f172a; }
-              textarea { width: 100%; height: 560px; padding: 16px; font-family: Arial, sans-serif; font-size: 14px; line-height: 1.5; border: 1px solid #cbd5e1; border-radius: 8px; }
+              body { font-family: Aptos, sans-serif; padding: 24px; background: #f8fafc; color: #0f172a; }
+              textarea { width: 100%; height: 560px; padding: 16px; font-family: Aptos, sans-serif; font-size: 14px; line-height: 1.5; border: 1px solid #cbd5e1; border-radius: 8px; }
               h1 { font-size: 20px; margin-bottom: 8px; }
               p { color: #475569; }
             </style>
@@ -2088,6 +2088,8 @@ NOTES
                                   <option value="Projected">Projected</option>
                                   <option>On Hold</option>
                                   <option>Submission Late (SME)</option>
+                                  <option>Submitted to MT Queue</option>
+                                  <option>SME Reviewing</option>
                                   <option>Complete</option>
                                   <option>Not Applicable</option>
                                 </select>
