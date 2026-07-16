@@ -1411,6 +1411,53 @@ This email is a friendly reminder that we will hold our final review meeting for
     openCommunicationToolWindow(popupTitle, clipboardMessage, content);
   };
 
+  const handleSubmitProofreadingRequestQuickbase = (course: CourseDevelopment) => {
+    const proofreadingRequestTask = findTimelineTaskByExactName(course, "Submit proofreading request");
+    const finalReviewTask = findTimelineTaskByExactName(course, "Conduct final review");
+
+    const dueDate = proofreadingRequestTask?.dueDate || proofreadingRequestTask?.startDate
+      ? formatDisplayDateShort(proofreadingRequestTask?.dueDate || proofreadingRequestTask?.startDate || "")
+      : "TBD";
+
+    const finalReviewDate = finalReviewTask?.startDate || finalReviewTask?.dueDate
+      ? formatDisplayDateShort(finalReviewTask?.startDate || finalReviewTask?.dueDate || "")
+      : "TBD";
+
+    const popupTitle = `${course.courseNumber} Course Documents Proofreading`;
+    const clipboardMessage = "Proofreading request copied to clipboard. You may also copy/edit from the text box below.";
+
+    const content = `Task Category: Support
+Task Type: Proofreading
+Brief Title: ${course.courseNumber} Course Documents Proofreading
+Status: Open
+Due Date: ${dueDate}
+Alt Assignment Full Name: Christina Perrin
+Notes:
+
+------------------------------------------------
+ONEDRIVE COURSE DOCUMENTS FOLDER
+------------------------------------------------
+User to insert link
+
+------------------------------------------------
+ONEDRIVE QUALITY ASSURANCE FOLDER
+------------------------------------------------
+User to insert link
+
+------------------------------------------------
+FINAL REVIEW DATE
+------------------------------------------------
+${finalReviewDate}
+
+------------------------------------------------
+NOTES
+------------------------------------------------
+(1) The course documents are ready for proofreading.`;
+
+    openCommunicationToolWindow(popupTitle, clipboardMessage, content);
+  };
+
+
   const handleRequestQaReviewQuickbase = (course: CourseDevelopment) => {
     const finalReviewTask = findTimelineTaskByExactName(course, "Conduct final review");
     const finalReviewDate = finalReviewTask?.startDate || finalReviewTask?.dueDate
@@ -1969,6 +2016,15 @@ NOTES
                                     className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
                                   >
                                     <Mail className="h-3.5 w-3.5" /> Course Documents
+                                  </button>
+                                )}
+                                {Number(task.id) === 39 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSubmitProofreadingRequestQuickbase(activeCourse)}
+                                    className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
+                                  >
+                                    <Clipboard className="h-3.5 w-3.5" /> Submit Proofreading Request [Quickbase]
                                   </button>
                                 )}
                                 {Number(task.id) === 41 && (
