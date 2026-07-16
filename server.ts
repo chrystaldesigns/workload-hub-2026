@@ -523,7 +523,7 @@ async function startServer() {
   app.get("/api/outlook/callback", (_req, res) => {
     res.send(`
       <html>
-        <body style="font-family: Arial, sans-serif; padding: 2rem;">
+        <body style="font-family: Open Sans, Source Sans Pro, sans-serif; padding: 2rem;">
           <h1>Outlook Authorization Placeholder</h1>
           <p>You may close this window and return to Workload Hub.</p>
           <script>
