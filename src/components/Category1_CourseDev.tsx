@@ -219,6 +219,9 @@ export function Category1CourseDev({
   });
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState<CourseDevelopmentTask | null>(null);
+  const [showCompensationDialog, setShowCompensationDialog] = useState(false);
+  const [compensationDialogTitle, setCompensationDialogTitle] = useState('SME Compensation Notice');
+  const [compensationDialogContent, setCompensationDialogContent] = useState('');
   const [editingCourse, setEditingCourse] = useState<typeof formData | null>(null);
   const [taskDrafts, setTaskDrafts] = useState<Record<string, Partial<CourseDevelopmentTask & { notes?: string; meetingTime?: string }>>>({});
   const taskListRef = useRef<HTMLDivElement | null>(null);
@@ -916,11 +919,25 @@ Archived developments will be hidden from the active Course Developments list bu
     const compDate = task8.startDate;
     const alertDate = stepWorkingDays(compDate, 15, -1, customBlocked); // approx 21 calendar days before
 
-    const mailTo = `cel@fscj.edu`;
-    const mailSub = `FSCJ Sponsoring Compensation Prep Alert: ${course.courseNumber} ${course.courseTitle}`;
-    const mailBody = `Hello CeL Operations & Leadership,\n\nThis is an automated compensation alert. The SME compensation triggers on ${compDate} relating to ${course.courseNumber} Module 1 development start.\n\nPlease process appropriate payroll documentation of 21 calendar days notice prior to work deployment.\n\nThank you,\nChrystal Wickline\nInstructional Designer, FSCJ Online`;
+    const title = `FSCJ Sponsoring Compensation Prep Alert: ${course.courseNumber} ${course.courseTitle}`;
+    const content = `To: cel@fscj.edu
+Subject: ${title}
 
-    window.open(`mailto:${mailTo}?subject=${encodeURIComponent(mailSub)}&body=${encodeURIComponent(mailBody)}`);
+Hello CeL Operations & Leadership,
+
+This is an automated compensation alert. The SME compensation triggers on ${compDate} relating to ${course.courseNumber} Module 1 development start.
+
+Please process appropriate payroll documentation of 21 calendar days notice prior to work deployment.
+
+Suggested alert date: ${alertDate || 'TBD'}
+
+Thank you,
+Chrystal Wickline
+Instructional Designer, FSCJ Online`;
+
+    setCompensationDialogTitle(title);
+    setCompensationDialogContent(content);
+    setShowCompensationDialog(true);
   };
 
   // Weekly academic status report
@@ -2335,6 +2352,55 @@ NOTES
         </div>
 
       </div>
+
+      {showCompensationDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 px-4 py-6">
+          <div className="w-full max-w-2xl rounded-xl border border-slate-200 bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+              <div>
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-800">{compensationDialogTitle}</h3>
+                <p className="text-xs text-slate-500">Review and copy the compensation notice without leaving the workspace.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCompensationDialog(false)}
+                className="rounded border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+
+            <div className="p-5">
+              <label className="mb-2 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                Compensation notice preview
+              </label>
+              <textarea
+                readOnly
+                rows={14}
+                value={compensationDialogContent}
+                className="w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 font-mono text-xs text-slate-700"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-4">
+              <button
+                type="button"
+                onClick={copyCompensationDialogContent}
+                className="inline-flex items-center gap-1.5 rounded border border-[#006282] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-[#006282] hover:bg-[#006282] hover:text-white"
+              >
+                <Clipboard className="h-3.5 w-3.5" /> Copy
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowCompensationDialog(false)}
+                className="rounded border border-slate-300 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-700 hover:bg-slate-50"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* DIALOG MODAL: ADD COURSE TRACK */}
       {showAddModal && (
