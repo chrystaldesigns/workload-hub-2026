@@ -1740,6 +1740,133 @@ This email is a friendly reminder that we will hold our final review meeting for
     openCommunicationToolWindow(popupTitle, clipboardMessage, content);
   };
 
+  const handleFinalReviewRecap = (course: CourseDevelopment) => {
+  const hour = new Date().getHours();
+
+  const greetingTime =
+    hour < 12
+      ? "morning"
+      : hour < 17
+      ? "afternoon"
+      : "evening";
+
+  const finalReviewTask = findTimelineTaskByExactName(
+    course,
+    "Conduct final review"
+  );
+
+  const qaTask = findTimelineTaskByExactName(
+    course,
+    "Complete QA review"
+  );
+
+  const endCompTask = findTimelineTaskByExactName(
+    course,
+    "End compensation"
+  );
+
+  const qaDue =
+    qaTask?.dueDate || qaTask?.startDate
+      ? formatDisplayDate(
+          qaTask?.dueDate || qaTask?.startDate || ""
+        )
+      : "[Month day, 20yy]";
+
+  const archiveDue =
+    endCompTask?.dueDate || endCompTask?.startDate
+      ? formatDisplayDate(
+          endCompTask?.dueDate || endCompTask?.startDate || ""
+        )
+      : "[Month day, 20yy]";
+
+  const to = [
+    course.deptTeam.smeEmail,
+    course.deptTeam.deanName,
+    "Ansa.Reams.Johnson@fscj.edu",
+    course.deptTeam.managerEmail,
+    "kris.kristen@fscj.edu",
+  ]
+    .filter(Boolean)
+    .join("; ");
+
+  const cc = [
+    course.deptTeam.deanEmail,
+    "cel@fscj.edu",
+    "christina.perrin@fscj.edu",
+  ]
+    .filter(Boolean)
+    .join("; ");
+
+  const popupTitle = `${course.courseNumber} Final Review Meeting Recap`;
+
+  const clipboardMessage =
+    "Final Review recap copied to clipboard. You may also copy/edit from the text box below.";
+
+  const content = `TO: ${to}
+CC: ${cc}
+SUBJECT: ${course.courseNumber} Recap: Final Review Meeting for Course Development
+
+Good ${greetingTime},
+
+Thank you for attending and taking part in today's Final Review. If there is anything I misinterpreted or missed during our discussion, please do not hesitate to reply to all for clarification.
+
+COURSE DOCUMENTS
+
+- The ${course.courseNumber} Learning and Grading Plan provides information to complete your Course Syllabus. Be sure to add due dates or remove the column as needed.
+
+- Outcomes Map (attached)
+
+MEETING OUTCOMES
+
+- The course was approved for release, with a commitment to send a recap and final instructions for releasing the stipend.
+
+- [List any amendments to course prior to release if applicable]
+
+ACTION ITEMS
+
+Instructional Designer: Chrystal Wickline
+
+- Send Stipend Completion email by EOD today
+
+- CeL QA Team performs a Canvas Quality Control check due ${qaDue}
+
+- CeL Multimedia performs a Code Check and Archive due ${archiveDue}
+
+- ID sends Course Completion email due ${archiveDue}
+
+SUGGESTIONS AND INQUIRIES (if applicable)
+
+- Suggestions were made to incorporate ...
+
+3RD PARTY PLATFORM (if applicable)
+
+- Platform:
+
+- Course Name:
+
+- Course Section:
+
+- Start Date:
+
+- End Date:
+
+- Course Key (Copy Code):
+
+- Notes:
+
+- Student Course Code:
+
+- Integration Type: Pair and sync integration
+
+Thank you for joining the Final Review Meeting today. It has been a pleasure working with you.`;
+
+  openCommunicationToolWindow(
+    popupTitle,
+    clipboardMessage,
+    content
+  );
+};
+
   const handleSubmitProofreadingRequestQuickbase = (course: CourseDevelopment) => {
     const proofreadingRequestTask = findTimelineTaskByExactName(course, "Submit proofreading request");
     const finalReviewTask = findTimelineTaskByExactName(course, "Conduct final review");
@@ -2420,6 +2547,17 @@ NOTES
                                     <Mail className="h-3.5 w-3.5" /> Final Review Reminder and Agenda
                                   </button>
                                 )}
+
+                                {Number(task.id) === 44 && (
+  <button
+    type="button"
+    onClick={() => handleFinalReviewRecap(activeCourse)}
+    className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
+  >
+    <Mail className="h-3.5 w-3.5" />
+    Final Review Recap
+  </button>
+)}
                               </div>
 
                               {isOver && (
