@@ -940,6 +940,16 @@ Instructional Designer, FSCJ Online`;
     setShowCompensationDialog(true);
   };
 
+  const copyCompensationDialogContent = async () => {
+    try {
+      await navigator.clipboard.writeText(compensationDialogContent);
+      alert("SME compensation notice copied to clipboard.");
+    } catch (error) {
+      console.error("Unable to copy SME compensation notice:", error);
+      alert("The compensation notice could not be copied automatically. Please select and copy the text manually.");
+    }
+  };
+
   // Weekly academic status report
   const formatShortDate = (dateStr?: string) => {
     if (!dateStr) return "TBD";
@@ -1310,6 +1320,50 @@ ${body}`;
     } else {
       alert(clipboardMessage.replace("You may also copy/edit from the text box below.", "Pop-up was blocked by the browser."));
     }
+  };
+
+  const handleScheduleInitialMeetingEmail = (course: CourseDevelopment) => {
+    const hour = new Date().getHours();
+    const greetingTime = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
+
+    const to = [course.deptTeam.smeEmail, "a.gustafson@fscj.edu"].filter(Boolean).join("; ");
+    const popupTitle = `${course.courseNumber} Initial Meeting for Course Development`;
+    const clipboardMessage = "Initial meeting email draft copied to clipboard. You may also copy/edit from the text box below.";
+
+    const content = `To: ${to}
+CC:
+Subject: ${course.courseNumber} Initial Meeting for Course Development
+Attachment: Course Outline
+
+Good ${greetingTime},
+
+I am assigned to work with you on course design and development for ${course.courseNumber}: ${course.courseTitle}.
+Andrew Gustafson will be present to discuss the multimedia requirements at the beginning of the course development process. This will allow us ample time to incorporate necessary multimedia elements into the course and align them with your design plan.
+
+STIPEND
+Option 1: if the stipend is still in progress
+The stipend is currently being processed. Official development cannot begin until the stipend is complete. However, we can still have our initial meeting to discuss your general ideas. I can share the Course Design Plan and Overview template document with you, and we can discuss what is expected.
+
+Option 2: if the stipend is initialized
+The stipend has been initialized, so we can officially begin planning, designing, and developing. During our initial meeting, I can share the Course Design Plan and Overview template document with you, and we can discuss expectations.
+
+THE CENTER FOR ELEARNING’S (CeL) PROCESS
+Note: only include The Center for eLearning’s (CeL) Process section if working with a new SME (to the CeL or ID)
+We will organize one or more initial meetings to outline the course at a high level. This will include the outcomes, objectives of the modules, and assessments. Once we have a plan, we present it to the stakeholders for approval or revision suggestions in the kickoff meeting. After we receive approval, we will begin working on the course. There will be another meeting at the mid-point of our work, followed by a final review once we complete it. Finally, we will hand the course over to our multimedia and administration teams so CeL has time to distribute it to those who will teach it.
+
+COLLEGE CREDIT COURSE (CURRICULUM) OUTLINE
+Option 1: if the outline is not online or is outdated
+The course outline is not provided online or appears to have not been updated since {{20yy}}. Please provide me with the appropriate version before our initial meeting if you possess a copy. This will allow me to familiarize myself with the curriculum.
+
+Option 2: if the outline is current
+Please find attached the College Credit Course (Curriculum) Outline for your reference and convenience. If it is not the correct or most up-to-date outline, kindly provide me with the appropriate version before our initial meeting. This will allow me to familiarize myself with the curriculum.
+
+INITIAL MEETING TOPICS AND DISCUSSION
+During our first meeting, we will discuss the course design, including how many modules, module topics, assignments, assessments, program requirements, feedback, meeting preferences, weekly updates, calendar reminders, third-party information, and course details.
+
+I am excited to work with you! You can find my contact information below. Please do not hesitate to reach out if you have any questions or concerns.`;
+
+    openCommunicationToolWindow(popupTitle, clipboardMessage, content);
   };
 
   const handleMidpointReminderAgenda = (course: CourseDevelopment) => {
@@ -2138,6 +2192,15 @@ NOTES
                                 {isEmailTask && (
                                   <Mail className="h-3.5 w-3.5 shrink-0 text-[#006282]" aria-label="Email task" />
                                 )}
+                                {Number(task.id) === 5 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleScheduleInitialMeetingEmail(activeCourse)}
+                                    className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
+                                  >
+                                    <Mail className="h-3.5 w-3.5" /> Initial Meeting Email
+                                  </button>
+                                )}
                                 {Number(task.id) === 23 && (
                                   <button
                                     type="button"
@@ -2375,10 +2438,10 @@ NOTES
                 Compensation notice preview
               </label>
               <textarea
-                readOnly
                 rows={14}
                 value={compensationDialogContent}
-                className="w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 font-mono text-xs text-slate-700"
+                onChange={(e) => setCompensationDialogContent(e.target.value)}
+                className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 font-mono text-xs text-slate-700"
               />
             </div>
 
