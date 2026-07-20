@@ -2248,13 +2248,23 @@ NOTES
                                   <Mail className="h-3.5 w-3.5 shrink-0 text-[#006282]" aria-label="Email task" />
                                 )}
                                 {Number(task.id) === 5 && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleScheduleInitialMeetingEmail(activeCourse)}
-                                    className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
-                                  >
-                                    <Mail className="h-3.5 w-3.5" /> Initial Meeting Email
-                                  </button>
+                                  <div className="flex flex-wrap gap-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleScheduleInitialMeetingEmail(activeCourse)}
+                                      className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
+                                    >
+                                      <Mail className="h-3.5 w-3.5" /> Initial Meeting Email
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => handleScheduleInitialMeetingCalendar(activeCourse)}
+                                      className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
+                                    >
+                                      <Calendar className="h-3.5 w-3.5" /> Schedule Initial Meeting
+                                    </button>
+                                  </div>
                                 )}
                                 {Number(task.id) === 23 && (
                                   <button
