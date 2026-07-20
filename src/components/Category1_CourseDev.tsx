@@ -1366,6 +1366,61 @@ I am excited to work with you! You can find my contact information below. Please
     openCommunicationToolWindow(popupTitle, clipboardMessage, content);
   };
 
+  const handleScheduleInitialMeetingCalendar = (course: CourseDevelopment) => {
+  const hour = new Date().getHours();
+  const greetingTime =
+    hour < 12 ? "morning" :
+    hour < 17 ? "afternoon" :
+    "evening";
+
+  const initialMeetingTask = findTimelineTaskByExactName(
+    course,
+    "Conduct initial meeting"
+  );
+
+  const meetingDate =
+    initialMeetingTask?.startDate || initialMeetingTask?.dueDate || "";
+
+  const meetingTime = formatMeetingTime(
+    (initialMeetingTask as any)?.meetingTime
+  );
+
+  const to = [
+    course.deptTeam.smeEmail,
+    "a.gustafson@fscj.edu"
+  ]
+    .filter(Boolean)
+    .join("; ");
+
+  const popupTitle = `${course.courseNumber} Initial Meeting Invitation`;
+
+  const clipboardMessage =
+    "Initial meeting calendar invitation copied to clipboard. You may also copy/edit from the text box below.";
+
+  const content = `TO: ${to}
+CC:
+SUBJECT: ${course.courseNumber} Initial Meeting for Course Development
+
+Good ${greetingTime},
+
+We'll hold our initial meeting for ${course.courseNumber} on ${formatDisplayDate(
+    meetingDate
+  )} at ${meetingTime} to prepare for the Kickoff and establish course design elements for the Course Design Plan.
+
+Duration: 1 hour
+Location: Teams
+
+Please notify me of any stakeholders we may have missed, and I can add them, or feel free to forward this invite.
+
+Thank you, and I look forward to a productive initial meeting.`;
+
+  openCommunicationToolWindow(
+    popupTitle,
+    clipboardMessage,
+    content
+  );
+};
+
   const handleMidpointReminderAgenda = (course: CourseDevelopment) => {
     const hour = new Date().getHours();
     const greetingTime = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
