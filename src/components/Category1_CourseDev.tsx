@@ -1812,7 +1812,7 @@ Thank you for attending and taking part in today's Final Review. If there is any
 
 COURSE DOCUMENTS
 
-- The ${course.courseNumber} Learning and Grading Plan provides information to complete your Course Syllabus. Be sure to add due dates or remove the column as needed.
+- The ${course.courseNumber} <a class="inline_disabled" title="Learning and Grading Plan" href="https://cel.quickbase.com/nav/app/bs3dcdkm5/table/bs3dcdktv/action/q?qid=155&amp;NavFrom=Recents&amp;navfrom=Recents&amp;skip=230" target="_blank" rel="noopener">Learning and Grading Plan</a> provides information to complete your Course Syllabus. Be sure to add due dates or remove the column as needed.
 
 - Outcomes Map (attached)
 
@@ -1913,6 +1913,50 @@ NOTES
     openCommunicationToolWindow(popupTitle, clipboardMessage, content);
   };
 
+    const handleRequestCodeCheckArchiveQuickbase = (course: CourseDevelopment) => {
+    const courseCompletionTask = findTimelineTaskByExactName(
+  course,
+  "Course completion"
+);
+
+const dueDate =
+  courseCompletionTask?.dueDate || courseCompletionTask?.startDate
+    ? formatDisplayDateShort(
+        courseCompletionTask?.dueDate ||
+          courseCompletionTask?.startDate ||
+          ""
+      )
+    : "TBD";
+
+    const popupTitle = `${course.courseNumber} Code Check & Archive`;
+
+    const clipboardMessage =
+      "Code Check & Archive request copied to clipboard. You may also copy/edit from the text box below.";
+
+    const content = `Task Category: Multimedia
+Multimedia Task Type: Code Check
+
+Brief Title:
+${course.courseNumber} Code Check & Archive
+
+Status:
+Open
+
+Due Date:
+${dueDate}
+
+Notes:
+
+• The Proofreading and Quality Control reviews are complete.
+
+• The course is ready for code check and archive.`;
+
+    openCommunicationToolWindow(
+      popupTitle,
+      clipboardMessage,
+      content
+    );
+  };
 
   const handleRequestQaReviewQuickbase = (course: CourseDevelopment) => {
     const finalReviewTask = findTimelineTaskByExactName(course, "Conduct final review");
@@ -2538,6 +2582,15 @@ NOTES
                                     <Clipboard className="h-3.5 w-3.5" /> Request QA Review [Quickbase]
                                   </button>
                                 )}
+                                {Number(task.id) === 45 && (
+  <button
+    type="button"
+    onClick={() => handleRequestCodeCheckArchiveQuickbase(activeCourse)}
+    className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
+  >
+    <Clipboard className="h-3.5 w-3.5" /> Request Code Check and Archive [Quickbase]
+  </button>
+)}
                                 {Number(task.id) === 43 && (
                                   <button
                                     type="button"
