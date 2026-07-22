@@ -1322,6 +1322,79 @@ ${body}`;
     }
   };
 
+  const handleOnboardingIntroduction = (course: CourseDevelopment) => {
+    const hour = new Date().getHours();
+
+    const greetingTime =
+      hour < 12
+        ? "morning"
+        : hour < 17
+        ? "afternoon"
+        : "evening";
+
+    const onboardingTask = findTimelineTaskByExactName(
+      course,
+      "Conduct onboarding meeting"
+    );
+
+    const onboardingMeetingDate = formatDisplayDate(
+      onboardingTask?.startDate || onboardingTask?.dueDate || ""
+    );
+
+    const onboardingMeetingTime = formatMeetingTime(
+      (onboardingTask as any)?.meetingTime
+    );
+
+    const to = [
+      course.deptTeam.smeEmail,
+      "kris.kristen@fscj.edu",
+    ]
+      .filter(Boolean)
+      .join("; ");
+
+    const cc = [
+      "Golf.K@fscj.edu",
+      course.deptTeam.deanEmail,
+      "Ansa.Reams.Johnson@fscj.edu",
+      course.deptTeam.managerEmail,
+    ]
+      .filter(Boolean)
+      .join("; ");
+
+    const popupTitle = `${course.courseNumber} Onboarding Meeting Introduction`;
+
+    const clipboardMessage =
+      "Onboarding introduction copied to clipboard. You may also copy/edit from the text box below.";
+
+    const content = `TO: ${to}
+CC: ${cc}
+SUBJECT: ${course.courseNumber} Onboarding Meeting with the CeL on ${onboardingMeetingDate}
+ATTACHMENT: N/A
+
+Good ${greetingTime},
+
+I am looking forward to our onboarding session on ${onboardingMeetingDate} at ${onboardingMeetingTime}. I will review the Center for eLearning’s processes, protocols, and workflow with you, along with tailored content for the course we will work on together. I will keep the presentation concise, about 25 minutes, so we have plenty of time to discuss any questions or topics you'd like to explore further. I will provide the presentation and an onboarding recap after our session. Kris will join us at the beginning of the meeting to review subject-matter expert paperwork and answer any questions.
+
+INTRODUCTION
+
+I am Chrystal Wickline, an instructional designer with the Center for eLearning at FSCJ. My role is to collaborate with you as we design and develop the online blueprint course together. I have over ten years of instructional design experience and a master's degree in Instructional Design and Technology: eLearning, and have been with the College since 2000. I design and develop academic courses and training for the College and external clients, and I collaborate on curriculum development to ensure alignment with learning outcomes and course consistency across programs.
+
+OUR WORK TOGETHER
+
+We will work as a team, combining your subject-matter expertise with my experience in online learning design to create an engaging, accessible course aligned with the College's Credit Course Outline.
+
+Throughout the process, we will share responsibilities: you will provide specialized content, context, and assessments, while I will help guide the structure, ensure alignment with learning outcomes, and support the use of technology and multimedia. In addition to my instructional design responsibilities, I serve as the project manager for course development; coordinating milestone meetings, facilitating communication among stakeholders, the development team, and CeL operations, and ensuring all aspects of the project stay on track from start to finish.
+
+We will set clear milestones, meet to review progress, and make sure all deliverables meet the College's quality and accessibility guidelines. My goal is to make this process smooth and collaborative, providing support and resources so you can focus on your expertise while we build a meaningful learning experience for students.`;
+
+    openCommunicationToolWindow(
+      popupTitle,
+      clipboardMessage,
+      content
+    );
+  };
+
+
   const handleOnboardingReminder = (course: CourseDevelopment) => {
   const hour = new Date().getHours();
 
@@ -2724,6 +2797,15 @@ NOTES
                                 </span>
                                 {isEmailTask && (
                                   <Mail className="h-3.5 w-3.5 shrink-0 text-[#006282]" aria-label="Email task" />
+                                )}
+                                                                {Number(task.id) === 2 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOnboardingIntroduction(activeCourse)}
+                                    className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
+                                  >
+                                    <Mail className="h-3.5 w-3.5" /> Onboarding Introduction
+                                  </button>
                                 )}
                                 {Number(task.id) === 3 && (
   <button
