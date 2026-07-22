@@ -1322,6 +1322,69 @@ ${body}`;
     }
   };
 
+  const handleOnboardingReminder = (course: CourseDevelopment) => {
+  const hour = new Date().getHours();
+
+  const greetingTime =
+    hour < 12
+      ? "morning"
+      : hour < 17
+      ? "afternoon"
+      : "evening";
+
+  const onboardingTask = findTimelineTaskByExactName(
+    course,
+    "Conduct onboarding meeting"
+  );
+
+  const meetingDate =
+    onboardingTask?.startDate || onboardingTask?.dueDate || "";
+
+  const meetingTime = formatMeetingTime(
+    (onboardingTask as any)?.meetingTime
+  );
+
+  const to = [
+    course.deptTeam.smeEmail,
+    "cel@fscj.edu",
+    "kris.kristen@fscj.edu",
+  ]
+    .filter(Boolean)
+    .join("; ");
+
+  const cc = [
+    "christina.perrin@fscj.edu",
+    "Golf.K@fscj.edu",
+    course.deptTeam.deanEmail,
+    "Ansa.Reams.Johnson@fscj.edu",
+  ]
+    .filter(Boolean)
+    .join("; ");
+
+  const popupTitle = `${course.courseNumber} Onboarding Meeting Reminder`;
+
+  const clipboardMessage =
+    "Onboarding reminder copied to clipboard. You may also copy/edit from the text box below.";
+
+  const content = `TO: ${to}
+CC: ${cc}
+SUBJECT: ${course.courseNumber} Onboarding Meeting Reminder for Course Development
+
+Good ${greetingTime},
+
+This is a friendly reminder that we will hold the onboarding meeting for ${course.courseNumber}: ${course.courseTitle} on ${formatDisplayDate(meetingDate)} at ${meetingTime}.
+
+Please let me know if there are any additional stakeholders who should be invited.
+
+I look forward to meeting with everyone.`;
+
+  openCommunicationToolWindow(
+    popupTitle,
+    clipboardMessage,
+    content
+  );
+};
+
   const handleScheduleInitialMeetingEmail = (course: CourseDevelopment) => {
     const hour = new Date().getHours();
     const greetingTime = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
@@ -2500,6 +2563,15 @@ NOTES
                                 {isEmailTask && (
                                   <Mail className="h-3.5 w-3.5 shrink-0 text-[#006282]" aria-label="Email task" />
                                 )}
+                                {Number(task.id) === 3 && (
+  <button
+    type="button"
+    onClick={() => handleOnboardingReminder(activeCourse)}
+    className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
+  >
+    <Mail className="h-3.5 w-3.5" /> Onboarding Reminder
+  </button>
+)}
                                 {Number(task.id) === 5 && (
                                   <div className="flex flex-wrap gap-1">
                                     <button
