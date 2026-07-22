@@ -1586,6 +1586,66 @@ Thank you, and I look forward to a productive initial meeting.`;
   );
 };
 
+  const handleSendCourseDesignPlanDraft = (course: CourseDevelopment) => {
+    const hour = new Date().getHours();
+    const greetingTime = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
+
+    const finalizeCourseDesignPlanTask = findTimelineTaskByExactName(
+      course,
+      "Finalize Course Design Plan"
+    );
+
+    const finalizeCourseDesignPlanDueDate = formatDisplayDate(
+      finalizeCourseDesignPlanTask?.dueDate ||
+        finalizeCourseDesignPlanTask?.startDate ||
+        ""
+    );
+
+    const to = course.deptTeam.smeEmail || "";
+    const popupTitle = `${course.courseNumber} Course Design Plan Template`;
+    const clipboardMessage =
+      "Course Design Plan draft email copied to clipboard. You may also copy/edit from the text box below.";
+
+    const content = `TO: ${to}
+SUBJECT: ${course.courseNumber} Course Design Plan Template
+ATTACHMENT: Course Outline and Course Design Plan Template
+
+Good ${greetingTime},
+
+Thank you again ${course.deptTeam.smeName || "SME"}, for meeting with me today to discuss the plans for course development.
+
+COURSE DESIGN PLAN
+
+The Course Design Plan template we discussed in our initial meeting is attached. Please do not hesitate to let me know if you have any questions or concerns, or if you need help.
+
+ACTION ITEMS: SUBJECT MATTER EXPERT
+
+- Finalize the Course Design Plan for the Kick-off meeting
+- Return the CDP to the ID by ${finalizeCourseDesignPlanDueDate}
+- Communicate with ${course.deptTeam.deanName || "the Program Dean"} to finalize the College Credit Course Outline (Curriculum Outline)
+
+ACTION ITEMS: INSTRUCTIONAL DESIGNER
+
+- Add ${course.deptTeam.smeEmail || "the SME"} to the Workshop course
+- Schedule the Kickoff Meeting
+- Send a Kickoff Meeting reminder, agenda, and completed Course Design Plan to stakeholders
+
+IDEAS FOR CUSTOM INSTRUCTIONAL MATERIALS
+
+E.g., Infographic, Interactive Book, Canvas Page (webpage), Video
+
+IDEAS FOR ACTIVITIES, ASSIGNMENTS, AND ASSESSMENTS
+
+E.g., Interactive case study, Knowledge check, Reflection, Scenario-based decision-making, Course Project (scaffolding)`;
+
+    openCommunicationToolWindow(
+      popupTitle,
+      clipboardMessage,
+      content
+    );
+  };
+
+
   const handleInitialMeetingRecap = (course: CourseDevelopment) => {
     const hour = new Date().getHours();
     const greetingTime = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
@@ -2704,13 +2764,23 @@ NOTES
                                   </div>
                                 )}
                                 {Number(task.id) === 6 && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleInitialMeetingRecap(activeCourse)}
-                                    className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
-                                  >
-                                    <Mail className="h-3.5 w-3.5" /> Initial Meeting Recap
-                                  </button>
+                                  <div className="flex flex-wrap gap-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleInitialMeetingRecap(activeCourse)}
+                                      className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
+                                    >
+                                      <Mail className="h-3.5 w-3.5" /> Initial Meeting Recap
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSendCourseDesignPlanDraft(activeCourse)}
+                                      className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
+                                    >
+                                      <Mail className="h-3.5 w-3.5" /> Send Course Design Plan Draft
+                                    </button>
+                                  </div>
                                 )}
                                 {Number(task.id) === 23 && (
                                   <button
