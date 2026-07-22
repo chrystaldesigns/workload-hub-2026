@@ -1385,6 +1385,108 @@ I look forward to meeting with everyone.`;
   );
 };
 
+const handleOnboardingRecap = (course: CourseDevelopment) => {
+  const hour = new Date().getHours();
+
+  const greetingTime =
+    hour < 12
+      ? "morning"
+      : hour < 17
+      ? "afternoon"
+      : "evening";
+
+  const initialMeetingTask = findTimelineTaskByExactName(
+    course,
+    "Conduct initial meeting"
+  );
+
+  const popupTitle = `${course.courseNumber} Onboarding Information Session Recap`;
+
+  const clipboardMessage =
+    "Onboarding recap copied to clipboard. You may also copy/edit from the text box below.";
+
+  const to = [
+    course.deptTeam.smeEmail,
+    "cel@fscj.edu",
+    "kris.kristen@fscj.edu",
+  ]
+    .filter(Boolean)
+    .join("; ");
+
+  const cc = [
+    "christina.perrin@fscj.edu",
+    "Golf.K@fscj.edu",
+    course.deptTeam.deanEmail,
+    "Ansa.Reams.Johnson@fscj.edu",
+    course.deptTeam.managerEmail,
+  ]
+    .filter(Boolean)
+    .join("; ");
+
+  const content = `TO: ${to}
+CC: ${cc}
+SUBJECT: ${course.courseNumber} Onboarding Information Session Recap
+
+ATTACHMENTS: Onboarding Presentation; Course Outline
+
+LINKS:
+• CeL SME Course Design Hub
+• Program Design Plan
+• Program PLO Map
+
+Good ${greetingTime},
+
+Welcome to the course development process! Together, we will create a high-quality course that aligns with College standards, Quality Matters expectations, and supports student success. Your expertise and partnership are essential, and I'm looking forward to working with you.
+
+ACTION ITEMS
+
+The Initial Meeting will include the Instructional Designer (ID), Subject Matter Expert (SME), and Learning Experience Architect (LXA).
+
+SUBJECT MATTER EXPERT: ${course.deptTeam.smeName || "SME"}, please
+
+• Provide the ID with your availability for the Initial Meeting during the week of ${formatDisplayDate(initialMeetingTask?.startDate || initialMeetingTask?.dueDate || "")}.
+• Review the College Credit Course Outline with track changes.
+• Discuss prerequisite sequencing and confirm your textbook or instructional materials with your Program Dean.
+• Come prepared with a general vision for the course and share all ideas.
+• Review the Program Design Plan.
+• Reference the Program PLO Map as needed.
+
+INSTRUCTIONAL DESIGNER: Chrystal Wickline
+
+• Finalize the course development planning and setup phase.
+• Prepare Initial Meeting discussion points.
+• Prepare the Course Design Plan template.
+• Schedule the Initial Meeting.
+
+ONBOARDING DISCUSSION HIGHLIGHTS
+
+• Overview of the course development lifecycle.
+• Review of the Kickoff, Midpoint Review, and Final Review milestones.
+• Alignment between outcomes, activities, and assessments.
+• Quality Matters and WCAG 2.1 AA expectations.
+• Communication expectations and weekly status updates.
+
+COURSE-SPECIFIC REQUIREMENTS
+
+• This course will be developed as a ${course.devType} within the ${course.program} program.
+• Keep discussions minimal.
+• Design learning that encourages authentic student engagement and minimizes over-reliance on AI-generated responses.
+
+NEXT STEPS
+
+• Schedule and attend the Initial Meeting.
+• Begin gathering or confirming instructional materials.
+• Reference the CeL SME Course Design Hub throughout development.
+
+Please do not hesitate to reach out if you have any questions or need clarification on any aspect of the process. I am available via Teams throughout the day and look forward to our collaboration!`;
+
+  openCommunicationToolWindow(
+    popupTitle,
+    clipboardMessage,
+    content
+  );
+};
+
   const handleScheduleInitialMeetingEmail = (course: CourseDevelopment) => {
     const hour = new Date().getHours();
     const greetingTime = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
@@ -2570,6 +2672,16 @@ NOTES
     className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
   >
     <Mail className="h-3.5 w-3.5" /> Onboarding Reminder
+  </button>
+)}
+
+{Number(task.id) === 4 && (
+  <button
+    type="button"
+    onClick={() => handleOnboardingRecap(activeCourse)}
+    className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
+  >
+    <Mail className="h-3.5 w-3.5" /> Send Onboarding Recap
   </button>
 )}
                                 {Number(task.id) === 5 && (
