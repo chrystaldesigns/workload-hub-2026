@@ -1801,6 +1801,61 @@ INITIAL MEETING COURSE VISION OVERVIEW
     openCommunicationToolWindow(popupTitle, clipboardMessage, content);
   };
 
+    const handleKickoffMeetingReminder = (course: CourseDevelopment) => {
+    const hour = new Date().getHours();
+    const greetingTime = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
+
+    const kickoffTask = findTimelineTaskByExactName(
+      course,
+      "Conduct kickoff meeting"
+    );
+
+    const kickoffMeetingDate = formatDisplayDate(
+      kickoffTask?.startDate || kickoffTask?.dueDate || ""
+    );
+
+    const kickoffMeetingTime = formatMeetingTime(
+      (kickoffTask as any)?.meetingTime
+    );
+
+    const to = [
+      course.deptTeam.smeEmail,
+      "kris.kristen@fscj.edu",
+      "Golf.K@fscj.edu",
+      course.deptTeam.deanEmail,
+      "Ansa.Reams.Johnson@fscj.edu",
+      course.deptTeam.managerEmail,
+      "cel@fscj.edu",
+    ]
+      .filter(Boolean)
+      .join("; ");
+
+    const cc = "christina.perrin@fscj.edu";
+
+    const popupTitle = `${course.courseNumber} Kickoff Meeting Reminder`;
+
+    const clipboardMessage =
+      "Kickoff meeting reminder copied to clipboard. You may also copy/edit from the text box below.";
+
+    const content = `TO: ${to}
+CC: ${cc}
+SUBJECT: ${course.courseNumber} Kickoff Meeting Reminder for Course Development ${kickoffMeetingDate}
+ATTACHMENT: Course Outline, Course Design Plan
+
+Good ${greetingTime},
+
+This email is a friendly reminder that we'll hold our kickoff meeting for ${course.courseNumber} on ${kickoffMeetingDate} at ${kickoffMeetingTime} to establish a common understanding of the course design and development plan among all stakeholders and secure approval to move forward with development.
+
+Attached are the course outline and the course design plan for your reference.`;
+
+    openCommunicationToolWindow(
+      popupTitle,
+      clipboardMessage,
+      content
+    );
+  };
+
+
   const handleMidpointReminderAgenda = (course: CourseDevelopment) => {
     const hour = new Date().getHours();
     const greetingTime = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
@@ -2863,6 +2918,15 @@ NOTES
                                       <Mail className="h-3.5 w-3.5" /> Send Course Design Plan Draft
                                     </button>
                                   </div>
+                                )}
+                                                                {Number(task.id) === 10 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleKickoffMeetingReminder(activeCourse)}
+                                    className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
+                                  >
+                                    <Mail className="h-3.5 w-3.5" /> Kickoff Meeting Reminder
+                                  </button>
                                 )}
                                 {Number(task.id) === 23 && (
                                   <button
