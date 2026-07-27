@@ -1,3 +1,14 @@
 node_modules/
 dist/
-dist/
+
+.env
+.env.*
+!.env.example
+
+*.pem
+*.key
+*credentials*.json
+*service-account*.json
+application_default_credentials.json
+
+.DS_Store
