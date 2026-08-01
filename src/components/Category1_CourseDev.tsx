@@ -62,22 +62,88 @@ const normalizeTimelineSubtasks = (subtasks?: Array<string | Partial<TimelineSub
   });
 };
 
-const buildCourseDevelopmentTimeline = (projectedCourseCompletionDate: string, onboarding: boolean): CourseDevelopmentTask[] => {
+const mergeRecalculatedTimeline = (
+  existingTasks: CourseDevelopmentTask[],
+  recalculatedTasks: CourseDevelopmentTask[]
+): CourseDevelopmentTask[] => {
+  const preservedPlanningTaskIds = new Set([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+  const isGeneratedSchedulingNote = (note?: string) =>
+    /^Schedule meeting the week of \d{2}-\d{2}-\d{2}$/.test((note || '').trim());
+
+  return recalculatedTasks.map((newTask) => {
+    const existing = existingTasks.find((task) => task.name === newTask.name);
+    if (!existing) return newTask;
+
+    const preserveHistoricalDates =
+      existing.status === 'Complete' ||
+      (preservedPlanningTaskIds.has(Number(existing.id)) &&
+        !!(existing.startDate || existing.dueDate));
+
+    const existingSubtasks = normalizeTimelineSubtasks((existing as TimelineTaskExtra).subtasks);
+    const nextSubtasks = normalizeTimelineSubtasks((newTask as TimelineTaskExtra).subtasks);
+    const mergedSubtasks = nextSubtasks.map((subtask) => {
+      const matchingExisting = existingSubtasks.find((item) => item.title === subtask.title);
+      return matchingExisting ? { ...subtask, complete: matchingExisting.complete } : subtask;
+    });
+
+    return {
+      ...newTask,
+      status: existing.status,
+      startDate: preserveHistoricalDates ? existing.startDate : newTask.startDate,
+      dueDate: preserveHistoricalDates ? existing.dueDate : newTask.dueDate,
+      completionDate: existing.completionDate,
+      notes: isGeneratedSchedulingNote((existing as TimelineTaskExtra).notes)
+        ? (newTask as TimelineTaskExtra).notes || ''
+        : (existing as TimelineTaskExtra).notes || (newTask as TimelineTaskExtra).notes || '',
+      meetingTime: (existing as TimelineTaskExtra).meetingTime || (newTask as TimelineTaskExtra).meetingTime || '',
+      subtasks: mergedSubtasks,
+    } as TimelineTaskExtra;
+  });
+};
+
+const buildCourseDevelopmentTimeline = (
+  projectedCourseCompletionDate: string,
+  onboarding: boolean,
+  customBlocked: string[] = [],
+  existingTasks: CourseDevelopmentTask[] = []
+): CourseDevelopmentTask[] => {
   // Projected Course Completion is the final development-completion anchor.
-  // Final Review must occur at least one week before development completion.
-  // Midpoint Review must occur at least 30 days after Kickoff.
-  const developmentCompletionStart = projectedCourseCompletionDate;
-  const finalReviewStart = addCalendarDays(developmentCompletionStart, -7);
-  const midpointStart = addCalendarDays(finalReviewStart, -60);
-  const kickoffStart = addCalendarDays(midpointStart, -30);
-  const completeCourseDesignPlanStart = addCalendarDays(kickoffStart, -14);
-  const finalizeCourseDesignPlanStart = addCalendarDays(completeCourseDesignPlanStart, -10);
-  const initialMeetingStart = finalizeCourseDesignPlanStart;
-  const onboardingMeetingStart = addCalendarDays(initialMeetingStart, -14);
-  const introductionEmailStart = addCalendarDays(onboardingMeetingStart, -7);
-  const startCompensationStart = addCalendarDays(introductionEmailStart, -7);
-  const moduleTemplateStart = completeCourseDesignPlanStart;
-  const moduleTemplateDue = addCalendarDays(moduleTemplateStart, 14);
+  // All offsets and durations use FSCJ working days, including custom blocked dates.
+  // Final Review is at least 7 working days before completion, and Midpoint Review
+  // is at least 30 working days after Kickoff.
+  const workingDate = (dateStr: string, days: number) =>
+    stepWorkingDays(dateStr, Math.abs(days), days >= 0 ? 1 : -1, customBlocked);
+  const workingDueDate = (startDate: string, durationDays: number) =>
+    durationDays > 0 ? workingDate(startDate, durationDays) : startDate;
+
+  const existingTask = (id: number) =>
+    existingTasks.find((item) => Number(item.id) === id);
+  const existingDate = (id: number) => {
+    const item = existingTask(id);
+    return (item?.dueDate || item?.startDate || '').slice(0, 10);
+  };
+
+  const developmentCompletionStart = workingDate(projectedCourseCompletionDate, 0);
+  const fallbackFinalReviewStart = workingDate(developmentCompletionStart, -7);
+  const fallbackMidpointStart = workingDate(fallbackFinalReviewStart, -30);
+  const fallbackKickoffStart = workingDate(fallbackMidpointStart, -30);
+  const completeCourseDesignPlanStart =
+    existingDate(9) || workingDate(fallbackKickoffStart, -9);
+  const finalizeCourseDesignPlanStart =
+    existingTask(7)?.startDate || workingDate(completeCourseDesignPlanStart, -5);
+  const initialMeetingStart = existingDate(6) || workingDate(finalizeCourseDesignPlanStart, -1);
+  const onboardingMeetingStart = existingDate(4) || workingDate(initialMeetingStart, -5);
+  const introductionEmailStart = existingDate(2) || workingDate(onboardingMeetingStart, -7);
+  const startCompensationStart = existingTask(1)?.startDate || workingDate(introductionEmailStart, -7);
+  const startCompensationDue = existingTask(1)?.dueDate || fallbackFinalReviewStart;
+
+  // Recalculation is dependency-based from the established planning work.
+  // Nine working days approximates the standard two-calendar-week interval
+  // while never landing on a weekend, FSCJ closure, or custom blocked date.
+  const kickoffStart = workingDate(completeCourseDesignPlanStart, 9);
+  const midpointStart = workingDate(kickoffStart, 30);
+  const moduleTemplateStart = workingDate(kickoffStart, 1);
+  const moduleTemplateDue = workingDueDate(moduleTemplateStart, 14);
 
   const task = (
     id: number,
@@ -118,13 +184,13 @@ const buildCourseDevelopmentTimeline = (projectedCourseCompletionDate: string, o
     return baseIds[moduleNumber];
   };
 
-  const moduleTasks = (moduleNumber: number, offsetFromTemplates: number, multimediaDueAnchor: string): TimelineTaskExtra[] => {
-    const developStart = addCalendarDays(moduleTemplateStart, offsetFromTemplates);
-    const developDue = addCalendarDays(developStart, 5);
-    const reviewStart = addCalendarDays(developDue, 1);
-    const reviewDue = reviewStart;
+  const moduleTasks = (moduleNumber: number, offsetFromTemplates: number): TimelineTaskExtra[] => {
+    const developStart = workingDate(moduleTemplateStart, offsetFromTemplates);
+    const developDue = workingDueDate(developStart, 5);
+    const reviewStart = developDue;
+    const reviewDue = workingDueDate(reviewStart, 1);
     const multimediaStart = reviewDue;
-    const multimediaDue = addCalendarDays(multimediaDueAnchor, -5);
+    const multimediaDue = workingDueDate(multimediaStart, 10);
     const baseId = getModuleBaseId(moduleNumber);
 
     return [
@@ -135,54 +201,68 @@ const buildCourseDevelopmentTimeline = (projectedCourseCompletionDate: string, o
   };
 
   const tasks: TimelineTaskExtra[] = [
-    task(1, 'Start compensation', 'Milestone', 'Operations', startCompensationStart, finalReviewStart, 0),
+    task(1, 'Start compensation', 'Milestone', 'Operations', startCompensationStart, startCompensationDue, 0),
     task(2, 'Send SME introduction email', 'Project Management', 'Instructional Designer', introductionEmailStart, introductionEmailStart, 0, ['Schedule onboarding meeting', 'Customize onboarding presentation'], undefined, '5 hours'),
-    task(3, 'Send onboarding reminder', 'Discovery & Planning', 'Instructional Designer', addCalendarDays(onboardingMeetingStart, -2), addCalendarDays(onboardingMeetingStart, -2), 0, undefined, undefined, '15 minutes'),
+    task(3, 'Send onboarding reminder', 'Discovery & Planning', 'Instructional Designer', workingDate(onboardingMeetingStart, -2), workingDate(onboardingMeetingStart, -2), 0, undefined, undefined, '15 minutes'),
     task(4, 'Conduct onboarding meeting', 'Discovery & Planning; Project Management', 'Instructional Designer', onboardingMeetingStart, onboardingMeetingStart, 1, ['Finalize timeline', 'Send recap email', 'Schedule initial meeting', 'Enter course development tasks into Quickbase', 'Obtain course outline']),
-    task(5, 'Schedule initial meeting', 'Project Management', 'Instructional Designer', addCalendarDays(initialMeetingStart, -2), addCalendarDays(initialMeetingStart, -2), 0, undefined, `Schedule meeting the week of ${formatDisplayDateShortSafe(initialMeetingStart)}`, '15 minutes'),
+    task(5, 'Schedule initial meeting', 'Project Management', 'Instructional Designer', workingDate(initialMeetingStart, -2), workingDate(initialMeetingStart, -2), 0, undefined, `Schedule meeting the week of ${formatDisplayDateShortSafe(initialMeetingStart)}`, '15 minutes'),
     task(6, 'Conduct initial meeting', 'Project Management; Course Design', 'Instructional Designer', initialMeetingStart, initialMeetingStart, 1, ['Send Initial Meeting Recap', 'Draft Course Design Plan', 'Send Course Design Plan draft to SME']),
-    task(7, 'Finalize Course Design Plan', 'Course Design', 'Subject Matter Expert', finalizeCourseDesignPlanStart, addCalendarDays(finalizeCourseDesignPlanStart, 5), 5),
-    task(8, 'Schedule kickoff meeting', 'Project Management', 'Instructional Designer', addCalendarDays(initialMeetingStart, -2), addCalendarDays(initialMeetingStart, -2), 0, undefined, `Schedule meeting the week of ${formatDisplayDateShortSafe(kickoffStart)}`, '15 minutes'),
+    task(7, 'Finalize Course Design Plan', 'Course Design', 'Subject Matter Expert', finalizeCourseDesignPlanStart, workingDueDate(finalizeCourseDesignPlanStart, 5), 5),
+    task(8, 'Schedule kickoff meeting', 'Project Management', 'Instructional Designer', workingDate(kickoffStart, -2), workingDate(kickoffStart, -2), 0, undefined, `Schedule meeting the week of ${formatDisplayDateShortSafe(kickoffStart)}`, '15 minutes'),
     task(9, 'Complete Course Design Plan', 'Course Design', 'Instructional Designer', completeCourseDesignPlanStart, completeCourseDesignPlanStart, 1, ['Analyze instructional material accessibility']),
-    task(10, 'Send kickoff reminder and agenda', 'Stakeholder Engagement', 'Instructional Designer', addCalendarDays(kickoffStart, -2), addCalendarDays(kickoffStart, -2), 0, undefined, undefined, '15 minutes'),
+    task(10, 'Send kickoff reminder and agenda', 'Stakeholder Engagement', 'Instructional Designer', workingDate(kickoffStart, -2), workingDate(kickoffStart, -2), 0, undefined, undefined, '15 minutes'),
     task(11, 'Conduct kickoff meeting', 'Milestone', 'Instructional Designer', kickoffStart, kickoffStart, 1, ['Send kickoff meeting recap', 'Enter instructional materials into Quickbase', 'Request Canvas shell in Quickbase']),
-    task(12, 'Schedule midpoint meeting', 'Project Management', 'Instructional Designer', addCalendarDays(initialMeetingStart, -2), addCalendarDays(initialMeetingStart, -2), 0, undefined, `Schedule meeting the week of ${formatDisplayDateShortSafe(midpointStart)}`, '15 minutes'),
+    task(12, 'Schedule midpoint meeting', 'Project Management', 'Instructional Designer', workingDate(midpointStart, -2), workingDate(midpointStart, -2), 0, undefined, `Schedule meeting the week of ${formatDisplayDateShortSafe(midpointStart)}`, '15 minutes'),
     task(13, 'Create module templates', 'Course Development', 'Instructional Designer', moduleTemplateStart, moduleTemplateDue, 14, ['Coordinate module delivery schedule', 'Configure calendar reminders', 'Module 1', 'Module 2', 'Module 3', 'Module 4', 'Module 5', 'Module 6', 'Module 7']),
-    ...moduleTasks(1, 2, midpointStart),
-    ...moduleTasks(2, 7, midpointStart),
-    ...moduleTasks(3, 12, midpointStart),
-    task(23, 'Send midpoint reminder and agenda', 'Stakeholder Engagement', 'Instructional Designer', addCalendarDays(midpointStart, -2), addCalendarDays(midpointStart, -2), 0, undefined, undefined, '15 minutes'),
+    ...moduleTasks(1, 1),
+    ...moduleTasks(2, 6),
+    ...moduleTasks(3, 11),
+    task(23, 'Send midpoint reminder and agenda', 'Stakeholder Engagement', 'Instructional Designer', workingDate(midpointStart, -2), workingDate(midpointStart, -2), 0, undefined, undefined, '15 minutes'),
     task(24, 'Conduct midpoint review', 'Milestone', 'Instructional Designer', midpointStart, midpointStart, 1, ['Send midpoint review meeting recap']),
-    task(25, 'Schedule final meeting', 'Project Management', 'Instructional Designer', addCalendarDays(initialMeetingStart, -2), addCalendarDays(initialMeetingStart, -2), 0, undefined, `Schedule meeting the week of ${formatDisplayDateShortSafe(addCalendarDays(midpointStart, 40))}`, '15 minutes'),
-    ...moduleTasks(4, 17, finalReviewStart),
-    ...moduleTasks(5, 22, finalReviewStart),
-    ...moduleTasks(6, 27, finalReviewStart),
-    ...moduleTasks(7, 32, finalReviewStart),
+    ...moduleTasks(4, 16),
+    ...moduleTasks(5, 21),
+    ...moduleTasks(6, 26),
+    ...moduleTasks(7, 31),
   ];
 
   const reviewBuildModule7 = tasks.find((item) => item.name === 'Review & Build Module 7 content');
-  const finalizeDocsStart = addCalendarDays(reviewBuildModule7?.startDate || moduleTemplateStart, 1);
-  const finalizeDocsDue = addCalendarDays(finalizeDocsStart, 3);
+  const finalizeDocsStart = workingDate(reviewBuildModule7?.startDate || moduleTemplateStart, 1);
+  const finalizeDocsDue = workingDueDate(finalizeDocsStart, 3);
   const proofRequestStart = finalizeDocsDue;
-  const proofRequestDue = addCalendarDays(proofRequestStart, 1);
-  const proofreadingStart = proofRequestDue;
-  const proofreadingDue = addCalendarDays(proofreadingStart, 5);
-  const preQaStart = proofreadingDue;
-  const preQaDue = addCalendarDays(preQaStart, 1);
-  const qaStart = preQaDue;
-  const qaDue = addCalendarDays(qaStart, 5);
+  const proofRequestDue = proofRequestStart;
+  const proofreadingStart = workingDate(proofRequestDue, 1);
+  const proofreadingDue = workingDueDate(proofreadingStart, 5);
+  const preQaStart = workingDate(proofreadingDue, 1);
+  const preQaDue = preQaStart;
+  const qaStart = workingDate(preQaDue, 1);
+  const qaDue = workingDueDate(qaStart, 5);
+  const earliestFinalReviewStart = workingDate(qaDue, 1);
+  const latestFinalReviewStart = workingDate(developmentCompletionStart, -7);
+  const finalReviewStart =
+    earliestFinalReviewStart > latestFinalReviewStart
+      ? earliestFinalReviewStart
+      : latestFinalReviewStart;
+  const establishedCompensationEnd = (existingTask(1)?.dueDate || '').slice(0, 10);
+  const compensationEnd =
+    establishedCompensationEnd >= finalReviewStart &&
+    establishedCompensationEnd <= developmentCompletionStart
+      ? establishedCompensationEnd
+      : finalReviewStart;
 
   tasks.push(
+    task(25, 'Schedule final meeting', 'Project Management', 'Instructional Designer', workingDate(finalReviewStart, -2), workingDate(finalReviewStart, -2), 0, undefined, `Schedule meeting the week of ${formatDisplayDateShortSafe(finalReviewStart)}`, '15 minutes'),
     task(38, 'Finalize course documents', 'Course Development', 'Subject Matter Expert', finalizeDocsStart, finalizeDocsDue, 3),
     task(39, 'Submit proofreading request', 'Quality Assurance', 'Instructional Designer', proofRequestStart, proofRequestDue, 1),
     task(40, 'Complete proofreading', 'Quality Assurance', 'Quality Assurance', proofreadingStart, proofreadingDue, 5),
     task(41, 'Complete pre-QA checklist', 'Quality Assurance', 'Instructional Designer', preQaStart, preQaDue, 1, ['Request QA review in Quickbase']),
     task(42, 'Complete QA review', 'Quality Assurance', 'Quality Assurance', qaStart, qaDue, 5, ['Address QA findings']),
-    task(43, 'Send final review reminder and agenda', 'Stakeholder Engagement', 'Instructional Designer', addCalendarDays(finalReviewStart, -2), addCalendarDays(finalReviewStart, -2), 0, undefined, undefined, '15 minutes'),
+    task(43, 'Send final review reminder and agenda', 'Stakeholder Engagement', 'Instructional Designer', workingDate(finalReviewStart, -2), workingDate(finalReviewStart, -2), 0, undefined, undefined, '15 minutes'),
     task(44, 'Conduct final review', 'Milestone', 'Instructional Designer', finalReviewStart, finalReviewStart, 1, ['Send final review meeting recap']),
-    task(45, 'End compensation', 'Project Closeout', 'Instructional Designer', finalReviewStart, finalReviewStart, 1, ['Send stipend notification email', 'Request stipend completion in Quickbase', 'Request code check and archive in Quickbase']),
+    task(45, 'End compensation', 'Project Closeout', 'Instructional Designer', compensationEnd, compensationEnd, 1, ['Send stipend notification email', 'Request stipend completion in Quickbase', 'Request code check and archive in Quickbase']),
     task(46, 'Course completion', 'Milestone', 'Instructional Designer', developmentCompletionStart, developmentCompletionStart, 5, ['Multimedia complete code check and archive', 'Request course completion in Quickbase', 'Send project completion notification email'])
   );
+
+  tasks.sort((a, b) => Number(a.id) - Number(b.id));
 
   if (!onboarding) {
     return tasks.map((item) => {
@@ -633,10 +713,9 @@ export function Category1CourseDev({
 
   const calculateProjectedCompletionDate = (startOfTerm?: string) => {
     if (!startOfTerm) return '';
-    const date = new Date(`${startOfTerm.slice(0, 10)}T12:00:00`);
+    const date = parseDate(startOfTerm);
     if (Number.isNaN(date.getTime())) return '';
-    date.setDate(date.getDate() - 30);
-    return formatDate(date);
+    return stepWorkingDays(startOfTerm, 30, -1, customBlocked);
   };
 
   const getProjectedCompletionDate = (course?: CourseDevelopment) => {
@@ -653,10 +732,10 @@ export function Category1CourseDev({
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Start of Term is the static anchor. Projected Course Completion is 30 calendar days before it.
+    // Start of Term is the static anchor. Projected Course Completion is 30 working days before it.
     const startOfTerm = formData.termDeadline;
     const projectedCompletionDate = calculateProjectedCompletionDate(startOfTerm);
-    const generatedTasks = buildCourseDevelopmentTimeline(projectedCompletionDate, formData.onboarding);
+    const generatedTasks = buildCourseDevelopmentTimeline(projectedCompletionDate, formData.onboarding, customBlocked);
     
     const newCourse: CourseDevelopment = {
       program: formData.program,
@@ -765,27 +844,12 @@ export function Category1CourseDev({
     });
   };
 
-  const handleRecalculateTimeline = async (newStartOfTerm: string) => {
+  const handleStartOfTermChange = async (newStartOfTerm: string) => {
     if (!activeCourse) return;
 
     const projectedCompletionDate = calculateProjectedCompletionDate(newStartOfTerm);
-    const recalculatedTasks = buildCourseDevelopmentTimeline(projectedCompletionDate, activeCourse.onboarding);
-
-    // Maintain completed status for identical names if possible
-    recalculatedTasks.forEach(newTask => {
-      const existing = activeCourse.tasks.find(ot => ot.name === newTask.name);
-      if (existing) {
-        newTask.status = existing.status;
-        (newTask as any).notes = (existing as any).notes || (newTask as any).notes || '';
-        (newTask as any).meetingTime = (existing as any).meetingTime || (newTask as any).meetingTime || '';
-        const existingSubtasks = normalizeTimelineSubtasks((existing as any).subtasks);
-        const nextSubtasks = normalizeTimelineSubtasks((newTask as any).subtasks);
-        (newTask as any).subtasks = nextSubtasks.map((subtask) => {
-          const matchingExisting = existingSubtasks.find((item) => item.title === subtask.title);
-          return matchingExisting ? { ...subtask, complete: matchingExisting.complete } : subtask;
-        });
-      }
-    });
+    const generatedTasks = buildCourseDevelopmentTimeline(projectedCompletionDate, activeCourse.onboarding, customBlocked, activeCourse.tasks);
+    const recalculatedTasks = mergeRecalculatedTimeline(activeCourse.tasks, generatedTasks);
 
     const updatedCourse = {
       ...activeCourse,
@@ -799,13 +863,22 @@ export function Category1CourseDev({
 
   const handleRecalculateCurrentTimeline = async () => {
     if (!activeCourse) return;
-    await handleRecalculateTimeline(activeCourse.termDeadline);
+
+    const projectedCompletionDate = getProjectedCompletionDate(activeCourse);
+    const generatedTasks = buildCourseDevelopmentTimeline(projectedCompletionDate, activeCourse.onboarding, customBlocked, activeCourse.tasks);
+    const recalculatedTasks = mergeRecalculatedTimeline(activeCourse.tasks, generatedTasks);
+
+    await onUpdateCourse({
+      ...activeCourse,
+      tasks: recalculatedTasks,
+    });
   };
 
   const handleToggleOnboarding = async () => {
     if (!activeCourse) return;
     const nextOnboarding = !activeCourse.onboarding;
-    const recalculatedTasks = buildCourseDevelopmentTimeline(getProjectedCompletionDate(activeCourse), nextOnboarding);
+    const generatedTasks = buildCourseDevelopmentTimeline(getProjectedCompletionDate(activeCourse), nextOnboarding, customBlocked, activeCourse.tasks);
+    const recalculatedTasks = mergeRecalculatedTimeline(activeCourse.tasks, generatedTasks);
     const updatedCourse = {
       ...activeCourse,
       onboarding: nextOnboarding,
@@ -2509,7 +2582,7 @@ NOTES
                       <input
                         type="date"
                         value={activeCourse.termDeadline}
-                        onChange={(e) => handleRecalculateTimeline(e.target.value)}
+                        onChange={(e) => handleStartOfTermChange(e.target.value)}
                         className="w-full max-w-[225px] text-xs px-2 py-1.5 border border-slate-300 bg-white focus:outline-none"
                       />
                       <span className="text-[10px] text-slate-500">
