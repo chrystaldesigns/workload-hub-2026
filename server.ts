@@ -13,6 +13,7 @@ const PROJECT_ID =
   "workload-hub-2026";
 
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
+const AUTHORIZED_EMAIL = (process.env.AUTHORIZED_EMAIL || "imchrystal@gmail.com").toLowerCase();
 
 let db: admin.firestore.Firestore | null = null;
 let firestoreReady = false;
@@ -182,6 +183,37 @@ async function startServer() {
       firestoreError,
       storageMode: firestoreReady ? "firestore" : IS_PRODUCTION ? "not-connected" : "in-memory-dev",
     });
+  });
+
+  app.use("/api", async (req, res, next) => {
+    if (req.path === "/health" || req.path === "/outlook/callback") {
+      return next();
+    }
+
+    const authorization = req.headers.authorization || "";
+    const match = authorization.match(/^Bearer\s+(.+)$/i);
+
+    if (!match) {
+      return res.status(401).json({ error: "Authentication is required." });
+    }
+
+    try {
+      const decodedToken = await admin.auth().verifyIdToken(match[1]);
+      const email = decodedToken.email?.toLowerCase();
+
+      if (!decodedToken.email_verified || email !== AUTHORIZED_EMAIL) {
+        return res.status(403).json({ error: "This account is not authorized." });
+      }
+
+      res.locals.authenticatedUser = {
+        uid: decodedToken.uid,
+        email,
+      };
+      next();
+    } catch (error) {
+      console.error("[Authentication] Invalid Firebase ID token", error);
+      return res.status(401).json({ error: "Your secure session is invalid or expired." });
+    }
   });
 
   app.get("/api/course-developments", async (_req, res) => {

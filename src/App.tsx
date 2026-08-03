@@ -15,6 +15,7 @@ import { Category3Tasks } from "./components/Category3_Tasks";
 import { CalendarSettingsPanel } from "./components/CalendarSettingsPanel";
 import { AlertCircle, RefreshCw } from "lucide-react";
 import { FSCJ_HOLIDAYS } from "./utils/calendarEngine";
+import { apiFetch } from "./api";
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>("dashboard");
@@ -191,11 +192,11 @@ export default function App() {
       setErrorMsg("");
 
       const [cdRes, lssRes, taskRes, calRes, outRes] = await Promise.all([
-        fetch("/api/course-developments"),
-        fetch("/api/lss-projects"),
-        fetch("/api/standalone-tasks"),
-        fetch("/api/calendar-settings"),
-        fetch("/api/outlook/sync"),
+        apiFetch("/api/course-developments"),
+        apiFetch("/api/lss-projects"),
+        apiFetch("/api/standalone-tasks"),
+        apiFetch("/api/calendar-settings"),
+        apiFetch("/api/outlook/sync"),
       ]);
 
       if (!cdRes.ok || !lssRes.ok || !taskRes.ok || !calRes.ok || !outRes.ok) {
@@ -290,7 +291,7 @@ export default function App() {
         tasks: Array.isArray(newCourse.tasks) ? newCourse.tasks : [],
       };
 
-      const res = await fetch("/api/course-developments", {
+      const res = await apiFetch("/api/course-developments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -322,7 +323,7 @@ export default function App() {
         tasks: Array.isArray(updatedCourse.tasks) ? updatedCourse.tasks : [],
       };
 
-      const res = await fetch(`/api/course-developments/${updatedCourse.id}`, {
+      const res = await apiFetch(`/api/course-developments/${updatedCourse.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -344,7 +345,7 @@ export default function App() {
     if (!id) return;
 
     try {
-      const res = await fetch(`/api/course-developments/${id}`, {
+      const res = await apiFetch(`/api/course-developments/${id}`, {
         method: "DELETE",
       });
 
@@ -368,7 +369,7 @@ export default function App() {
         tasks: Array.isArray(newProject.tasks) ? newProject.tasks : [],
       };
 
-      const res = await fetch("/api/lss-projects", {
+      const res = await apiFetch("/api/lss-projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -400,7 +401,7 @@ export default function App() {
         tasks: Array.isArray(updatedProject.tasks) ? updatedProject.tasks : [],
       };
 
-      const res = await fetch(`/api/lss-projects/${updatedProject.id}`, {
+      const res = await apiFetch(`/api/lss-projects/${updatedProject.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -422,7 +423,7 @@ export default function App() {
     if (!id) return;
 
     try {
-      const res = await fetch(`/api/lss-projects/${id}`, {
+      const res = await apiFetch(`/api/lss-projects/${id}`, {
         method: "DELETE",
       });
 
@@ -453,7 +454,7 @@ export default function App() {
         progress: Number(newTask.progress || 0),
       };
 
-      const res = await fetch("/api/standalone-tasks", {
+      const res = await apiFetch("/api/standalone-tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -485,7 +486,7 @@ export default function App() {
         progress: Number(updatedTask.progress || 0),
       };
 
-      const res = await fetch(`/api/standalone-tasks/${updatedTask.id}`, {
+      const res = await apiFetch(`/api/standalone-tasks/${updatedTask.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -507,7 +508,7 @@ export default function App() {
     if (!id) return;
 
     try {
-      const res = await fetch(`/api/standalone-tasks/${id}`, {
+      const res = await apiFetch(`/api/standalone-tasks/${id}`, {
         method: "DELETE",
       });
 
@@ -531,7 +532,7 @@ export default function App() {
         timezone: "America/New_York" as any,
       };
 
-      const res = await fetch("/api/calendar-settings", {
+      const res = await apiFetch("/api/calendar-settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -549,26 +550,39 @@ export default function App() {
     }
   };
 
-  const handleConnectOutlook = (clientId: string, tenantId: string) => {
+  const handleConnectOutlook = async (clientId: string, tenantId: string) => {
     const popupWidth = 600;
     const popupHeight = 650;
     const left = window.screen.width / 2 - popupWidth / 2;
     const top = window.screen.height / 2 - popupHeight / 2;
 
-    const popupUrl = `/api/outlook/auth-url?clientId=${encodeURIComponent(
-      clientId
-    )}&tenantId=${encodeURIComponent(tenantId)}`;
-
-    window.open(
-      popupUrl,
+    const popup = window.open(
+      "about:blank",
       "Authorize Outlook Calendar",
       `width=${popupWidth},height=${popupHeight},top=${top},left=${left}`
     );
+
+    try {
+      const res = await apiFetch(
+        `/api/outlook/auth-url?clientId=${encodeURIComponent(clientId)}&tenantId=${encodeURIComponent(tenantId)}`
+      );
+      const data = await res.json();
+
+      if (!res.ok || !data.url) {
+        throw new Error(data.error || "Outlook authorization could not be started.");
+      }
+
+      if (popup) popup.location.href = data.url;
+    } catch (err) {
+      popup?.close();
+      console.error("Connect Outlook failed:", err);
+      alert("Outlook authorization could not be started.");
+    }
   };
 
   const handleDisconnectOutlook = async () => {
     try {
-      const res = await fetch("/api/outlook/disconnect", {
+      const res = await apiFetch("/api/outlook/disconnect", {
         method: "POST",
       });
 
