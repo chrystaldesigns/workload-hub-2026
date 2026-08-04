@@ -1866,6 +1866,68 @@ This is a friendly reminder event, not a meeting request.`;
     openCommunicationToolWindow(popupTitle, clipboardMessage, content);
   };
 
+  const handleModuleDelivery = (course: CourseDevelopment) => {
+    const hour = new Date().getHours();
+    const greetingTime = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
+    const to = [course.deptTeam.smeEmail].filter(Boolean).join("; ");
+    const popupTitle = `${course.courseNumber} Module Delivery`;
+    const clipboardMessage =
+      "Module delivery email copied to clipboard. You may also copy/edit from the text box below.";
+
+    const content = `TO: ${to}
+SUBJECT: ${course.courseNumber} Module [number] Content Templates  (Please review & return by [mm/dd/yy])
+ATTACHMENT: Module templates
+
+Good ${greetingTime},
+
+The content details provided below are for your review and input, based on the Course Design Plan. Please examine the instructions for each item, and feel free to reach out if you have any questions or suggestions.
+
+DUE DATE: Scheduled due date return to the ID: [Day, Month #, 20YY].
+
+REQUESTED ACTION ITEMS
+
+Module Overview, Learning Objectives, and Instructional Materials
+
+File: [attachment file name or link to OneDrive file]
+
+Please [review & edit/write] content as needed and ensure:
+
+- The overview (introduction) clearly sets the context for the module and outlines the key topics students will cover.
+- Each Module Learning Objective (MLO) aligns appropriately with the Course Learning Outcomes (CLOs).
+- All instructional materials, learning activities, assignments, and assessments are mapped (aligned) to the correct MLOs. Adjust or recommend changes to strengthen alignment.
+- The instructional material descriptions (e.g., textbook chapters, websites, and other resources) provide a description of the resource, including an explanation of how they prepare learners to complete learning activities and assessments and align with the identified MLOs.
+- All instructional materials are properly cited using APA.
+
+Module Assessments and Measurement
+
+Files: [attachment file name or link to OneDrive file]
+
+- Discussion #: Title
+- Assignment #: Title
+- Quiz/Test/Exam #: Title
+
+Please [review & edit / write] content as needed and ensure:
+
+- Prompts, introductions, and instructions provide a clear and complete description of the criteria, guidance on the expectations, and a full explanation of how a grade is calculated.
+- Submission, grading, and rubric are clear, accurate, and consistent with other courses within the same program (if applicable.)
+
+Module Learning Activities and Learner Interaction
+
+Files: {{attachment file name or link to OneDrive file}}
+
+- Activity #: Title
+
+Please {{review & edit / write}} content as needed and ensure:
+
+- Activities and interactions provide a clear and complete description of the criteria and guidance on the expectations,
+- Activities provide reinforcement and opportunities to practice their new skills and knowledge or prepare them for an assessment or assignment.
+- Submission specifications are clear, and a full explanation of how a grade is calculated (if applicable.)
+
+Thank you for your thoughtful input and expertise!`;
+
+    openCommunicationToolWindow(popupTitle, clipboardMessage, content);
+  };
+
   const handleSendCourseDesignPlanDraft = (course: CourseDevelopment) => {
     const hour = new Date().getHours();
     const greetingTime = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
@@ -3243,6 +3305,17 @@ NOTES
                                     className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
                                   >
                                     <Calendar className="h-3.5 w-3.5" /> Configure calendar reminders
+                                  </button>
+                                )}
+                                {Number(task.id) === 13 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleModuleDelivery(activeCourse)}
+                                    aria-label="Module Delivery"
+                                    title="Module Delivery"
+                                    className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
+                                  >
+                                    <Mail className="h-3.5 w-3.5" /> Module Delivery
                                   </button>
                                 )}
                                 {Number(task.id) === 23 && (
