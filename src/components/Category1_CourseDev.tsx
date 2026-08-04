@@ -2062,6 +2062,56 @@ Attached are the course outline and the course design plan for your reference.`;
     );
   };
 
+  const handleKickoffMeetingRecap = (course: CourseDevelopment) => {
+    const hour = new Date().getHours();
+    const greetingTime = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
+    const smeNameParts = (course.deptTeam.smeName || "").trim().split(/\s+/).filter(Boolean);
+    const smeLastName = smeNameParts[smeNameParts.length - 1] || "SME";
+
+    const to = [
+      course.deptTeam.smeEmail,
+      course.deptTeam.deanEmail,
+      "cel@fscj.edu",
+      course.deptTeam.deanEmail,
+      "Ansa.Reams.Johnson@fscj.edu",
+      course.deptTeam.managerEmail,
+    ].filter(Boolean).join("; ");
+
+    const popupTitle = `${course.courseNumber} Kickoff Meeting Recap`;
+    const clipboardMessage =
+      "Kickoff meeting recap copied to clipboard. You may also copy/edit from the text box below.";
+
+    const content = `TO: ${to}
+Cc: christina.perrin@fscj.edu
+SUBJECT: ${course.courseNumber} Recap: Kickoff Meeting
+ATTACHMENT: Course Outline, Course Design Plan
+
+Good ${greetingTime},
+
+Thank you for attending and taking part in today's Kickoff Meeting. If there is anything I misinterpreted or missed during our discussion, please do not hesitate to reply to everyone for clarification.
+
+MEETING OUTCOMES
+
+- Stakeholders discussed the course design plan and [approved | determined it requires modification] to move forward with development.
+- Professor ${smeLastName} agrees with the proposed timeline.
+
+ACTION ITEMS
+
+Subject Matter Expert: Professor ${smeLastName}
+
+- Review and finalize content for Modules 1–3 before the Midpoint Review. Refer to individual module emails and calendar reminders for specific module due dates.
+
+Instructional Designer: Chrystal Wickline
+
+- Prep and provide Module templates to Professor ${smeLastName}
+- Schedule the Midpoint Review
+- Send a Midpoint Review reminder with agenda to stakeholders
+
+Thank you for joining the Kickoff Meeting today. I am here to support you throughout this process, so please reach out anytime.`;
+
+    openCommunicationToolWindow(popupTitle, clipboardMessage, content);
+  };
+
 
   const handleMidpointReminderAgenda = (course: CourseDevelopment) => {
     const hour = new Date().getHours();
@@ -3160,6 +3210,17 @@ NOTES
                                     className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
                                   >
                                     <Mail className="h-3.5 w-3.5" /> Kickoff Meeting Reminder
+                                  </button>
+                                )}
+                                {Number(task.id) === 11 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleKickoffMeetingRecap(activeCourse)}
+                                    aria-label="Kickoff Meeting Recap"
+                                    title="Kickoff Meeting Recap"
+                                    className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
+                                  >
+                                    <Mail className="h-3.5 w-3.5" /> Kickoff Meeting Recap
                                   </button>
                                 )}
                                 {Number(task.id) === 12 && (
