@@ -18,7 +18,7 @@ export function Navigation({ activeTab, setActiveTab, alertCount }: NavigationPr
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, badge: null },
     { id: "category1", label: "Course Developments", icon: BookOpen, badge: null },
     { id: "category2", label: "Projects", icon: FolderGit, badge: null },
-    { id: "category3", label: "Tasks", icon: CheckSquare, badge: alertCount > 0 ? alertCount : null },
+    { id: "category3", label: "Tasks", icon: CheckSquare, badge: null },
     { id: "calendar", label: "Calendar", icon: Calendar, badge: null },
   ];
 

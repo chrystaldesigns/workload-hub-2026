@@ -230,9 +230,9 @@ export default function App() {
         timezone: "America/New_York" as any,
       };
 
-      setCourseDevelopments(activeCourses);
-      setLssProjects(activeProjects);
-      setStandaloneTasks(activeTasks);
+      setCourseDevelopments(safeCourses);
+      setLssProjects(safeProjects);
+      setStandaloneTasks(safeTasks);
       setCalendarSettings(safeCalendar);
       setOutlookEvents(Array.isArray(outData) ? outData : []);
 

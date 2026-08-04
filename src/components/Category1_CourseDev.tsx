@@ -337,8 +337,21 @@ export function Category1CourseDev({
     alertStatus: 'No Concerns' as const,
   });
 
-  const activeCourses = courseDevelopments.filter((course) => !(course as any).archived);
-  const activeCourse = activeCourses.find(c => c.id === selectedId) || activeCourses[0];
+  const [showArchived, setShowArchived] = useState(false);
+
+const activeCourses = courseDevelopments.filter(
+  (course) => !(course as any).archived
+);
+
+const archivedCourses = courseDevelopments.filter(
+  (course) => (course as any).archived
+);
+
+const visibleCourses = showArchived ? archivedCourses : activeCourses;
+
+const activeCourse =
+  visibleCourses.find((course) => course.id === selectedId) ||
+  visibleCourses[0];
 
   const selectCourse = (courseId: string) => {
     setSelectedId(courseId);
@@ -348,19 +361,19 @@ export function Category1CourseDev({
   };
 
   useEffect(() => {
-    if (!activeCourses.length) {
+    if (!visibleCourses.length) {
       if (selectedId !== '') setSelectedId('');
       return;
     }
 
-    const stillExists = activeCourses.some((course) => course.id === selectedId);
+    const stillExists = visibleCourses.some((course) => course.id === selectedId);
     if (selectedId && stillExists) return;
 
     const storedId = typeof window !== 'undefined'
       ? localStorage.getItem('workloadHubSelectedCourseId')
       : '';
 
-    const nextId = activeCourses.find((course) => course.id === storedId)?.id || activeCourses[0]?.id || '';
+    const nextId = visibleCourses.find((course) => course.id === storedId)?.id || visibleCourses[0]?.id || '';
 
     if (nextId && nextId !== selectedId) {
       setSelectedId(nextId);
@@ -368,7 +381,7 @@ export function Category1CourseDev({
         localStorage.setItem('workloadHubSelectedCourseId', nextId);
       }
     }
-  }, [courseDevelopments, selectedId]);
+  }, [courseDevelopments, selectedId, showArchived]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -916,7 +929,17 @@ Archived developments will be hidden from the active Course Developments list bu
 
     selectCourse(nextActiveCourse?.id || '');
   };
+const handleRestoreCourse = async (course: CourseDevelopment) => {
+  if (!course?.id) return;
 
+  await onUpdateCourse({
+    ...course,
+    archived: false,
+  } as CourseDevelopment & { archived?: boolean });
+
+  setShowArchived(false);
+  selectCourse(course.id);
+};
   const handleAlertStatusChange = async (status: 'No Concerns' | 'Potential Concerns' | 'High Priority Concerns') => {
     if (!activeCourse) return;
     const updatedCourse = {
@@ -2464,14 +2487,25 @@ NOTES
           <span className="text-[10px] text-slate-400 font-mono uppercase font-semibold">
             Course List
           </span>
-
+<button
+  type="button"
+  onClick={() => {
+    setShowArchived((current) => !current);
+    setSelectedId("");
+  }}
+  className="w-fit border border-[#006282] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-[#006282] transition-colors hover:bg-[#006282] hover:text-white cursor-pointer"
+>
+  {showArchived
+    ? `Show Active (${activeCourses.length})`
+    : `Show Archived (${archivedCourses.length})`}
+</button>
           <div className="flex flex-wrap gap-2">
-            {activeCourses.length === 0 ? (
+            {visibleCourses.length === 0 ? (
               <div className="p-4 bg-slate-50 text-center text-slate-400 border border-dashed border-slate-200 text-xs">
                 No active course development schedules loaded. Click "+ Add Academic Course" to begin.
               </div>
             ) : (
-              activeCourses.map(c => {
+              visibleCourses.map(c => {
                 const isSelected = c.id === (activeCourse?.id || '');
                 return (
                   <button
@@ -2868,13 +2902,18 @@ NOTES
                   <Mail className="w-3.5 h-3.5" /> SME Compensation
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => handleArchiveCourse(activeCourse)}
-                  className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-slate-700 hover:text-[#B35C06]"
-                >
-                  <Archive className="w-3.5 h-3.5" /> Archive
-                </button>
+<button
+  type="button"
+  onClick={() =>
+    (activeCourse as any).archived
+      ? handleRestoreCourse(activeCourse)
+      : handleArchiveCourse(activeCourse)
+  }
+  className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-slate-700 hover:text-[#B35C06]"
+>
+  <Archive className="w-3.5 h-3.5" />
+  {(activeCourse as any).archived ? "Restore" : "Archive"}
+</button>
 
                 <button
                   type="button"
