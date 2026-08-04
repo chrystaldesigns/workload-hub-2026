@@ -1797,6 +1797,61 @@ If you are unable to attend a meeting where your attendance is required, please 
     openCommunicationToolWindow(popupTitle, clipboardMessage, content);
   };
 
+  const handleScheduleMidpointMeeting = (course: CourseDevelopment) => {
+    const hour = new Date().getHours();
+    const greetingTime = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
+
+    const to = [
+      course.deptTeam.deanEmail,
+      "cel@fscj.edu",
+      course.deptTeam.deanEmail,
+      "Ansa.Reams.Johnson@fscj.edu",
+      course.deptTeam.managerEmail,
+      course.deptTeam.smeEmail,
+    ].filter(Boolean).join("; ");
+
+    const cc = [
+      "Golf.K@fscj.edu",
+      "christina.perrin@fscj.edu",
+    ].join("; ");
+
+    const popupTitle = `${course.courseNumber} Midpoint Review for Course Development`;
+    const clipboardMessage =
+      "Midpoint meeting calendar invitation copied to clipboard. You may also copy/edit from the text box below.";
+
+    const content = `TO: ${to}
+Cc: ${cc}
+SUBJECT: ${course.courseNumber} Midpoint Review for Course Development
+ATTACHMENT: Course Design Plan Amendments, if applicable
+
+Good ${greetingTime},
+
+MEETING PURPOSE
+
+This midpoint review is an important checkpoint in our course development timeline. We'll assess progress against the design plan, address any feedback or concerns, and confirm approval to move forward with the remaining development. This is also an opportunity to discuss timeline adjustments if needed.
+
+ATTENDANCE INSTRUCTIONS
+
+If you are unable to attend a meeting where your attendance is required, please forward this invitation to a team member who can represent you.
+
+Please notify me of any stakeholders we may have missed, and I can add them, or feel free to forward this invite. Thank you—and I look forward to a productive initial meeting.
+
+AGENDA
+
+- Introduction of participants
+- Walk through completed modules in Canvas (about 50% of the course)
+- Review module structure, content organization, and navigation
+- Examine learning activities, assignments, and assessments
+- Discuss instructional materials and third-party platform integration
+- Address SME feedback, questions, or concerns
+- Review the timeline for completing the course development
+- Address any timeline adjustments if needed
+- Confirm approval to proceed with the remaining development
+- Conclusion and Q&A`;
+
+    openCommunicationToolWindow(popupTitle, clipboardMessage, content);
+  };
+
   const handleSendCourseDesignPlanDraft = (course: CourseDevelopment) => {
     const hour = new Date().getHours();
     const greetingTime = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
@@ -3091,6 +3146,17 @@ NOTES
                                     className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
                                   >
                                     <Mail className="h-3.5 w-3.5" /> Kickoff Meeting Reminder
+                                  </button>
+                                )}
+                                {Number(task.id) === 12 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleScheduleMidpointMeeting(activeCourse)}
+                                    aria-label="Schedule midpoint meeting"
+                                    title="Schedule midpoint meeting"
+                                    className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
+                                  >
+                                    <Calendar className="h-3.5 w-3.5" /> Schedule midpoint meeting
                                   </button>
                                 )}
                                 {Number(task.id) === 23 && (
