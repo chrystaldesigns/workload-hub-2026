@@ -1852,6 +1852,20 @@ AGENDA
     openCommunicationToolWindow(popupTitle, clipboardMessage, content);
   };
 
+  const handleConfigureCalendarReminders = (course: CourseDevelopment) => {
+    const to = [course.deptTeam.smeEmail].filter(Boolean).join("; ");
+    const popupTitle = `${course.courseNumber} Module Content Due Reminder`;
+    const clipboardMessage =
+      "Module content due reminder copied to clipboard. You may also copy/edit from the text box below.";
+
+    const content = `TO: ${to}
+SUBJECT: ${course.courseNumber} Module {moduleNumber} Content Due
+
+This is a friendly reminder event, not a meeting request.`;
+
+    openCommunicationToolWindow(popupTitle, clipboardMessage, content);
+  };
+
   const handleSendCourseDesignPlanDraft = (course: CourseDevelopment) => {
     const hour = new Date().getHours();
     const greetingTime = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
@@ -3157,6 +3171,17 @@ NOTES
                                     className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
                                   >
                                     <Calendar className="h-3.5 w-3.5" /> Schedule midpoint meeting
+                                  </button>
+                                )}
+                                {Number(task.id) === 13 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleConfigureCalendarReminders(activeCourse)}
+                                    aria-label="Configure calendar reminders"
+                                    title="Configure calendar reminders"
+                                    className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
+                                  >
+                                    <Calendar className="h-3.5 w-3.5" /> Configure calendar reminders
                                   </button>
                                 )}
                                 {Number(task.id) === 23 && (
