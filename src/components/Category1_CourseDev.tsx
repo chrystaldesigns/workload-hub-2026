@@ -2204,33 +2204,33 @@ This email is a friendly reminder that we will hold our final review meeting for
     "Conduct final review"
   );
 
-  const qaTask = findTimelineTaskByExactName(
-    course,
-    "Complete QA review"
-  );
+  const formatActionItemDate = (dateStr: string) => {
+    const date = parseDate(dateStr);
+    if (Number.isNaN(date.getTime())) return "[Month day, 20yy]";
+    return date.toLocaleDateString("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
+  };
 
-  const endCompTask = findTimelineTaskByExactName(
-    course,
-    "End compensation"
-  );
-
-  const qaDue =
-    qaTask?.dueDate || qaTask?.startDate
-      ? formatDisplayDate(
-          qaTask?.dueDate || qaTask?.startDate || ""
-        )
-      : "[Month day, 20yy]";
-
-  const archiveDue =
-    endCompTask?.dueDate || endCompTask?.startDate
-      ? formatDisplayDate(
-          endCompTask?.dueDate || endCompTask?.startDate || ""
-        )
-      : "[Month day, 20yy]";
+  const finalReviewDate = finalReviewTask?.dueDate || finalReviewTask?.startDate || "";
+  const qaDueDate = finalReviewDate
+    ? stepWorkingDays(finalReviewDate, 5, 1, customBlocked)
+    : "";
+  const archiveDueDate = qaDueDate
+    ? stepWorkingDays(qaDueDate, 5, 1, customBlocked)
+    : "";
+  const qaDue = qaDueDate
+    ? formatActionItemDate(qaDueDate)
+    : "[Month day, 20yy]";
+  const archiveDue = archiveDueDate
+    ? formatActionItemDate(archiveDueDate)
+    : "[Month day, 20yy]";
 
   const to = [
     course.deptTeam.smeEmail,
-    course.deptTeam.deanName,
+    course.deptTeam.deanEmail,
     "Ansa.Reams.Johnson@fscj.edu",
     course.deptTeam.managerEmail,
     "kris.kristen@fscj.edu",
@@ -2261,7 +2261,7 @@ Thank you for attending and taking part in today's Final Review. If there is any
 
 COURSE DOCUMENTS
 
-- The ${course.courseNumber} <a class="inline_disabled" title="Learning and Grading Plan" href="https://cel.quickbase.com/nav/app/bs3dcdkm5/table/bs3dcdktv/action/q?qid=155&amp;NavFrom=Recents&amp;navfrom=Recents&amp;skip=230" target="_blank" rel="noopener">Learning and Grading Plan</a> provides information to complete your Course Syllabus. Be sure to add due dates or remove the column as needed.
+- The ${course.courseNumber} Learning and Grading Plan (https://cel.quickbase.com/nav/app/bs3dcdkm5/table/bs3dcdktv/action/q?qid=155&NavFrom=Recents&navfrom=Recents&skip=230) provides information to complete your Course Syllabus. Be sure to add due dates or remove the column as needed.
 
 - Outcomes Map (attached)
 
@@ -2277,7 +2277,7 @@ Instructional Designer: Chrystal Wickline
 
 - Send Stipend Completion email by EOD today
 
-- CeL QA Team performs a Canvas Quality Control check due ${qaDue}
+- CeL QA Team performs a Canvas Quality Control check [complete] or due ${qaDue}
 
 - CeL Multimedia performs a Code Check and Archive due ${archiveDue}
 
@@ -2289,21 +2289,21 @@ SUGGESTIONS AND INQUIRIES (if applicable)
 
 3RD PARTY PLATFORM (if applicable)
 
-- Platform:
+- Platform: Pearson MyLab
 
-- Course Name:
+- Course Name: CeL ACB1234: Course Title
 
-- Course Section:
+- Course Section: CeL Section ACB1234: Course Title
 
-- Start Date:
+- Start Date: mm/dd/yy
 
-- End Date:
+- End Date: mm/dd/yy
 
-- Course Key (Copy Code):
+- Course Key (Copy Code): XXX###
 
 - Notes:
 
-- Student Course Code:
+- Student Course Code: XXX###
 
 - Integration Type: Pair and sync integration
 
@@ -3117,6 +3117,8 @@ NOTES
   <button
     type="button"
     onClick={() => handleFinalReviewRecap(activeCourse)}
+    aria-label="Final Review Recap"
+    title="Final Review Recap"
     className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
   >
     <Mail className="h-3.5 w-3.5" />
