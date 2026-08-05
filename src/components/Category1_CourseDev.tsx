@@ -2691,6 +2691,34 @@ Details: This course was designed and developed by the Subject Matter Expert, ${
     openCommunicationToolWindow(popupTitle, clipboardMessage, content);
   };
 
+  const handleCourseCompletionRequest = (course: CourseDevelopment) => {
+    const courseCompletionTask = findTimelineTaskByExactName(course, "Course completion");
+    const courseCompletionDate =
+      courseCompletionTask?.dueDate || courseCompletionTask?.startDate || "";
+    const requestDueDate = courseCompletionDate
+      ? formatDisplayDateShort(
+          stepWorkingDays(courseCompletionDate, 5, 1, customBlocked)
+        )
+      : "TBD";
+
+    const popupTitle = `${course.courseNumber} Close Course Development`;
+    const clipboardMessage =
+      "Course completion request copied to clipboard. You may also copy/edit from the text box below.";
+
+    const content = `Task Category: OnBoarding/Close Out
+Multimedia Task Types: Close Development
+Brief Title: ${course.courseNumber} Close Course Development
+Status: Open
+Priority: Normal
+Due Date: ${requestDueDate}
+Alt Assignment Full Name: Kristin Kristen
+Notes:
+COURSE DEVELOPMENT COMPLETE
+(1) The code check and archiving processes are complete.`;
+
+    openCommunicationToolWindow(popupTitle, clipboardMessage, content);
+  };
+
   const handleSubmitProofreadingRequestQuickbase = (course: CourseDevelopment) => {
     const proofreadingRequestTask = findTimelineTaskByExactName(course, "Submit proofreading request");
     const finalReviewTask = findTimelineTaskByExactName(course, "Conduct final review");
@@ -3564,6 +3592,17 @@ NOTES
                                     className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
                                   >
                                     <Mail className="h-3.5 w-3.5" /> Send project completion notification
+                                  </button>
+                                )}
+                                {Number(task.id) === 46 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCourseCompletionRequest(activeCourse)}
+                                    aria-label="Course Completion Request"
+                                    title="Course Completion Request"
+                                    className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
+                                  >
+                                    <Clipboard className="h-3.5 w-3.5" /> Course Completion Request
                                   </button>
                                 )}
                                 {Number(task.id) === 43 && (
