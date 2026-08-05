@@ -2657,9 +2657,9 @@ Please load the content for Professor ${smeLastName}’s class when you have a m
 VERSION INFORMATION
 
 Date: ${currentMonthYear}
-Version Number: cel-${course.courseNumber}-v${canvasVersion}
+Version Number: ${canvasVersion}
 Action: ${developmentType}
-Details: This course was designed and developed by the Subject Matter Expert, Professor ${smeName}, and Instructional Designer, Chrystal Wickline`;
+Details: This course was designed and developed by the Subject Matter Expert, ${smeName}, and Instructional Designer, Chrystal Wickline`;
 
     openCommunicationToolWindow(popupTitle, clipboardMessage, content);
   };
