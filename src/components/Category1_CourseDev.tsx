@@ -2719,6 +2719,48 @@ COURSE DEVELOPMENT COMPLETE
     openCommunicationToolWindow(popupTitle, clipboardMessage, content);
   };
 
+  const handleMultimediaRequest = (course: CourseDevelopment) => {
+    const finalReviewTask = findTimelineTaskByExactName(course, "Conduct final review");
+    const finalReviewDateValue = finalReviewTask?.dueDate || finalReviewTask?.startDate || "";
+    const finalReviewDate = formatDisplayDateShortSafe(finalReviewDateValue);
+
+    const popupTitle = `${course.courseNumber} Multimedia Request`;
+    const clipboardMessage =
+      "Multimedia request copied to clipboard. You may also copy/edit from the text box below.";
+
+    const content = `Task Category: Multimedia
+Task Types: Choose from dropdown
+Brief Title: ${course.courseNumber} Title of requested item
+Interactivity Level: High | Medium | Low
+Status: Open
+Priority: Normal
+Due Date: ${finalReviewDate}
+Alt Assignment Full Name: Bob Dee
+Notes:
+e.g., Activity 5: Payments & Claims Key Terms and Concepts (20 pts)
+
+------------------------------------------------
+ONEDRIVE FILE AND  LINK
+------------------------------------------------
+File Name:
+OneDrive Link:
+------------------------------------------------
+MIDPOINT REVIEW DATE
+------------------------------------------------
+${finalReviewDate}
+------------------------------------------------
+ACTIVITY INTERACTION DETAILS
+------------------------------------------------
+The content includes:
+e.g.,
+- Content pages (number of page)
+- Dialog cards (number of cards)
+- Knowledge Check: Matching (number of terms)
+- Completion Feedback (content page)`;
+
+    openCommunicationToolWindow(popupTitle, clipboardMessage, content);
+  };
+
   const handleSubmitProofreadingRequestQuickbase = (course: CourseDevelopment) => {
     const proofreadingRequestTask = findTimelineTaskByExactName(course, "Submit proofreading request");
     const finalReviewTask = findTimelineTaskByExactName(course, "Conduct final review");
@@ -3534,6 +3576,17 @@ NOTES
                                     className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
                                   >
                                     <Calendar className="h-3.5 w-3.5" /> Schedule Final Review
+                                  </button>
+                                )}
+                                {[28, 31, 34, 37].includes(Number(task.id)) && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleMultimediaRequest(activeCourse)}
+                                    aria-label="Multimedia Request"
+                                    title="Multimedia Request"
+                                    className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
+                                  >
+                                    <Clipboard className="h-3.5 w-3.5" /> Multimedia Request
                                   </button>
                                 )}
                                 {Number(task.id) === 38 && (
