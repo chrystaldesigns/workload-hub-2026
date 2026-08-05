@@ -2577,6 +2577,93 @@ The next email will provide details on course completion, including finalized mo
     openCommunicationToolWindow(popupTitle, clipboardMessage, content);
   };
 
+  const handleSendProjectCompletionNotification = (course: CourseDevelopment) => {
+    const now = new Date();
+    const hour = now.getHours();
+    const greetingTime = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
+    const currentMonthYear = now.toLocaleDateString("en-US", {
+      month: "long",
+      year: "numeric",
+    });
+    const smeName = (course.deptTeam.smeName || "").trim() || "SME";
+    const smeNameParts = smeName.split(/\s+/).filter(Boolean);
+    const smeLastName = smeNameParts[smeNameParts.length - 1] || "SME";
+    const canvasVersion = course.canvasVersion || "[canvas version]";
+    const developmentType = course.devType || "[development type]";
+
+    const to = [
+      course.deptTeam.smeEmail,
+      "Ansa.Reams.Johnson@fscj.edu",
+      "martha.mcnulty@fscj.edu",
+    ].filter(Boolean).join("; ");
+
+    const cc = [
+      "kris.kristen@fscj.edu",
+      "bob.dee@fscj.edu",
+      "Golf.K@fscj.edu",
+      "christina.perrin@fscj.edu",
+    ].join("; ");
+
+    const popupTitle = `${course.courseNumber} Course Completion & Next Steps`;
+    const clipboardMessage =
+      "Project completion notification copied to clipboard. You may also copy/edit from the text box below.";
+
+    const content = `TO: ${to}
+Cc: ${cc}
+SUBJECT: ${course.courseNumber} Course Completion & Next Steps
+
+LINK TO: Learning Plan (https://cel.quickbase.com/nav/app/bs3dcdkm5/table/bs3dcdktv/action/q?qid=155&NavFrom=Recents&navfrom=Recents&skip=230)
+ATTACHMENT: Outcomes Map
+
+Good ${greetingTime},
+
+FSCJ ONLINE
+
+- The course [development is / modifications re] complete.
+- The code check and archiving processes are complete.
+- The course is the ‘Staging’ account and is ready for Anšá to move to ‘Production.’
+
+SUBJECT MATTER EXPERT
+
+Professor ${smeLastName},
+
+Class Number
+
+Please contact our Director of E-Admin & Support Services, Dr. Anšá Reams-Johnson, and provide your class number so we can load the course content. FSCJ Online Support Services will load the course content into your class so you can begin personalizing your course.
+
+Errors and Modifications
+
+If you see any errors that need immediate attention, please contact us via CeL@fscj.edu. You can start a note for any course modifications you make and share it with us at the end of the term. That process will allow us to update our course before loading the content for your next class. Please send any requests you have to CeL@fscj.edu.
+
+Future Classes Beyond This Term
+
+Important Note: For each new term, it is highly recommended that you contact our Director of E-Admin & Support Services, Dr. Anšá Reams-Johnson, to load your classes. This ensures that any changes to Canvas or the CeL-developed course are incorporated. From there, you should be able to transfer your course customization from a previous class, such as adding readings or the like.
+
+Stipend Inquiries
+
+If you have any questions regarding your stipend, please don’t hesitate to contact Kris Kristen directly.
+
+DIRECTOR, E-ADMIN & SUPPORT SERVICES
+
+Anšá,
+
+Please load the content for Professor ${smeLastName}’s class when you have a moment.
+
+- This course [does/does not] use a 3rd-party platform.
+- This course [is ZTC / uses a textbook].
+- The Learning Grading Plan is linked
+- The Outcomes Map is attached for your convenience.
+
+VERSION INFORMATION
+
+Date: ${currentMonthYear}
+Version Number: cel-${course.courseNumber}-v${canvasVersion}
+Action: ${developmentType}
+Details: This course was designed and developed by the Subject Matter Expert, Professor ${smeName}, and Instructional Designer, Chrystal Wickline`;
+
+    openCommunicationToolWindow(popupTitle, clipboardMessage, content);
+  };
+
   const handleSubmitProofreadingRequestQuickbase = (course: CourseDevelopment) => {
     const proofreadingRequestTask = findTimelineTaskByExactName(course, "Submit proofreading request");
     const finalReviewTask = findTimelineTaskByExactName(course, "Conduct final review");
@@ -3428,6 +3515,17 @@ NOTES
                                     className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
                                   >
                                     <Mail className="h-3.5 w-3.5" /> Send stipend notification
+                                  </button>
+                                )}
+                                {Number(task.id) === 46 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSendProjectCompletionNotification(activeCourse)}
+                                    aria-label="Send project completion notification"
+                                    title="Send project completion notification"
+                                    className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
+                                  >
+                                    <Mail className="h-3.5 w-3.5" /> Send project completion notification
                                   </button>
                                 )}
                                 {Number(task.id) === 43 && (
