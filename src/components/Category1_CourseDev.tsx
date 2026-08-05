@@ -2719,10 +2719,14 @@ COURSE DEVELOPMENT COMPLETE
     openCommunicationToolWindow(popupTitle, clipboardMessage, content);
   };
 
-  const handleMultimediaRequest = (course: CourseDevelopment) => {
-    const finalReviewTask = findTimelineTaskByExactName(course, "Conduct final review");
-    const finalReviewDateValue = finalReviewTask?.dueDate || finalReviewTask?.startDate || "";
-    const finalReviewDate = formatDisplayDateShortSafe(finalReviewDateValue);
+  const handleMultimediaRequest = (
+    course: CourseDevelopment,
+    reviewTaskName: "Conduct midpoint review" | "Conduct final review",
+    reviewDateLabel: "MIDPOINT REVIEW DATE" | "FINAL REVIEW DATE"
+  ) => {
+    const reviewTask = findTimelineTaskByExactName(course, reviewTaskName);
+    const reviewDateValue = reviewTask?.dueDate || reviewTask?.startDate || "";
+    const reviewDate = formatDisplayDateShortSafe(reviewDateValue);
 
     const popupTitle = `${course.courseNumber} Multimedia Request`;
     const clipboardMessage =
@@ -2734,7 +2738,7 @@ Brief Title: ${course.courseNumber} Title of requested item
 Interactivity Level: High | Medium | Low
 Status: Open
 Priority: Normal
-Due Date: ${finalReviewDate}
+Due Date: ${reviewDate}
 Alt Assignment Full Name: Bob Dee
 Notes:
 e.g., Activity 5: Payments & Claims Key Terms and Concepts (20 pts)
@@ -2745,9 +2749,9 @@ ONEDRIVE FILE AND  LINK
 File Name:
 OneDrive Link:
 ------------------------------------------------
-FINAL REVIEW DATE
+${reviewDateLabel}
 ------------------------------------------------
-${finalReviewDate}
+${reviewDate}
 ------------------------------------------------
 ACTIVITY INTERACTION DETAILS
 ------------------------------------------------
@@ -3578,10 +3582,33 @@ NOTES
                                     <Calendar className="h-3.5 w-3.5" /> Schedule Final Review
                                   </button>
                                 )}
+                                {[16, 19, 22].includes(Number(task.id)) && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleMultimediaRequest(
+                                        activeCourse,
+                                        "Conduct midpoint review",
+                                        "MIDPOINT REVIEW DATE"
+                                      )
+                                    }
+                                    aria-label="Multimedia Request"
+                                    title="Multimedia Request"
+                                    className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
+                                  >
+                                    <Clipboard className="h-3.5 w-3.5" /> Multimedia Request
+                                  </button>
+                                )}
                                 {[28, 31, 34, 37].includes(Number(task.id)) && (
                                   <button
                                     type="button"
-                                    onClick={() => handleMultimediaRequest(activeCourse)}
+                                    onClick={() =>
+                                      handleMultimediaRequest(
+                                        activeCourse,
+                                        "Conduct final review",
+                                        "FINAL REVIEW DATE"
+                                      )
+                                    }
                                     aria-label="Multimedia Request"
                                     title="Multimedia Request"
                                     className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
