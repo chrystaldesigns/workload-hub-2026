@@ -2174,6 +2174,33 @@ Thank you for joining the Kickoff Meeting today. I am here to support you throug
     openCommunicationToolWindow(popupTitle, clipboardMessage, content);
   };
 
+  const handleRequestCanvasShell = (course: CourseDevelopment) => {
+    const kickoffTask = findTimelineTaskByExactName(course, "Conduct kickoff meeting");
+    const kickoffDate = kickoffTask?.dueDate || kickoffTask?.startDate || "";
+    const shellDueDate = kickoffDate
+      ? formatDisplayDateShort(stepWorkingDays(kickoffDate, 5, 1, customBlocked))
+      : "TBD";
+    const developmentType = course.devType || "[development type]";
+    const smeEmail = course.deptTeam.smeEmail || "[SME email]";
+
+    const popupTitle = `${course.courseNumber} Course Shell Creation`;
+    const clipboardMessage =
+      "Canvas shell request copied to clipboard. You may also copy/edit from the text box below.";
+
+    const content = `Task Category: Multimedia
+Multimedia Task Types: Create Canvas Course Shell
+Revision Tier: ${developmentType}
+Brief Title: ${course.courseNumber} Course Shell Creation
+Status: Open
+Priority: Normal
+Due Date: ${shellDueDate}
+Notes:
+- Please create a new course shell for ${course.courseNumber}.
+- Please add ${smeEmail} to the course with the "Teacher" role.`;
+
+    openCommunicationToolWindow(popupTitle, clipboardMessage, content);
+  };
+
 
   const handleMidpointReminderAgenda = (course: CourseDevelopment) => {
     const hour = new Date().getHours();
@@ -3408,6 +3435,17 @@ NOTES
                                     className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
                                   >
                                     <Mail className="h-3.5 w-3.5" /> Kickoff Meeting Recap
+                                  </button>
+                                )}
+                                {Number(task.id) === 11 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRequestCanvasShell(activeCourse)}
+                                    aria-label="Request Canvas shell"
+                                    title="Request Canvas shell"
+                                    className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
+                                  >
+                                    <Clipboard className="h-3.5 w-3.5" /> Request Canvas shell
                                   </button>
                                 )}
                                 {Number(task.id) === 12 && (
