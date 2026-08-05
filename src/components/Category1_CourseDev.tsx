@@ -2539,6 +2539,44 @@ Thank you for joining the Final Review Meeting today. It has been a pleasure wor
   );
 };
 
+  const handleSendStipendNotification = (course: CourseDevelopment) => {
+    const hour = new Date().getHours();
+    const greetingTime = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
+    const smeNameParts = (course.deptTeam.smeName || "").trim().split(/\s+/).filter(Boolean);
+    const smeLastName = smeNameParts[smeNameParts.length - 1] || "SME";
+
+    const to = [
+      course.deptTeam.smeEmail,
+      "kris.kristen@fscj.edu",
+      "bob.dee@fscj.edu",
+    ].filter(Boolean).join("; ");
+
+    const popupTitle = `${course.courseNumber} Stipend Completion`;
+    const clipboardMessage =
+      "Stipend notification copied to clipboard. You may also copy/edit from the text box below.";
+
+    const content = `TO: ${to}
+SUBJECT: ${course.courseNumber}  is ready for Stipend completion
+
+Good ${greetingTime},
+
+CEL OPERATIONS
+
+The final review is complete and approved for release. The remaining items are the Canvas Course Quality Control Check and Multimedia Code Check Archive.
+
+Professor ${smeLastName} has completed the deliverables.
+
+SUBJECT MATTER EXPERT
+
+Professor ${smeLastName},
+
+You will receive an email from me with the Subject: ‘${course.courseNumber} Course Completion & Next Steps’ once the code check is complete and has been converted to the Staging phase.
+
+The next email will provide details on course completion, including finalized modifications (if applicable), code checks, and archiving. It will outline instructions for moving the course to production, steps for subject matter experts to load content, and guidance on reporting errors or future modifications. Attachments will include the Learning Grading Plan and Outcomes Map. Additional notes will cover best practices for future course terms and contact information for support and stipend inquiries.`;
+
+    openCommunicationToolWindow(popupTitle, clipboardMessage, content);
+  };
+
   const handleSubmitProofreadingRequestQuickbase = (course: CourseDevelopment) => {
     const proofreadingRequestTask = findTimelineTaskByExactName(course, "Submit proofreading request");
     const finalReviewTask = findTimelineTaskByExactName(course, "Conduct final review");
@@ -3381,6 +3419,17 @@ NOTES
     <Clipboard className="h-3.5 w-3.5" /> Request Code Check and Archive [Quickbase]
   </button>
 )}
+                                {Number(task.id) === 45 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSendStipendNotification(activeCourse)}
+                                    aria-label="Send stipend notification"
+                                    title="Send stipend notification"
+                                    className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
+                                  >
+                                    <Mail className="h-3.5 w-3.5" /> Send stipend notification
+                                  </button>
+                                )}
                                 {Number(task.id) === 43 && (
                                   <button
                                     type="button"
