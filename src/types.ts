@@ -78,6 +78,8 @@ export interface DeptTeam {
   smeEmail: string;
   deanName: string;
   deanEmail: string;
+  associateDeanName?: string;
+  associateDeanEmail?: string;
   managerName?: string;
   managerEmail?: string;
 }

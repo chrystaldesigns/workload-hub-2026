@@ -331,6 +331,8 @@ export function Category1CourseDev({
     smeEmail: '',
     deanName: '',
     deanEmail: '',
+    associateDeanName: '',
+    associateDeanEmail: '',
     managerName: '',
     managerEmail: '',
     courseNotes: '',
@@ -463,6 +465,8 @@ const activeCourse =
       smeEmail: course.deptTeam?.smeEmail || '',
       deanName: course.deptTeam?.deanName || '',
       deanEmail: course.deptTeam?.deanEmail || '',
+      associateDeanName: course.deptTeam?.associateDeanName || '',
+      associateDeanEmail: course.deptTeam?.associateDeanEmail || '',
       managerName: course.deptTeam?.managerName || '',
       managerEmail: course.deptTeam?.managerEmail || '',
       courseNotes: course.courseNotes || '',
@@ -511,6 +515,8 @@ const activeCourse =
         smeEmail: editingCourse.smeEmail.trim(),
         deanName: editingCourse.deanName.trim(),
         deanEmail: editingCourse.deanEmail.trim(),
+        associateDeanName: editingCourse.associateDeanName.trim(),
+        associateDeanEmail: editingCourse.associateDeanEmail.trim(),
         managerName: editingCourse.managerName.trim(),
         managerEmail: editingCourse.managerEmail.trim(),
       },
@@ -773,6 +779,8 @@ const activeCourse =
         smeEmail: formData.smeEmail,
         deanName: formData.deanName,
         deanEmail: formData.deanEmail,
+        associateDeanName: formData.associateDeanName,
+        associateDeanEmail: formData.associateDeanEmail,
         managerName: formData.managerName,
         managerEmail: formData.managerEmail,
       },
@@ -802,6 +810,8 @@ const activeCourse =
       smeEmail: '',
       deanName: '',
       deanEmail: '',
+      associateDeanName: '',
+      associateDeanEmail: '',
       managerName: '',
       managerEmail: '',
       courseNotes: '',
@@ -3154,6 +3164,16 @@ NOTES
                         <span className="text-slate-500 font-normal break-all">{activeCourse.deptTeam.managerEmail || 'N/A'}</span>
                       </div>
                     </div>
+
+                    <div>
+                      <span className="text-slate-500 uppercase text-[10px] block font-semibold mb-0.5">
+                        Associate Dean
+                      </span>
+                      <div className="flex flex-col gap-0.5">
+                        <span className="font-medium text-slate-800">{activeCourse.deptTeam.associateDeanName || 'None assigned'}</span>
+                        <span className="text-slate-500 font-normal break-all">{activeCourse.deptTeam.associateDeanEmail || 'N/A'}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -3305,6 +3325,16 @@ NOTES
                     <label className="flex flex-col gap-1">
                       <span className="text-[10px] uppercase text-slate-500 font-semibold">Program Manager Email</span>
                       <input type="email" name="managerEmail" value={editingCourse.managerEmail} onChange={handleEditingChange} className="px-3 py-2 border border-slate-300 bg-white" />
+                    </label>
+
+                    <label className="flex flex-col gap-1">
+                      <span className="text-[10px] uppercase text-slate-500 font-semibold">Associate Dean Name</span>
+                      <input name="associateDeanName" value={editingCourse.associateDeanName} onChange={handleEditingChange} className="px-3 py-2 border border-slate-300 bg-white" />
+                    </label>
+
+                    <label className="flex flex-col gap-1">
+                      <span className="text-[10px] uppercase text-slate-500 font-semibold">Associate Dean Email</span>
+                      <input type="email" name="associateDeanEmail" value={editingCourse.associateDeanEmail} onChange={handleEditingChange} className="px-3 py-2 border border-slate-300 bg-white" />
                     </label>
 
                     <label className="md:col-span-2 flex flex-col gap-1">
@@ -4144,6 +4174,31 @@ NOTES
                     value={formData.managerEmail}
                     onChange={handleInputChange}
                     placeholder="pm@fscj.edu"
+                    className="w-full px-3 py-1.5 border border-slate-355 bg-white text-2xs font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Associate Dean (Left, Optional):</label>
+                  <input
+                    type="text"
+                    name="associateDeanName"
+                    value={formData.associateDeanName}
+                    onChange={handleInputChange}
+                    placeholder="Associate Dean Name"
+                    className="w-full px-3 py-1.5 border border-slate-355 bg-white text-2xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Associate Dean Email Address (Right):</label>
+                  <input
+                    type="email"
+                    name="associateDeanEmail"
+                    value={formData.associateDeanEmail}
+                    onChange={handleInputChange}
+                    placeholder="associate.dean@fscj.edu"
                     className="w-full px-3 py-1.5 border border-slate-355 bg-white text-2xs font-mono"
                   />
                 </div>
