@@ -3946,7 +3946,7 @@ NOTES
           <div className="bg-[#F4F1ED] border-2 border-slate-900 p-6 max-w-xl w-full flex flex-col gap-4 max-h-[85vh] overflow-y-auto">
             <div className="flex justify-between items-center border-b border-slate-900 pb-2.5">
               <h3 className="text-md font-semibold text-slate-900 uppercase tracking-widest flex items-center gap-1.5">
-                <Sparkles className="w-5 h-5 text-[#33B1C8]" /> Dispatcher Course creation Wizard
+                <Sparkles className="w-5 h-5 text-[#33B1C8]" /> Course Development Information
               </h3>
               <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-slate-600 font-semibold cursor-pointer select-none">✕</button>
             </div>
@@ -3955,7 +3955,7 @@ NOTES
               
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Division program:</label>
+                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Course Program:</label>
                   <input
                     type="text"
                     name="program"
@@ -3982,7 +3982,7 @@ NOTES
               </div>
 
               <div>
-                <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Course Title Name:</label>
+                <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Course Title:</label>
                 <input
                   type="text"
                   name="courseTitle"
@@ -3996,7 +3996,7 @@ NOTES
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Type Design Mode:</label>
+                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Action [Course Development Type]:</label>
                   <select
                     name="devType"
                     value={formData.devType}
@@ -4104,7 +4104,7 @@ NOTES
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Subject Matter Expert (Left):</label>
+                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Subject Matter Expert:</label>
                   <input
                     type="text"
                     name="smeName"
@@ -4116,7 +4116,7 @@ NOTES
                   />
                 </div>
                 <div>
-                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">SME Email Address (Right):</label>
+                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">SME Email Address:</label>
                   <input
                     type="email"
                     name="smeEmail"
@@ -4131,7 +4131,7 @@ NOTES
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Division Dean (Left):</label>
+                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Program Dean:</label>
                   <input
                     type="text"
                     name="deanName"
@@ -4143,7 +4143,7 @@ NOTES
                   />
                 </div>
                 <div>
-                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Dean Email Address (Right):</label>
+                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Dean Email Address:</label>
                   <input
                     type="email"
                     name="deanEmail"
@@ -4158,7 +4158,7 @@ NOTES
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Academic PM (Left, Optional):</label>
+                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Academic PM:</label>
                   <input
                     type="text"
                     name="managerName"
@@ -4169,7 +4169,7 @@ NOTES
                   />
                 </div>
                 <div>
-                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">PM Email Address (Right):</label>
+                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">PM Email Address:</label>
                   <input
                     type="email"
                     name="managerEmail"
@@ -4183,7 +4183,7 @@ NOTES
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Associate Dean (Left, Optional):</label>
+                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Associate Dean:</label>
                   <input
                     type="text"
                     name="associateDeanName"
@@ -4194,7 +4194,7 @@ NOTES
                   />
                 </div>
                 <div>
-                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Associate Dean Email Address (Right):</label>
+                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Associate Dean Email Address:</label>
                   <input
                     type="email"
                     name="associateDeanEmail"
