@@ -2875,7 +2875,9 @@ Notes:
     const popupTitle = `${course.courseNumber} Quality Assurance Review`;
     const clipboardMessage = "Quality assurance review request copied to clipboard. You may also copy/edit from the text box below.";
 
-    const content = `${course.courseNumber} Quality Assurance Review
+    const content = `To: christina.perrin@fscj.edu
+
+${course.courseNumber} Quality Assurance Review
 
 ------------------------------------------------
 ONEDRIVE COURSE DOCUMENTS FOLDER
