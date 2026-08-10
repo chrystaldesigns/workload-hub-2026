@@ -3156,7 +3156,7 @@ NOTES
 
                     <div>
                       <span className="text-slate-500 uppercase text-[10px] block font-semibold mb-0.5">
-                        Division ID
+                        CeL Instructional Designer
                       </span>
                       <div className="flex flex-col gap-0.5">
                         <span className="font-medium text-slate-800">Chrystal Wickline</span>
@@ -3680,7 +3680,7 @@ NOTES
                                     onClick={() => handleSubmitProofreadingRequestQuickbase(activeCourse)}
                                     className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
                                   >
-                                    <Clipboard className="h-3.5 w-3.5" /> Submit Proofreading Request [Quickbase]
+                                    <Clipboard className="h-3.5 w-3.5" /> Submit Proofreading Request
                                   </button>
                                 )}
                                 {Number(task.id) === 41 && (
@@ -3689,7 +3689,7 @@ NOTES
                                     onClick={() => handleRequestQaReviewQuickbase(activeCourse)}
                                     className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
                                   >
-                                    <Clipboard className="h-3.5 w-3.5" /> Request QA Review [Quickbase]
+                                    <Clipboard className="h-3.5 w-3.5" /> Request QA Review
                                   </button>
                                 )}
                                 {Number(task.id) === 45 && (
@@ -3698,7 +3698,7 @@ NOTES
     onClick={() => handleRequestCodeCheckArchiveQuickbase(activeCourse)}
     className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
   >
-    <Clipboard className="h-3.5 w-3.5" /> Request Code Check and Archive [Quickbase]
+    <Clipboard className="h-3.5 w-3.5" /> Request Code Check and Archive
   </button>
 )}
                                 {Number(task.id) === 45 && (
