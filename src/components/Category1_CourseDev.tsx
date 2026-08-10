@@ -298,6 +298,7 @@ export function Category1CourseDev({
     return localStorage.getItem('workloadHubSelectedCourseId') || courseDevelopments[0]?.id || '';
   });
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showVersionInformation, setShowVersionInformation] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState<CourseDevelopmentTask | null>(null);
   const [showCompensationDialog, setShowCompensationDialog] = useState(false);
   const [compensationDialogTitle, setCompensationDialogTitle] = useState('SME Compensation Notice');
@@ -740,6 +741,13 @@ const activeCourse =
   const getProjectedCompletionDate = (course?: CourseDevelopment) => {
     if (!course) return '';
     return (course as any).calculatedDeadline || calculateProjectedCompletionDate(course.termDeadline);
+  };
+
+  const formatMonthYear = (dateStr?: string) => {
+    if (!dateStr) return 'TBD';
+    const date = parseDate(dateStr);
+    if (Number.isNaN(date.getTime())) return 'TBD';
+    return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   };
 
   const handleCheckboxChange = (name: 'onboarding') => {
@@ -3009,7 +3017,16 @@ NOTES
                   </h2>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowVersionInformation(true)}
+                    aria-haspopup="dialog"
+                    title="Version Information"
+                    className="inline-flex items-center gap-1.5 border border-[#006282] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
+                  >
+                    <Clipboard className="h-3.5 w-3.5" /> Version Information
+                  </button>
                   <span className="text-2xs uppercase text-slate-400 font-semibold font-mono">
                     Alerts:
                   </span>
@@ -3932,6 +3949,58 @@ NOTES
                 type="button"
                 onClick={() => setShowCompensationDialog(false)}
                 className="rounded border border-slate-300 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-700 hover:bg-slate-50"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showVersionInformation && activeCourse && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="version-information-title"
+            className="w-full max-w-lg border-2 border-slate-900 bg-[#F4F1ED] p-6 shadow-xl"
+          >
+            <div className="flex items-center justify-between border-b border-slate-900 pb-2.5">
+              <h3 id="version-information-title" className="flex items-center gap-1.5 text-md font-semibold uppercase tracking-widest text-slate-900">
+                <Clipboard className="h-5 w-5 text-[#006282]" /> Version Information
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowVersionInformation(false)}
+                aria-label="Close version information"
+                className="font-semibold text-slate-400 hover:text-slate-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <dl className="mt-5 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-3 text-sm text-slate-800">
+              <dt className="font-semibold">Date:</dt>
+              <dd>{formatMonthYear(getProjectedCompletionDate(activeCourse))}</dd>
+
+              <dt className="font-semibold">Version Number:</dt>
+              <dd>{String(activeCourse.versionNumber ?? '').trim() || 'TBD'}</dd>
+
+              <dt className="font-semibold">Action:</dt>
+              <dd>{activeCourse.devType || 'TBD'}</dd>
+
+              <dt className="font-semibold">Details:</dt>
+              <dd>
+                This course was designed and developed by Subject Matter Expert{' '}
+                {activeCourse.deptTeam.smeName?.trim() || 'TBD'} and Instructional Designer Chrystal Wickline
+              </dd>
+            </dl>
+
+            <div className="mt-6 flex justify-end border-t border-slate-300 pt-4">
+              <button
+                type="button"
+                onClick={() => setShowVersionInformation(false)}
+                className="border border-slate-300 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-700 hover:bg-slate-50"
               >
                 Close
               </button>
