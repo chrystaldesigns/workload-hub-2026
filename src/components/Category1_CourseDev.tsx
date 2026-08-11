@@ -1990,13 +1990,22 @@ ACTION ITEMS: INSTRUCTIONAL DESIGNER
 - Schedule the Kickoff Meeting
 - Send a Kickoff Meeting reminder, agenda, and completed Course Design Plan to stakeholders
 
-IDEAS FOR CUSTOM INSTRUCTIONAL MATERIALS
-
-E.g., Infographic, Interactive Book, Canvas Page (webpage), Video
-
-IDEAS FOR ACTIVITIES, ASSIGNMENTS, AND ASSESSMENTS
-
-E.g., Interactive case study, Knowledge check, Reflection, Scenario-based decision-making, Course Project (scaffolding)`;
+COMPLETING THE COURSE DESIGN PLAN INSTRUCTIONS
+The template has been pre-populated using information from the approved College Credit Course Outline (Curriculum Outline). The purpose of the document is to provide an overview and vision for the course development to share with stakeholders before beginning development. Add, revise, expand, replace, or remove content as needed to better support student learning. Ensure you have vetted all required readings and resources, accounting for student cost and accessibility requirements. All readings and resources (including supplemental) are required to meet the federal WCAG 2.1 AA standards.
+Use your subject matter and teaching expertise to document how the course content, objectives, instructional materials, learning activities, and assessments work together.
+•	Identify the required textbook(s) and any program- or course-specific third-party platforms, tools, or software.
+•	Align each Course Learning Outcome (CLO) with the applicable Program Learning Outcome(s) (PLOs). Select only direct, meaningful alignments; the course may align with only one or two PLOs.
+•	Organize the course content into modules according to the most logical progression for student learning. Cover all topics in the official course outline. Topics may be reordered, combined within a module, or distributed across multiple modules.
+•	List the specific course-outline topics covered in each module.
+•	Write Module Learning Objectives (MLOs) that clearly state what students will do in each module. Begin each objective with one measurable action verb.
+•	Align each MLO with the applicable CLO(s).
+•	Identify all required instructional materials for each module, including textbook chapters, articles, websites, videos, and other readings or resources.
+•	Identify the MLO that aligns with the material and the activity or assessment for which students will use it.
+•	Include learning activities that allow students to practice, apply, and discover course concepts, as well as assessments or other learning evaluations that measure their achievement.
+•	List each activity and assessment in the appropriate module, identify the aligned MLO(s), and assign the applicable point value.
+•	Complete the Grade Breakdown table by recording the number of each work type, the applicable point value(s), total points, and percentage of the course grade.
+•	Review the grade percentages to determine whether any work type carries too much or too little weight, and adjust the point values as appropriate.
+`;
 
     openCommunicationToolWindow(
       popupTitle,
@@ -2617,7 +2626,7 @@ Professor ${smeLastName},
 
 You will receive an email from me with the Subject: ‘${course.courseNumber} Course Completion & Next Steps’ once the code check is complete and has been converted to the Staging phase.
 
-The next email will provide details on course completion, including finalized modifications (if applicable), code checks, and archiving. It will outline instructions for moving the course to production, steps for subject matter experts to load content, and guidance on reporting errors or future modifications. Attachments will include the Learning Grading Plan and Outcomes Map. Additional notes will cover best practices for future course terms and contact information for support and stipend inquiries.`;
+The next email will provide details on course completion, including finalized modifications (if applicable), code check, and archive. It will outline instructions for moving the course to production, steps for the subject matter expert to load content, and guidance on reporting errors or future modifications. Link and Attachment will include the Learning Grading Plan and Outcomes Map. Additional notes will cover best practices for future course terms and contact information for support and stipend inquiries.`;
 
     openCommunicationToolWindow(popupTitle, clipboardMessage, content);
   };
