@@ -3,7 +3,7 @@ import { CourseDevelopment, CourseDevelopmentTask } from '../types';
 import { 
   FileText, Calendar, Plus, Mail, CheckCircle2, AlertTriangle, 
   Trash2, Sliders, ChevronRight, Share2, Clipboard, ShieldAlert,
-  SlidersHorizontal, Sparkles, Pencil, Save, X, Archive
+  SlidersHorizontal, Sparkles, Pencil, Save, X, Archive, ListTree
 } from 'lucide-react';
 import { 
   countWorkingDaysBetween, 
@@ -34,6 +34,8 @@ type TimelineTaskExtra = CourseDevelopmentTask & {
   durationLabel?: string;
   meetingTime?: string;
 };
+
+type TimelineReportType = 'sme' | 'id' | 'course';
 
 const addCalendarDays = (dateStr: string, days: number) => {
   const date = new Date(`${dateStr.slice(0, 10)}T12:00:00`);
@@ -299,6 +301,7 @@ export function Category1CourseDev({
   });
   const [showAddModal, setShowAddModal] = useState(false);
   const [showVersionInformation, setShowVersionInformation] = useState(false);
+  const [timelineReport, setTimelineReport] = useState<TimelineReportType | null>(null);
   const [showEmailModal, setShowEmailModal] = useState<CourseDevelopmentTask | null>(null);
   const [showCompensationDialog, setShowCompensationDialog] = useState(false);
   const [compensationDialogTitle, setCompensationDialogTitle] = useState('SME Compensation Notice');
@@ -749,6 +752,53 @@ const activeCourse =
     if (Number.isNaN(date.getTime())) return 'TBD';
     return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   };
+
+  const formatTimelineReportDate = (dateStr?: string) => {
+    if (!dateStr) return 'TBD';
+    const date = parseDate(dateStr);
+    if (Number.isNaN(date.getTime())) return 'TBD';
+    return date.toLocaleDateString('en-US', {
+      month: '2-digit',
+      day: '2-digit',
+      year: 'numeric',
+    });
+  };
+
+  const timelineReportTitles: Record<TimelineReportType, string> = {
+    sme: 'SME Deliverables Timeline Report',
+    id: 'ID Deliverables Timeline Report',
+    course: 'Course Development Timeline Report',
+  };
+
+  const getTimelineReportTasks = (
+    course: CourseDevelopment,
+    reportType: TimelineReportType
+  ) => {
+    const roleForTask = (task: CourseDevelopmentTask) =>
+      String(task.roleOwner || task.assignedTo || '').trim().toLowerCase();
+
+    return course.tasks
+      .filter((task) => {
+        const role = roleForTask(task);
+        if (reportType === 'sme') {
+          return role === 'subject matter expert' || role === 'sme';
+        }
+        if (reportType === 'id') {
+          return role === 'instructional designer' || role === 'id';
+        }
+        return true;
+      })
+      .sort((a, b) => {
+        const startComparison = (a.startDate || '9999-12-31').localeCompare(
+          b.startDate || '9999-12-31'
+        );
+        if (startComparison !== 0) return startComparison;
+        return (a.dueDate || '9999-12-31').localeCompare(b.dueDate || '9999-12-31');
+      });
+  };
+
+  const getTimelineReportTaskTitle = (name?: string) =>
+    (name || 'Untitled task').replace(/^\s*\d+\s*[.):\-]\s*/, '').trim() || 'Untitled task';
 
   const handleCheckboxChange = (name: 'onboarding') => {
     setFormData(prev => ({
@@ -3120,6 +3170,24 @@ NOTES
                       </div>
                     </div>
 
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {([
+                        ['sme', 'SME Deliverables Timeline'],
+                        ['id', 'ID Deliverables Timeline'],
+                        ['course', 'Course Development Timeline'],
+                      ] as const).map(([reportType, label]) => (
+                        <button
+                          key={reportType}
+                          type="button"
+                          onClick={() => setTimelineReport(reportType)}
+                          aria-label={`Open ${label} report`}
+                          className="inline-flex items-center gap-1.5 rounded-md border border-[#006282] bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-[#006282] transition-colors hover:bg-[#006282] hover:text-white"
+                        >
+                          <ListTree className="h-3.5 w-3.5" /> {label}
+                        </button>
+                      ))}
+                    </div>
+
                     <button
                       type="button"
                       onClick={handleRecalculateCurrentTimeline}
@@ -4009,6 +4077,62 @@ NOTES
               <button
                 type="button"
                 onClick={() => setShowVersionInformation(false)}
+                className="border border-slate-300 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-700 hover:bg-slate-50"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {timelineReport && activeCourse && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="timeline-report-title"
+            className="flex max-h-[85vh] w-full max-w-2xl flex-col border-2 border-slate-900 bg-[#F4F1ED] shadow-xl"
+          >
+            <div className="flex items-start justify-between gap-4 border-b border-slate-900 px-5 py-4">
+              <div>
+                <h3 id="timeline-report-title" className="flex items-center gap-1.5 text-sm font-semibold uppercase tracking-widest text-slate-900">
+                  <ListTree className="h-5 w-5 text-[#006282]" /> {timelineReportTitles[timelineReport]}
+                </h3>
+                <p className="mt-1 text-xs font-semibold text-slate-500">
+                  {activeCourse.courseNumber || 'Course identifier unavailable'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTimelineReport(null)}
+                aria-label={`Close ${timelineReportTitles[timelineReport]}`}
+                className="shrink-0 font-semibold text-slate-400 hover:text-slate-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto px-5 py-4">
+              {getTimelineReportTasks(activeCourse, timelineReport).length > 0 ? (
+                <ul className="space-y-2">
+                  {getTimelineReportTasks(activeCourse, timelineReport).map((task) => (
+                    <li key={task.id} className="border-b border-dashed border-slate-300 pb-2 text-sm leading-6 text-slate-800">
+                      <span className="font-semibold">{getTimelineReportTaskTitle(task.name)}:</span>{' '}
+                      Start {formatTimelineReportDate(task.startDate)} and Due{' '}
+                      {formatTimelineReportDate(task.dueDate)}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-slate-600">No timeline tasks are available for this report.</p>
+              )}
+            </div>
+
+            <div className="flex justify-end border-t border-slate-300 px-5 py-4">
+              <button
+                type="button"
+                onClick={() => setTimelineReport(null)}
                 className="border border-slate-300 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-700 hover:bg-slate-50"
               >
                 Close
