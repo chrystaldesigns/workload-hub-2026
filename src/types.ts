@@ -164,6 +164,64 @@ export interface CourseMilestones {
   closeout?: string | null;
 }
 
+export interface InitialMeetingChoice {
+  selected: boolean;
+  notes: string;
+}
+
+export interface InitialMeetingFormData {
+  savedAt: string;
+  courseOfferings: string;
+  curriculumStatus: "current" | "notCurrent" | "";
+  curriculumNotes: string;
+  multimedia: Record<
+    "vr" | "ar" | "pollsGames" | "ai" | "images" | "videos" | "otherLearningActivities",
+    InitialMeetingChoice
+  >;
+  otherLearningActivityOptions: string[];
+  instructionalMaterials: Record<
+    "ai" | "canvasPages" | "textbook" | "fscjMaterials" | "thirdPartyPlatform" | "software" |
+    "otherOer" | "learningActivities" | "proctoredExam" | "videos",
+    InitialMeetingChoice
+  >;
+  textbook: {
+    title: string;
+    edition: string;
+    author: string;
+    publisher: string;
+    year: string;
+    isbn13: string;
+    costDesignation: "purchaseRequired" | "ztc" | "";
+  };
+  numberOfModules: string;
+  assignmentsEnabled: boolean;
+  assignments: Record<
+    "discussions" | "exams" | "tests" | "quizzes" | "thirdPartyActivities" | "apaTraining" |
+    "writtenAssignments" | "courseProject" | "presentations" | "libGuide",
+    boolean
+  >;
+  courseProjectScaffolded: boolean;
+  meetingPreference: "weekly" | "adHoc" | "";
+  preferredMeetingDay: string;
+  preferredMeetingTime: string;
+  preferredMeetingPeriod: "AM" | "PM";
+  weeklyStatusUpdates: boolean;
+  calendarReminders: "optedIn" | "optedOut" | "";
+  thirdPartyApplies: boolean;
+  thirdPartyName: string;
+  smeExperience: "none" | "beginner" | "intermediate" | "advanced" | "";
+  thirdPartyDevelopmentRequired: boolean;
+  thirdPartyDevelopmentDate: string;
+  permissionsRequest: "yes" | "no" | "na" | "";
+  permissionsNotes: string;
+  collegeCostApplies: boolean;
+  collegeCostNotes: string;
+  collegeCostApproval: "yes" | "no" | "na" | "";
+  studentCostApplies: boolean;
+  studentCostNotes: string;
+  integrationTypes: string[];
+}
+
 export interface CourseDevelopment {
   id?: string;
   itemType?: "courseDevelopment";
@@ -200,6 +258,7 @@ export interface CourseDevelopment {
   hideCompletedTasks: boolean;
 
   milestones?: CourseMilestones;
+  initialMeetingForm?: InitialMeetingFormData;
   tasks: CourseDevelopmentTask[];
 
   initialized?: boolean;

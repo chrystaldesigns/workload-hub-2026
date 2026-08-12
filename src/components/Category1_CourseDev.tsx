@@ -1,5 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { CourseDevelopment, CourseDevelopmentTask } from '../types';
+import { CourseDevelopment, CourseDevelopmentTask, InitialMeetingFormData } from '../types';
+import { InitialMeetingFormModal } from './InitialMeetingFormModal';
+import { generateInitialMeetingReport } from '../utils/initialMeetingReport';
 import { 
   FileText, Calendar, Plus, Mail, CheckCircle2, AlertTriangle, 
   Trash2, Sliders, ChevronRight, Share2, Clipboard, ShieldAlert,
@@ -302,6 +304,7 @@ export function Category1CourseDev({
   const [showAddModal, setShowAddModal] = useState(false);
   const [showVersionInformation, setShowVersionInformation] = useState(false);
   const [timelineReport, setTimelineReport] = useState<TimelineReportType | null>(null);
+  const [showInitialMeetingForm, setShowInitialMeetingForm] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState<CourseDevelopmentTask | null>(null);
   const [showCompensationDialog, setShowCompensationDialog] = useState(false);
   const [compensationDialogTitle, setCompensationDialogTitle] = useState('SME Compensation Notice');
@@ -2066,6 +2069,10 @@ Use your subject matter and teaching expertise to document how the course conten
 
 
   const handleInitialMeetingRecap = (course: CourseDevelopment) => {
+    if (!course.initialMeetingForm?.savedAt) {
+      alert("Complete and save the Initial Meeting Form before generating the recap email.");
+      return;
+    }
     const hour = new Date().getHours();
     const greetingTime = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
 
@@ -2102,13 +2109,7 @@ Good ${greetingTime},
 
 Thank you, ${course.deptTeam.smeName || "SME"} for meeting with me today to discuss the plans for course development. If there is anything I misinterpreted or missed during our discussion, please don't hesitate to reply to all for clarification.
 
-COURSE DEVELOPMENT INFORMATION
-
-- Program: ${course.program}
-- Course: ${course.courseNumber}: ${course.courseTitle}
-- Instructional Designer: Chrystal Wickline
-- Subject Matter Expert: ${course.deptTeam.smeName || "SME"}
-- Course Development Type: ${course.devType}
+${generateInitialMeetingReport(course, course.initialMeetingForm, getProjectedCompletionDate(course))}
 
 ACTIONS ITEMS
 
@@ -2123,28 +2124,27 @@ Instructional Designer: Chrystal Wickline
       completeCourseDesignPlanTask?.startDate || completeCourseDesignPlanTask?.dueDate || ""
     )}
 - Schedule the Kickoff Meeting
-- Send a Kickoff Meeting reminder, agenda, and completed Course Design Plan to stakeholders
-
-INITIAL MEETING COURSE VISION OVERVIEW
-
-- College Curriculum Outline (Course Outline) is not current. Suggested updates are notated with track changes. The instructional designer will need the finalized version before the Kickoff to avoid delay in development.
-
-- Multimedia
-- There will be various types of interactive learning activities within the course; a minimum of seven. These will range from simple to complex.
-- Possibility of custom images for instructional material timeline.
-- Possibility of custom Canvas pages for instructional material to supplement textbook subject matter gaps.
-
-- Instructional Materials
-- Textbook: Being evaluated by the ${course.deptTeam.smeName || "SME"}. She will coordinate with Dr. Franklin to ensure the textbook meets expectations for the program.
-- Other: website, videos, articles, FSCJ Library resources, and custom learning content
-
-- Content Design and Development
-- Modules: 7
-- Activities, Assignments, and Assessments will include discussions (minimal, max of 2), midterm, final exam, learning activities, written assignments, scaffolding project, presentation.
-- Program Requirements: Additional program requirements include APA Resources, Health Navigator LibGuide, and AI Usage Canvas page.
-- Third-party platform or special software: None`;
+- Send a Kickoff Meeting reminder, agenda, and completed Course Design Plan to stakeholders`;
 
     openCommunicationToolWindow(popupTitle, clipboardMessage, content);
+  };
+
+  const handleSaveInitialMeetingForm = async (data: InitialMeetingFormData) => {
+    if (!activeCourse) return;
+    await onUpdateCourse({ ...activeCourse, initialMeetingForm: data });
+  };
+
+  const handleGenerateInitialMeetingReport = (course: CourseDevelopment, savedData?: InitialMeetingFormData) => {
+    const data = savedData || course.initialMeetingForm;
+    if (!data?.savedAt) {
+      alert("Complete and save the Initial Meeting Form before generating the report.");
+      return;
+    }
+    openCommunicationToolWindow(
+      `${course.courseNumber} Initial Meeting Report`,
+      "Initial Meeting Report copied to clipboard. You may also copy or print from the text box below.",
+      `INITIAL MEETING REPORT\n\n${course.courseNumber}: ${course.courseTitle}\n\n${generateInitialMeetingReport(course, data, getProjectedCompletionDate(course))}`
+    );
   };
 
     const handleKickoffMeetingReminder = (course: CourseDevelopment) => {
@@ -3188,6 +3188,30 @@ NOTES
                       ))}
                     </div>
 
+                    <div className="space-y-2 border-t border-dashed border-slate-300 pt-3">
+                      <h5 className="text-[10px] font-semibold uppercase tracking-wide text-slate-700">
+                        Course Development Information
+                      </h5>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setShowInitialMeetingForm(true)}
+                          aria-label="Open Initial Meeting Form"
+                          className="inline-flex items-center gap-1.5 rounded-md border border-[#006282] bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-[#006282] transition-colors hover:bg-[#006282] hover:text-white"
+                        >
+                          <Clipboard className="h-3.5 w-3.5" /> Initial Meeting Form
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleGenerateInitialMeetingReport(activeCourse)}
+                          aria-label="Open Initial Meeting Report"
+                          className="inline-flex items-center gap-1.5 rounded-md border border-[#006282] bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-[#006282] transition-colors hover:bg-[#006282] hover:text-white"
+                        >
+                          <FileText className="h-3.5 w-3.5" /> Initial Meeting Report
+                        </button>
+                      </div>
+                    </div>
+
                     <button
                       type="button"
                       onClick={handleRecalculateCurrentTimeline}
@@ -4140,6 +4164,17 @@ NOTES
             </div>
           </div>
         </div>
+      )}
+
+      {showInitialMeetingForm && activeCourse && (
+        <InitialMeetingFormModal
+          course={activeCourse}
+          projectedCloseout={getProjectedCompletionDate(activeCourse)}
+          formatDate={formatDisplayDate}
+          onSave={handleSaveInitialMeetingForm}
+          onClose={() => setShowInitialMeetingForm(false)}
+          onGenerateReport={(data) => handleGenerateInitialMeetingReport(activeCourse, data)}
+        />
       )}
 
       {/* DIALOG MODAL: ADD COURSE TRACK */}
