@@ -229,13 +229,13 @@ export const buildCourseDevelopmentTimeline = (
   } as TimelineTaskExtra);
 
   const moduleTaskIds: Record<number, [number, number]> = {
-    1: [14, 15],
-    2: [17, 18],
-    3: [19, 20],
-    4: [24, 25],
-    5: [27, 28],
-    6: [29, 30],
-    7: [31, 32],
+    1: [13, 14],
+    2: [16, 17],
+    3: [18, 19],
+    4: [22, 23],
+    5: [25, 26],
+    6: [27, 28],
+    7: [29, 30],
   };
 
   const moduleTasks = (moduleNumber: number, offsetFromTemplates: number): TimelineTaskExtra[] => {
@@ -262,19 +262,18 @@ export const buildCourseDevelopmentTimeline = (
     task(8, 'Schedule kickoff meeting', 'Project Management', 'Instructional Designer', workingDate(kickoffStart, -2), workingDate(kickoffStart, -2), 0, undefined, `Schedule meeting the week of ${formatDisplayDateShortSafe(kickoffStart)}`, '15 minutes'),
     task(9, 'Complete Course Design Plan', 'Course Design', 'Instructional Designer', completeCourseDesignPlanStart, completeCourseDesignPlanStart, 1, ['Analyze instructional material accessibility']),
     task(10, 'Send kickoff reminder and agenda', 'Stakeholder Engagement', 'Instructional Designer', workingDate(kickoffStart, -2), workingDate(kickoffStart, -2), 0, undefined, undefined, '15 minutes'),
-    task(11, 'Conduct kickoff meeting', 'Milestone', 'Instructional Designer', kickoffStart, kickoffStart, 1, ['Send kickoff meeting recap', 'Enter instructional materials into Quickbase', 'Request Canvas shell in Quickbase']),
-    task(12, 'Schedule midpoint meeting', 'Project Management', 'Instructional Designer', workingDate(midpointStart, -2), workingDate(midpointStart, -2), 0, undefined, `Schedule meeting the week of ${formatDisplayDateShortSafe(midpointStart)}`, '15 minutes'),
-    task(13, 'Create module templates', 'Course Development', 'Instructional Designer', moduleTemplateStart, moduleTemplateDue, 14, ['Coordinate module delivery schedule', 'Configure calendar reminders', 'Module 1', 'Module 2', 'Module 3', 'Module 4', 'Module 5', 'Module 6', 'Module 7']),
+    task(11, 'Conduct kickoff meeting', 'Milestone', 'Instructional Designer', kickoffStart, kickoffStart, 1, ['Send kickoff meeting recap', 'Enter instructional materials into Quickbase', 'Request Canvas shell in Quickbase', 'Schedule midpoint meeting']),
+    task(12, 'Create module templates', 'Course Development', 'Instructional Designer', moduleTemplateStart, moduleTemplateDue, 14, ['Coordinate module delivery schedule', 'Configure calendar reminders', 'Module 1', 'Module 2', 'Module 3', 'Module 4', 'Module 5', 'Module 6', 'Module 7']),
     ...moduleTasks(1, 1),
-    task(16, 'Develop Module 1–3 Multimedia Content', 'Course Development', 'Multimedia', '', midpointStart, 0, [
+    task(15, 'Develop Module 1–3 Multimedia Content', 'Course Development', 'Multimedia', '', midpointStart, 0, [
       'Develop Module 1 multimedia content',
       'Develop Module 2 multimedia content',
       'Develop Module 3 multimedia content',
     ]),
     ...moduleTasks(2, 6),
     ...moduleTasks(3, 11),
-    task(21, 'Send midpoint reminder and agenda', 'Stakeholder Engagement', 'Instructional Designer', workingDate(midpointStart, -2), workingDate(midpointStart, -2), 0, undefined, undefined, '15 minutes'),
-    task(22, 'Conduct midpoint review', 'Milestone', 'Instructional Designer', midpointStart, midpointStart, 1, ['Send midpoint review meeting recap']),
+    task(20, 'Send midpoint reminder and agenda', 'Stakeholder Engagement', 'Instructional Designer', workingDate(midpointStart, -2), workingDate(midpointStart, -2), 0, undefined, undefined, '15 minutes'),
+    task(21, 'Conduct midpoint review', 'Milestone', 'Instructional Designer', midpointStart, midpointStart, 1, ['Send midpoint review meeting recap', 'Schedule final meeting']),
     ...moduleTasks(4, 16),
     ...moduleTasks(5, 21),
     ...moduleTasks(6, 26),
@@ -313,22 +312,21 @@ export const buildCourseDevelopmentTimeline = (
       : finalReviewStart;
 
   tasks.push(
-    task(23, 'Schedule final meeting', 'Project Management', 'Instructional Designer', workingDate(finalReviewStart, -2), workingDate(finalReviewStart, -2), 0, undefined, `Schedule meeting the week of ${formatDisplayDateShortSafe(finalReviewStart)}`, '15 minutes'),
-    task(26, 'Develop Module 4–7 Multimedia Content', 'Course Development', 'Multimedia', reviewBuildModule4?.dueDate || '', finalReviewStart, 0, [
+    task(24, 'Develop Module 4–7 Multimedia Content', 'Course Development', 'Multimedia', reviewBuildModule4?.dueDate || '', finalReviewStart, 0, [
       'Develop Module 4 multimedia content',
       'Develop Module 5 multimedia content',
       'Develop Module 6 multimedia content',
       'Develop Module 7 multimedia content',
     ]),
-    task(33, 'Finalize course documents', 'Course Development', 'Subject Matter Expert', finalizeDocsStart, finalizeDocsDue, 3),
-    task(34, 'Submit proofreading request', 'Quality Assurance', 'Instructional Designer', proofRequestStart, proofRequestDue, 1),
-    task(35, 'Complete proofreading', 'Quality Assurance', 'Quality Assurance', proofreadingStart, proofreadingDue, 5),
-    task(36, 'Complete pre-QA checklist', 'Quality Assurance', 'Instructional Designer', preQaStart, preQaDue, 1, ['Request QA review in Quickbase']),
-    task(37, 'Complete QA review', 'Quality Assurance', 'Quality Assurance', qaStart, qaDue, 5, ['Address QA findings']),
-    task(38, 'Send final review reminder and agenda', 'Stakeholder Engagement', 'Instructional Designer', workingDate(finalReviewStart, -2), workingDate(finalReviewStart, -2), 0, undefined, undefined, '15 minutes'),
-    task(39, 'Conduct final review', 'Milestone', 'Instructional Designer', finalReviewStart, finalReviewStart, 1, ['Send final review meeting recap']),
-    task(40, 'End compensation', 'Project Closeout', 'Instructional Designer', compensationEnd, compensationEnd, 1, ['Send stipend notification email', 'Request stipend completion in Quickbase', 'Request code check and archive in Quickbase']),
-    task(41, 'Course completion', 'Milestone', 'Instructional Designer', developmentCompletionStart, developmentCompletionStart, 5, ['Multimedia complete code check and archive', 'Request course completion in Quickbase', 'Send project completion notification email'])
+    task(31, 'Finalize course documents', 'Course Development', 'Subject Matter Expert', finalizeDocsStart, finalizeDocsDue, 3),
+    task(32, 'Submit proofreading request', 'Quality Assurance', 'Instructional Designer', proofRequestStart, proofRequestDue, 1),
+    task(33, 'Complete proofreading', 'Quality Assurance', 'Quality Assurance', proofreadingStart, proofreadingDue, 5),
+    task(34, 'Complete pre-QA checklist', 'Quality Assurance', 'Instructional Designer', preQaStart, preQaDue, 1, ['Request QA review in Quickbase']),
+    task(35, 'Complete QA review', 'Quality Assurance', 'Quality Assurance', qaStart, qaDue, 5, ['Address QA findings']),
+    task(36, 'Send final review reminder and agenda', 'Stakeholder Engagement', 'Instructional Designer', workingDate(finalReviewStart, -2), workingDate(finalReviewStart, -2), 0, undefined, undefined, '15 minutes'),
+    task(37, 'Conduct final review', 'Milestone', 'Instructional Designer', finalReviewStart, finalReviewStart, 1, ['Send final review meeting recap']),
+    task(38, 'End compensation', 'Project Closeout', 'Instructional Designer', compensationEnd, compensationEnd, 1, ['Send stipend notification email', 'Request stipend completion in Quickbase', 'Request code check and archive in Quickbase']),
+    task(39, 'Course completion', 'Milestone', 'Instructional Designer', developmentCompletionStart, developmentCompletionStart, 5, ['Multimedia complete code check and archive', 'Request course completion in Quickbase', 'Send project completion notification email'])
   );
 
   tasks.sort((a, b) => Number(a.id) - Number(b.id));
@@ -432,10 +430,12 @@ const visibleCourses = showArchived ? archivedCourses : activeCourses;
   useEffect(() => {
     if (!activeCourse?.id || migratingCourseIdsRef.current.has(activeCourse.id)) return;
 
-    const hasLegacyMultimediaTasks = activeCourse.tasks.some((task) =>
-      /^Develop Module [1-7] multimedia content$/i.test(task.name)
+    const hasLegacyStandaloneTasks = activeCourse.tasks.some((task) =>
+      /^Develop Module [1-7] multimedia content$/i.test(task.name) ||
+      task.name === 'Schedule midpoint meeting' ||
+      task.name === 'Schedule final meeting'
     );
-    if (!hasLegacyMultimediaTasks) return;
+    if (!hasLegacyStandaloneTasks) return;
 
     migratingCourseIdsRef.current.add(activeCourse.id);
     const projectedCompletionDate = getProjectedCompletionDate(activeCourse);
@@ -3747,7 +3747,7 @@ NOTES
                                     <Mail className="h-3.5 w-3.5" /> Kickoff Meeting Reminder
                                   </button>
                                 )}
-                                {Number(task.id) === 11 && (
+                                {task.name === 'Conduct kickoff meeting' && (
                                   <button
                                     type="button"
                                     onClick={() => handleKickoffMeetingRecap(activeCourse)}
@@ -3758,29 +3758,29 @@ NOTES
                                     <Mail className="h-3.5 w-3.5" /> Kickoff Meeting Recap
                                   </button>
                                 )}
-                                {Number(task.id) === 11 && (
+                                {task.name === 'Conduct kickoff meeting' && (
                                   <button
                                     type="button"
                                     onClick={() => handleRequestCanvasShell(activeCourse)}
-                                    aria-label="Request Canvas shell"
-                                    title="Request Canvas shell"
+                                    aria-label="Request Canvas Shell"
+                                    title="Request Canvas Shell"
                                     className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
                                   >
-                                    <Clipboard className="h-3.5 w-3.5" /> Request Canvas shell
+                                    <Clipboard className="h-3.5 w-3.5" /> Request Canvas Shell
                                   </button>
                                 )}
-                                {Number(task.id) === 12 && (
+                                {task.name === 'Conduct kickoff meeting' && (
                                   <button
                                     type="button"
                                     onClick={() => handleScheduleMidpointMeeting(activeCourse)}
-                                    aria-label="Schedule midpoint meeting"
-                                    title="Schedule midpoint meeting"
+                                    aria-label="Schedule Midpoint"
+                                    title="Schedule Midpoint"
                                     className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
                                   >
-                                    <Calendar className="h-3.5 w-3.5" /> Schedule midpoint meeting
+                                    <Calendar className="h-3.5 w-3.5" /> Schedule Midpoint
                                   </button>
                                 )}
-                                {Number(task.id) === 13 && (
+                                {task.name === 'Create module templates' && (
                                   <button
                                     type="button"
                                     onClick={() => handleConfigureCalendarReminders(activeCourse)}
@@ -3791,7 +3791,7 @@ NOTES
                                     <Calendar className="h-3.5 w-3.5" /> Configure calendar reminders
                                   </button>
                                 )}
-                                {Number(task.id) === 13 && (
+                                {task.name === 'Create module templates' && (
                                   <button
                                     type="button"
                                     onClick={() => handleModuleDelivery(activeCourse)}
@@ -3820,10 +3820,12 @@ NOTES
                                     <Mail className="h-3.5 w-3.5" /> Midpoint Recap
                                   </button>
                                 )}
-                                {task.name === 'Schedule final meeting' && (
+                                {task.name === 'Conduct midpoint review' && (
                                   <button
                                     type="button"
                                     onClick={() => handleScheduleFinalReview(activeCourse)}
+                                    aria-label="Schedule Final Review"
+                                    title="Schedule Final Review"
                                     className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
                                   >
                                     <Calendar className="h-3.5 w-3.5" /> Schedule Final Review
@@ -4071,6 +4073,20 @@ NOTES
                                       >
                                         {subtask.title}
                                       </label>
+                                      {subtask.title === 'Schedule midpoint meeting' && (
+                                        <span className="basis-full pl-6 text-[11px] text-slate-500">
+                                          Schedule meeting the week of {formatDisplayDateShortSafe(
+                                            activeCourse.tasks.find((item) => item.name === 'Conduct final review')?.dueDate
+                                          )}
+                                        </span>
+                                      )}
+                                      {subtask.title === 'Schedule final meeting' && (
+                                        <span className="basis-full pl-6 text-[11px] text-slate-500">
+                                          Schedule meeting the week of {formatDisplayDateShortSafe(
+                                            activeCourse.tasks.find((item) => item.name === 'End compensation')?.dueDate
+                                          )}
+                                        </span>
+                                      )}
                                       {/^Develop Module [1-7] multimedia content$/i.test(subtask.title) && (
                                         <input
                                           type="text"
