@@ -3015,18 +3015,6 @@ NOTES
           <span className="text-[10px] text-slate-400 font-mono uppercase font-semibold">
             Course List
           </span>
-<button
-  type="button"
-  onClick={() => {
-    setShowArchived((current) => !current);
-    setSelectedId("");
-  }}
-  className="w-fit border border-[#006282] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-[#006282] transition-colors hover:bg-[#006282] hover:text-white cursor-pointer"
->
-  {showArchived
-    ? `Show Active (${activeCourses.length})`
-    : `Show Archived (${archivedCourses.length})`}
-</button>
           <div className="flex flex-wrap gap-2">
             {visibleCourses.length === 0 ? (
               <div className="p-4 bg-slate-50 text-center text-slate-400 border border-dashed border-slate-200 text-xs">
@@ -3137,6 +3125,54 @@ NOTES
                 </div>
               </div>
 
+              {/* FORMS, REPORTS, AND TIMELINES */}
+              <section className="border-y border-dashed border-[#E0DCD8] bg-[#F4F1ED]/20 p-4" aria-labelledby="forms-reports-timelines-heading">
+                <h4 id="forms-reports-timelines-heading" className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-800">
+                  Forms, Reports, and Timelines
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {([
+                    ['sme', 'SME Deliverables Timeline'],
+                    ['id', 'ID Deliverables Timeline'],
+                    ['course', 'Course Development Timeline'],
+                  ] as const).map(([reportType, label]) => (
+                    <button
+                      key={reportType}
+                      type="button"
+                      onClick={() => setTimelineReport(reportType)}
+                      aria-label={`Open ${label} report`}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-[#006282] bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-[#006282] transition-colors hover:bg-[#006282] hover:text-white"
+                    >
+                      <ListTree className="h-3.5 w-3.5" /> {label}
+                    </button>
+                  ))}
+                  <button type="button" onClick={() => setShowInitialMeetingForm(true)} aria-label="Open Initial Meeting Form" className="inline-flex items-center gap-1.5 rounded-md border border-[#006282] bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-[#006282] transition-colors hover:bg-[#006282] hover:text-white">
+                    <Clipboard className="h-3.5 w-3.5" /> Initial Meeting Form
+                  </button>
+                  <button type="button" onClick={() => handleGenerateInitialMeetingReport(activeCourse)} aria-label="Open Initial Meeting Report" className="inline-flex items-center gap-1.5 rounded-md border border-[#006282] bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-[#006282] transition-colors hover:bg-[#006282] hover:text-white">
+                    <FileText className="h-3.5 w-3.5" /> Initial Meeting Report
+                  </button>
+                  <button type="button" onClick={() => startEditingCourse(activeCourse)} className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-slate-700 transition-colors hover:border-[#006282] hover:text-[#006282]">
+                    <Pencil className="h-3.5 w-3.5" /> Edit
+                  </button>
+                  <button type="button" onClick={() => handleCopyStatusReport(activeCourse)} className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-slate-700 transition-colors hover:border-[#006282] hover:text-[#006282]">
+                    <Clipboard className="h-3.5 w-3.5" /> Status QB
+                  </button>
+                  <button type="button" onClick={() => triggerCompensationDraft(activeCourse)} className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-slate-700 transition-colors hover:border-[#087834] hover:text-[#087834]">
+                    <Mail className="h-3.5 w-3.5" /> SME Compensation
+                  </button>
+                  <button type="button" onClick={() => (activeCourse as any).archived ? handleRestoreCourse(activeCourse) : handleArchiveCourse(activeCourse)} className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-slate-700 transition-colors hover:border-[#B35C06] hover:text-[#B35C06]">
+                    <Archive className="h-3.5 w-3.5" /> {(activeCourse as any).archived ? 'Restore' : 'Archive'}
+                  </button>
+                  <button type="button" onClick={handleRecalculateCurrentTimeline} className="inline-flex items-center rounded-md border border-[#006282] bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-[#006282] transition-colors hover:bg-[#006282] hover:text-white">
+                    Recalculate Timeline
+                  </button>
+                  <button type="button" onClick={() => { setShowArchived((current) => !current); setSelectedId(''); }} className="inline-flex items-center rounded-md border border-[#006282] bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-[#006282] transition-colors hover:bg-[#006282] hover:text-white">
+                    {showArchived ? `Show Active (${activeCourses.length})` : `Show Archived (${archivedCourses.length})`}
+                  </button>
+                </div>
+              </section>
+
               {/* CONTACTS + OPERATIONAL CONTROLS */}
               <div className="grid grid-cols-1 xl:grid-cols-[minmax(300px,420px)_1fr] gap-4">
                 {/* OPERATIONAL DATES */}
@@ -3169,56 +3205,6 @@ NOTES
                         {formatDisplayDateShort(getProjectedCompletionDate(activeCourse))}
                       </div>
                     </div>
-
-                    <div className="flex flex-wrap gap-2 pt-1">
-                      {([
-                        ['sme', 'SME Deliverables Timeline'],
-                        ['id', 'ID Deliverables Timeline'],
-                        ['course', 'Course Development Timeline'],
-                      ] as const).map(([reportType, label]) => (
-                        <button
-                          key={reportType}
-                          type="button"
-                          onClick={() => setTimelineReport(reportType)}
-                          aria-label={`Open ${label} report`}
-                          className="inline-flex items-center gap-1.5 rounded-md border border-[#006282] bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-[#006282] transition-colors hover:bg-[#006282] hover:text-white"
-                        >
-                          <ListTree className="h-3.5 w-3.5" /> {label}
-                        </button>
-                      ))}
-                    </div>
-
-                    <div className="space-y-2 border-t border-dashed border-slate-300 pt-3">
-                      <h5 className="text-[10px] font-semibold uppercase tracking-wide text-slate-700">
-                        Course Development Information
-                      </h5>
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setShowInitialMeetingForm(true)}
-                          aria-label="Open Initial Meeting Form"
-                          className="inline-flex items-center gap-1.5 rounded-md border border-[#006282] bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-[#006282] transition-colors hover:bg-[#006282] hover:text-white"
-                        >
-                          <Clipboard className="h-3.5 w-3.5" /> Initial Meeting Form
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleGenerateInitialMeetingReport(activeCourse)}
-                          aria-label="Open Initial Meeting Report"
-                          className="inline-flex items-center gap-1.5 rounded-md border border-[#006282] bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-[#006282] transition-colors hover:bg-[#006282] hover:text-white"
-                        >
-                          <FileText className="h-3.5 w-3.5" /> Initial Meeting Report
-                        </button>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={handleRecalculateCurrentTimeline}
-                      className="w-fit rounded-md border border-[#006282] bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors cursor-pointer select-none"
-                    >
-                      Recalculate Timeline
-                    </button>
 
                     <button
                       onClick={handleToggleOnboarding}
@@ -3476,44 +3462,6 @@ NOTES
 
               {/* COURSE ACTIONS */}
               <div className="flex flex-wrap justify-center items-center gap-x-4 gap-y-2 bg-white py-2 text-[11px] border-b border-[#E0DCD8]/80">
-                <button
-                  type="button"
-                  onClick={() => startEditingCourse(activeCourse)}
-                  className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-slate-700 hover:text-[#006282]"
-                >
-                  <Pencil className="w-3.5 h-3.5" /> Edit
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleCopyStatusReport(activeCourse)}
-                  className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-slate-700 hover:text-[#006282]"
-                >
-                  <Clipboard className="w-3.5 h-3.5" /> Status QB
-                </button>
-
-
-                <button
-                  type="button"
-                  onClick={() => triggerCompensationDraft(activeCourse)}
-                  className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-slate-700 hover:text-[#087834]"
-                >
-                  <Mail className="w-3.5 h-3.5" /> SME Compensation
-                </button>
-
-<button
-  type="button"
-  onClick={() =>
-    (activeCourse as any).archived
-      ? handleRestoreCourse(activeCourse)
-      : handleArchiveCourse(activeCourse)
-  }
-  className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-slate-700 hover:text-[#B35C06]"
->
-  <Archive className="w-3.5 h-3.5" />
-  {(activeCourse as any).archived ? "Restore" : "Archive"}
-</button>
-
                 <button
                   type="button"
                   onClick={() => {
@@ -4003,6 +3951,15 @@ NOTES
               <Sparkles className="w-12 h-12 text-slate-300 mb-2" />
               <p className="font-semibold text-slate-500 text-sm">No Active Core Academic Course schedule Selected</p>
               <p className="text-xs text-slate-400 mt-1">Configure yours by hitting the "+ Add Academic Course" button above.</p>
+              {showArchived && (
+                <button
+                  type="button"
+                  onClick={() => { setShowArchived(false); setSelectedId(''); }}
+                  className="mt-4 border border-[#006282] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-[#006282] transition-colors hover:bg-[#006282] hover:text-white"
+                >
+                  Show Active ({activeCourses.length})
+                </button>
+              )}
             </div>
           )}
         </div>
