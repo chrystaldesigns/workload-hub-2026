@@ -40,6 +40,34 @@ type TimelineTaskExtra = CourseDevelopmentTask & {
 
 type TimelineReportType = 'sme' | 'id' | 'course';
 
+const COURSE_PHASES = [
+  { title: 'Planning and Onboarding', firstTask: 'Start compensation' },
+  { title: 'Course Design and Kickoff', firstTask: 'Finalize Course Design Plan' },
+  { title: 'Modules 1–3 Development', firstTask: 'Create module templates' },
+  { title: 'Midpoint Review', firstTask: 'Send midpoint reminder and agenda' },
+  { title: 'Modules 4–7 Development', firstTask: 'Develop Module 4 content' },
+  { title: 'Final Review and Close-out', firstTask: 'Finalize course documents' },
+] as const;
+
+const getTaskStatusAccent = (status: WorkStatus, overdue: boolean) => {
+  if (overdue) return 'border-l-rose-500';
+  if (status === 'Complete') return 'border-l-emerald-600';
+  if (status === 'In Progress' || status === 'Developing (Content)' || status === 'Developing (Canvas)') return 'border-l-[#006282]';
+  if (status === 'Scheduled') return 'border-l-blue-600';
+  if (status === 'On Hold' || status === 'Submission Late (SME)') return 'border-l-amber-500';
+  return 'border-l-slate-400';
+};
+
+const getCoursePhaseTitle = (taskName: string, tasks: CourseDevelopmentTask[]) => {
+  const taskIndex = tasks.findIndex((task) => task.name === taskName);
+  if (taskIndex < 0) return COURSE_PHASES[0].title;
+
+  return COURSE_PHASES.reduce((currentPhase, phase) => {
+    const phaseIndex = tasks.findIndex((task) => task.name === phase.firstTask);
+    return phaseIndex >= 0 && phaseIndex <= taskIndex ? phase.title : currentPhase;
+  }, COURSE_PHASES[0].title as typeof COURSE_PHASES[number]['title']);
+};
+
 const PROJECTED_TASK_NAMES = new Set([
   'Conduct midpoint review',
   'Conduct final review',
@@ -3185,47 +3213,46 @@ NOTES
         {/* DETAILS SECTION */}
         <div className="w-full">
           {activeCourse ? (
-            <div className="flex flex-col gap-6 bg-white border border-[#E0DCD8] p-6 shadow-xs relative">
+            <div className="relative flex min-w-0 flex-col gap-6 overflow-hidden rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6 [&_button]:focus-visible:outline-none [&_button]:focus-visible:ring-2 [&_button]:focus-visible:ring-[#33B1C8] [&_button]:focus-visible:ring-offset-2 [&_input]:focus-visible:outline-none [&_input]:focus-visible:ring-2 [&_input]:focus-visible:ring-[#33B1C8] [&_select]:focus-visible:outline-none [&_select]:focus-visible:ring-2 [&_select]:focus-visible:ring-[#33B1C8] [&_textarea]:focus-visible:outline-none [&_textarea]:focus-visible:ring-2 [&_textarea]:focus-visible:ring-[#33B1C8]">
               
               {/* UPPER DECK */}
-              <div className="border-b border-slate-200 pb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <div className="-mx-4 -mt-4 flex flex-col items-start justify-between gap-4 border-t-4 border-[#006282] bg-slate-100/80 px-4 py-5 sm:-mx-6 sm:-mt-6 sm:px-6 md:flex-row md:items-center">
                 <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] uppercase tracking-wider font-semibold" style={{ color: getDevTypeColor(activeCourse.devType) }}>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-full border border-[#006282]/25 bg-white px-2.5 py-1 text-[10px] uppercase tracking-wider font-semibold" style={{ color: getDevTypeColor(activeCourse.devType) }}>
                       {activeCourse.devType} - Canvas V{activeCourse.versionNumber}
                     </span>
-                    <span className="text-slate-300">|</span>
-                    <span className="text-[11px] uppercase tracking-wider text-slate-500">
+                    <span className="rounded-full border border-slate-300 bg-white px-2.5 py-1 text-[10px] uppercase tracking-wider text-slate-600">
                       Term Release: {activeCourse.termRelease} 
                     </span>
                   </div>
-                  <h2 className="text-2xl font-semibold text-slate-950 mt-1">
+                  <h2 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
                     {activeCourse.courseNumber}: {activeCourse.courseTitle}
                   </h2>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex w-full flex-wrap items-end gap-2 md:w-auto md:justify-end">
                   <button
                     type="button"
                     onClick={() => setShowVersionInformation(true)}
                     aria-haspopup="dialog"
                     title="Version Information"
-                    className="inline-flex items-center gap-1.5 border border-[#006282] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
+                    className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-[#006282] bg-white px-3 py-2 text-xs font-semibold text-[#006282] transition-colors hover:bg-[#006282] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#33B1C8] focus-visible:ring-offset-2"
                   >
                     <Clipboard className="h-3.5 w-3.5" /> Version Information
                   </button>
-                  <span className="text-2xs uppercase text-slate-400 font-semibold font-mono">
-                    Alerts:
-                  </span>
-                  <select
-                    value={activeCourse.alertStatus}
-                    onChange={(e) => handleAlertStatusChange(e.target.value as any)}
-                    className={`text-xs px-2.5 py-1.5 font-semibold border focus:outline-none ${getAlertSelectClass(activeCourse.alertStatus)}`}
-                  >
-                    <option value="No Concerns">No Concerns</option>
-                    <option value="Potential Concerns">Potential Concerns</option>
-                    <option value="High Priority Concerns">High Priority Concerns</option>
-                  </select>
+                  <label className="flex flex-col gap-1">
+                    <span className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">Alerts</span>
+                    <select
+                      value={activeCourse.alertStatus}
+                      onChange={(e) => handleAlertStatusChange(e.target.value as any)}
+                      className={`min-h-9 rounded-md border px-2.5 py-1.5 text-xs font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-[#33B1C8] ${getAlertSelectClass(activeCourse.alertStatus)}`}
+                    >
+                      <option value="No Concerns">No Concerns</option>
+                      <option value="Potential Concerns">Potential Concerns</option>
+                      <option value="High Priority Concerns">High Priority Concerns</option>
+                    </select>
+                  </label>
                 </div>
               </div>
 
@@ -3255,22 +3282,25 @@ NOTES
               </div>
 
               {/* DYNAMIC PROGRESS BAR GAUGE */}
-              <div className="border-y border-dashed border-[#E0DCD8] bg-[#F4F1ED]/40 p-4">
-                <div className="flex justify-between items-center text-xs font-semibold mb-1.5">
-                  <span className="uppercase text-slate-700">Course Design completeness matrix</span>
-                  <span className="text-[#006282] font-semibold">{calculateProgress(activeCourse)}% Completed</span>
+              <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xs">
+                <div className="flex items-center justify-between gap-3 border-l-4 border-[#006282] bg-slate-100 px-4 py-3 text-xs font-semibold">
+                  <span className="flex items-center gap-2 uppercase tracking-wide text-slate-800"><CheckCircle2 className="h-4 w-4 text-[#006282]" /> Course Design completeness matrix</span>
+                  <span className="rounded-full bg-white px-2.5 py-1 font-bold text-[#006282]">{calculateProgress(activeCourse)}% Completed</span>
                 </div>
-                <div className="w-full bg-slate-200 h-2">
-                  <div className={`h-2 transition-all duration-500 ${getProgressBarColor(calculateProgress(activeCourse))}`} style={{ width: `${calculateProgress(activeCourse)}%` }}></div>
+                <div className="p-4">
+                  <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-200">
+                    <div className="h-2.5 rounded-full bg-[#006282] transition-all duration-500" style={{ width: `${calculateProgress(activeCourse)}%` }}></div>
+                  </div>
                 </div>
-              </div>
+              </section>
 
               {/* FORMS, REPORTS, AND TIMELINES */}
-              <section className="border-y border-dashed border-[#E0DCD8] bg-[#F4F1ED]/20 p-4" aria-labelledby="forms-reports-timelines-heading">
-                <h4 id="forms-reports-timelines-heading" className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-800">
-                  Forms, Reports, and Timelines
+              <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xs" aria-labelledby="forms-reports-timelines-heading">
+                <h4 id="forms-reports-timelines-heading" className="flex items-center gap-2 border-l-4 border-[#006282] bg-slate-100 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-800">
+                  <ListTree className="h-4 w-4 text-[#006282]" /> Forms, Reports, and Timelines
                 </h4>
-                <div className="flex flex-wrap gap-2">
+                <div className="grid gap-5 p-4 lg:grid-cols-3">
+                  <div><div className="mb-2 text-[9px] font-bold uppercase tracking-widest text-slate-500">Timelines</div><div className="flex flex-wrap gap-2">
                   {([
                     ['sme', 'SME Deliverables Timeline'],
                     ['id', 'ID Deliverables Timeline'],
@@ -3281,47 +3311,50 @@ NOTES
                       type="button"
                       onClick={() => setTimelineReport(reportType)}
                       aria-label={`Open ${label} report`}
-                      className="inline-flex items-center gap-1.5 rounded-md border border-[#006282] bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-[#006282] transition-colors hover:bg-[#006282] hover:text-white"
+                      className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-[#006282] bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-[#006282] transition-colors hover:bg-[#006282] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#33B1C8]"
                     >
                       <ListTree className="h-3.5 w-3.5" /> {label}
                     </button>
-                  ))}
-                  <button type="button" onClick={() => setShowInitialMeetingForm(true)} aria-label="Open Initial Meeting Form" className="inline-flex items-center gap-1.5 rounded-md border border-[#006282] bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-[#006282] transition-colors hover:bg-[#006282] hover:text-white">
+                  ))}</div></div>
+                  <div><div className="mb-2 text-[9px] font-bold uppercase tracking-widest text-slate-500">Forms and Communication</div><div className="flex flex-wrap gap-2">
+                  <button type="button" onClick={() => setShowInitialMeetingForm(true)} aria-label="Open Initial Meeting Form" className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-slate-700 transition-colors hover:border-[#006282] hover:text-[#006282] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#33B1C8]">
                     <Clipboard className="h-3.5 w-3.5" /> Initial Meeting Form
                   </button>
-                  <button type="button" onClick={() => handleGenerateInitialMeetingReport(activeCourse)} aria-label="Open Initial Meeting Report" className="inline-flex items-center gap-1.5 rounded-md border border-[#006282] bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-[#006282] transition-colors hover:bg-[#006282] hover:text-white">
+                  <button type="button" onClick={() => handleGenerateInitialMeetingReport(activeCourse)} aria-label="Open Initial Meeting Report" className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-slate-700 transition-colors hover:border-[#006282] hover:text-[#006282] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#33B1C8]">
                     <FileText className="h-3.5 w-3.5" /> Initial Meeting Report
-                  </button>
-                  <button type="button" onClick={() => startEditingCourse(activeCourse)} className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-slate-700 transition-colors hover:border-[#006282] hover:text-[#006282]">
-                    <Pencil className="h-3.5 w-3.5" /> Edit
                   </button>
                   <button type="button" onClick={() => handleCopyStatusReport(activeCourse)} className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-slate-700 transition-colors hover:border-[#006282] hover:text-[#006282]">
                     <Clipboard className="h-3.5 w-3.5" /> Status QB
                   </button>
                   <button type="button" onClick={() => triggerCompensationDraft(activeCourse)} className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-slate-700 transition-colors hover:border-[#087834] hover:text-[#087834]">
                     <Mail className="h-3.5 w-3.5" /> SME Compensation
+                  </button></div></div>
+                  <div><div className="mb-2 text-[9px] font-bold uppercase tracking-widest text-slate-500">Course Management</div><div className="flex flex-wrap gap-2">
+                  <button type="button" onClick={() => startEditingCourse(activeCourse)} className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-slate-300 bg-slate-100 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-slate-700 transition-colors hover:border-[#006282] hover:text-[#006282] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#33B1C8]">
+                    <Pencil className="h-3.5 w-3.5" /> Edit
+                  </button>
+                  <button type="button" onClick={handleRecalculateCurrentTimeline} className="inline-flex min-h-9 items-center rounded-md border border-slate-300 bg-slate-100 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-slate-700 transition-colors hover:border-[#006282] hover:text-[#006282] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#33B1C8]">
+                    Recalculate Timeline
+                  </button>
+                  <button type="button" onClick={() => { setShowArchived((current) => !current); setSelectedId(''); }} className="inline-flex min-h-9 items-center rounded-md border border-slate-300 bg-slate-100 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-slate-700 transition-colors hover:border-[#006282] hover:text-[#006282] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#33B1C8]">
+                    {showArchived ? `Show Active (${activeCourses.length})` : `Show Archived (${archivedCourses.length})`}
                   </button>
                   <button type="button" onClick={() => (activeCourse as any).archived ? handleRestoreCourse(activeCourse) : handleArchiveCourse(activeCourse)} className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-slate-700 transition-colors hover:border-[#B35C06] hover:text-[#B35C06]">
                     <Archive className="h-3.5 w-3.5" /> {(activeCourse as any).archived ? 'Restore' : 'Archive'}
                   </button>
-                  <button type="button" onClick={handleRecalculateCurrentTimeline} className="inline-flex items-center rounded-md border border-[#006282] bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-[#006282] transition-colors hover:bg-[#006282] hover:text-white">
-                    Recalculate Timeline
-                  </button>
-                  <button type="button" onClick={() => { setShowArchived((current) => !current); setSelectedId(''); }} className="inline-flex items-center rounded-md border border-[#006282] bg-white px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-[#006282] transition-colors hover:bg-[#006282] hover:text-white">
-                    {showArchived ? `Show Active (${activeCourses.length})` : `Show Archived (${archivedCourses.length})`}
-                  </button>
+                  </div></div>
                 </div>
               </section>
 
               {/* CONTACTS + OPERATIONAL CONTROLS */}
-              <div className="grid grid-cols-1 xl:grid-cols-[minmax(300px,420px)_1fr] gap-4">
+              <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
                 {/* OPERATIONAL DATES */}
-                <div className="bg-[#F4F1ED]/20 p-4 border-y border-dashed border-[#E0DCD8]">
-                  <h4 className="text-xs font-semibold text-slate-800 uppercase tracking-wide mb-3">
-                    Term Start and Course Completion Dates
+                <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xs">
+                  <h4 className="flex items-center gap-2 border-l-4 border-[#006282] bg-slate-100 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-800">
+                    <Calendar className="h-4 w-4 text-[#006282]" /> Term Start and Course Completion Dates
                   </h4>
 
-                  <div className="flex flex-col gap-3 text-xs">
+                  <div className="grid grid-cols-1 gap-3 p-4 text-xs sm:grid-cols-2">
                     <label className="flex flex-col gap-1">
                       <span className="text-[10px] text-slate-500 uppercase font-semibold font-mono">
                         Start of Term
@@ -3330,7 +3363,7 @@ NOTES
                         type="date"
                         value={activeCourse.termDeadline}
                         onChange={(e) => handleStartOfTermChange(e.target.value)}
-                        className="w-full max-w-[225px] text-xs px-2 py-1.5 border border-slate-300 bg-white focus:outline-none"
+                        className="w-full rounded-md border border-slate-300 bg-slate-50 px-2.5 py-2 text-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-[#33B1C8]"
                       />
                       <span className="text-[10px] text-slate-500">
                         Start of Term: {formatDisplayDateShort(activeCourse.termDeadline)}
@@ -3341,14 +3374,14 @@ NOTES
                       <span className="text-[10px] text-slate-500 uppercase font-semibold font-mono">
                         Projected Course Completion
                       </span>
-                      <div className="w-full max-w-[225px] border border-slate-200 bg-white px-2 py-1.5 text-xs font-semibold text-slate-800">
+                      <div className="w-full rounded-md border border-slate-200 bg-slate-100 px-2.5 py-2 text-xs font-semibold text-slate-800">
                         {formatDisplayDateShort(getProjectedCompletionDate(activeCourse))}
                       </div>
                     </div>
 
                     <button
                       onClick={handleToggleOnboarding}
-                      className="text-left text-slate-600 hover:text-slate-900 font-semibold uppercase flex items-center gap-1 cursor-pointer select-none"
+                      className="flex min-h-10 items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 text-left font-semibold uppercase text-slate-700 hover:border-[#006282] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#33B1C8]"
                     >
                       <Sparkles className="w-3.5 h-3.5 text-[#33B1C8]" />
                       <span>Onboarding: {activeCourse.onboarding ? 'Active' : 'Bypassed'}</span>
@@ -3356,22 +3389,22 @@ NOTES
 
                     <button
                       onClick={handleToggleHideCompleted}
-                      className="text-left text-slate-600 hover:text-slate-900 font-semibold uppercase flex items-center gap-1 cursor-pointer select-none"
+                      className="flex min-h-10 items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 text-left font-semibold uppercase text-slate-700 hover:border-[#006282] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#33B1C8]"
                     >
                       <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
                       <span>{activeCourse.hideCompletedTasks ? 'Show Completed Tasks' : 'Hide Completed Tasks'}</span>
                     </button>
                   </div>
-                </div>
+                </section>
 
                 {/* CONTACT MAP */}
-                <div className="bg-slate-50 p-4 border-y border-dashed border-[#E0DCD8]">
-                  <h4 className="text-xs uppercase font-semibold text-slate-700 mb-3 border-b pb-1">
-                    CeL & Academic Division Contacts
+                <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xs">
+                  <h4 className="flex items-center gap-2 border-l-4 border-[#006282] bg-slate-100 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-800">
+                    <Mail className="h-4 w-4 text-[#006282]" /> CeL & Academic Division Contacts
                   </h4>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3 text-xs md:font-mono">
-                    <div>
+                  <div className="grid grid-cols-1 gap-3 p-4 text-xs sm:grid-cols-2">
+                    <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
                       <span className="text-slate-500 uppercase text-[10px] block font-semibold mb-0.5">
                         Subject Matter Expert
                       </span>
@@ -3381,7 +3414,7 @@ NOTES
                       </div>
                     </div>
 
-                    <div>
+                    <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
                       <span className="text-slate-500 uppercase text-[10px] block font-semibold mb-0.5">
                         CeL Instructional Designer
                       </span>
@@ -3391,7 +3424,7 @@ NOTES
                       </div>
                     </div>
 
-                    <div>
+                    <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
                       <span className="text-slate-500 uppercase text-[10px] block font-semibold mb-0.5">
                         Academic Dean
                       </span>
@@ -3401,7 +3434,7 @@ NOTES
                       </div>
                     </div>
 
-                    <div>
+                    <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
                       <span className="text-slate-500 uppercase text-[10px] block font-semibold mb-0.5">
                         Academic Program Manager
                       </span>
@@ -3411,7 +3444,7 @@ NOTES
                       </div>
                     </div>
 
-                    <div>
+                    <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
                       <span className="text-slate-500 uppercase text-[10px] block font-semibold mb-0.5">
                         Associate Dean
                       </span>
@@ -3421,7 +3454,7 @@ NOTES
                       </div>
                     </div>
                   </div>
-                </div>
+                </section>
               </div>
 
 
@@ -3600,32 +3633,17 @@ NOTES
                 </div>
               )}
 
-              {/* COURSE ACTIONS */}
-              <div className="flex flex-wrap justify-center items-center gap-x-4 gap-y-2 bg-white py-2 text-[11px] border-b border-[#E0DCD8]/80">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (confirm("Are you sure you want to delete this course development from Firestore permanently?")) {
-                      onDeleteCourse(activeCourse.id || '');
-                    }
-                  }}
-                  className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider text-rose-700 hover:text-rose-900"
-                >
-                  <Trash2 className="w-3.5 h-3.5" /> Delete
-                </button>
-              </div>
-
               {/* TASKS TABLE MATRIX */}
-              <div className="border-y border-dashed border-[#E0DCD8] mt-2">
-                <div className="bg-slate-50 px-3 py-2 border-b border-slate-200 flex flex-col gap-1 sm:flex-row sm:justify-between sm:items-center">
-                  <span className="text-xs uppercase font-semibold text-slate-700">Development Timeline and Milestones</span>
-                  <span className="text-2xs text-slate-400 font-mono">Task edits auto-save when changed</span>
+              <section className="mt-2 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xs">
+                <div className="flex flex-col gap-1 border-l-4 border-[#006282] bg-slate-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                  <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-800"><Save className="h-4 w-4 text-[#006282]" /> Development Timeline and Milestones</span>
+                  <span className="text-[10px] font-medium text-slate-500">Task edits auto-save when changed</span>
                 </div>
 
-                <div ref={taskListRef} className="max-h-[680px] overflow-y-auto p-2 space-y-2">
+                <div ref={taskListRef} className="max-h-[680px] space-y-3 overflow-y-auto bg-slate-50/60 p-2 sm:p-3">
                   {activeCourse.tasks
                     .filter(t => activeCourse.hideCompletedTasks === false || (t.status !== 'Complete' && t.status !== 'Not Applicable'))
-                    .map((task) => {
+                    .map((task, index, visibleTasks) => {
                       const draft = getTaskDraft(task);
                       const currentStatus = draft.status || task.status;
                       const isNA = currentStatus === 'Not Applicable';
@@ -3645,18 +3663,34 @@ NOTES
                         'Conduct final review',
                       ]);
                       const showMeetingTime = meetingTaskNames.has(task.name);
+                      const phaseTitle = getCoursePhaseTitle(task.name, activeCourse.tasks);
+                      const previousPhaseTitle = index > 0
+                        ? getCoursePhaseTitle(visibleTasks[index - 1].name, activeCourse.tasks)
+                        : '';
+                      const showPhaseDivider = phaseTitle !== previousPhaseTitle;
+                      const phaseTasks = activeCourse.tasks.filter((item) =>
+                        getCoursePhaseTitle(item.name, activeCourse.tasks) === phaseTitle
+                      );
+                      const completedPhaseTasks = phaseTasks.filter((item) => item.status === 'Complete' || item.status === 'Not Applicable').length;
 
                       return (
+                        <React.Fragment key={task.id}>
+                        {showPhaseDivider && (
+                          <div className="flex flex-col gap-1 rounded-md border border-slate-200 border-l-4 border-l-[#006282] bg-slate-100 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+                            <span className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-slate-800"><ListTree className="h-3.5 w-3.5 text-[#006282]" /> {phaseTitle}</span>
+                            <span className="text-[10px] font-medium text-slate-500">{completedPhaseTasks} of {phaseTasks.length} complete</span>
+                          </div>
+                        )}
                         <article
-                          key={task.id}
                           data-task-id={task.id}
-                          className={`rounded-lg border-y border-dashed px-3 py-2 ${isNA ? 'border-slate-200 bg-slate-50/70' : 'border-[#E0DCD8] bg-white'}`}
+                          className={`overflow-hidden rounded-lg border border-l-4 bg-white ${getTaskStatusAccent(currentStatus, !!isOver)} ${isNA ? 'border-slate-200 bg-slate-50/70' : 'border-y-slate-200 border-r-slate-200'}`}
                         >
-                          <div className="flex flex-col gap-2">
-                            <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex flex-col">
+                            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-slate-100/70 px-3 py-2.5">
                               <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-                                <span className={`text-sm font-semibold leading-tight ${isComp ? 'line-through text-slate-400' : 'text-slate-900'}`}>
-                                  {task.id}. {displayTaskName}
+                                <span className="inline-flex min-w-7 items-center justify-center rounded-md bg-slate-800 px-2 py-1 text-[10px] font-bold text-white" aria-label={`Task ${task.id}`}>{task.id}</span>
+                                <span className={`text-sm font-semibold leading-tight ${isComp ? 'line-through text-slate-400' : 'text-slate-800'}`}>
+                                  {displayTaskName}
                                 </span>
                                 {isEmailTask && (
                                   <Mail className="h-3.5 w-3.5 shrink-0 text-[#006282]" aria-label="Email task" />
@@ -3965,14 +3999,14 @@ NOTES
                               )}
                             </div>
 
-                            <div className={`grid grid-cols-1 gap-2 sm:grid-cols-2 text-xs ${showMeetingTime ? 'xl:grid-cols-5' : 'xl:grid-cols-4'}`}>
+                            <div className={`grid grid-cols-1 gap-3 px-3 pt-3 text-xs sm:grid-cols-2 ${showMeetingTime ? 'xl:grid-cols-5' : 'xl:grid-cols-4'}`}>
                               <label className="flex flex-col gap-0.5">
                                 <span className="text-[9px] uppercase text-slate-500 font-semibold">Owner</span>
                                 <select
                                   name="assignedTo"
                                   value={draft.assignedTo || ''}
                                   onChange={(e) => autoSaveTaskField(task, 'assignedTo', e.target.value)}
-                                  className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs"
+                                  className="min-h-9 w-full rounded-md border border-slate-300 bg-slate-50 px-2.5 py-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#33B1C8]"
                                 >
                                   <option>Operations</option>
                                   <option>Instructional Designer</option>
@@ -3989,7 +4023,7 @@ NOTES
                                   name="status"
                                   value={draft.status || 'Not Started'}
                                   onChange={(e) => autoSaveTaskField(task, 'status', e.target.value)}
-                                  className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs"
+                                  className="min-h-9 w-full rounded-md border border-slate-300 bg-slate-50 px-2.5 py-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#33B1C8]"
                                 >
                                   <option>Not Started</option>
                                   <option>In Progress</option>
@@ -4016,7 +4050,7 @@ NOTES
                                   readOnly={hasLinkedMultimediaDates}
                                   aria-readonly={hasLinkedMultimediaDates}
                                   title={hasLinkedMultimediaDates ? 'Linked to the corresponding Review & Build task due date' : undefined}
-                                  className={`w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs ${hasLinkedMultimediaDates ? 'bg-slate-100 text-slate-600' : ''}`}
+                                  className={`min-h-9 w-full rounded-md border border-slate-300 px-2.5 py-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#33B1C8] ${hasLinkedMultimediaDates ? 'bg-slate-100 text-slate-600' : 'bg-slate-50'}`}
                                 />
                               </label>
 
@@ -4030,7 +4064,7 @@ NOTES
                                   readOnly={hasLinkedMultimediaDates}
                                   aria-readonly={hasLinkedMultimediaDates}
                                   title={hasLinkedMultimediaDates ? 'Linked to the corresponding review milestone due date' : undefined}
-                                  className={`w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs ${hasLinkedMultimediaDates ? 'bg-slate-100 text-slate-600' : ''}`}
+                                  className={`min-h-9 w-full rounded-md border border-slate-300 px-2.5 py-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#33B1C8] ${hasLinkedMultimediaDates ? 'bg-slate-100 text-slate-600' : 'bg-slate-50'}`}
                                 />
                               </label>
 
@@ -4042,20 +4076,20 @@ NOTES
                                     name="meetingTime"
                                     value={(draft as any).meetingTime || ''}
                                     onChange={(e) => autoSaveTaskField(task, 'meetingTime', e.target.value)}
-                                    className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs"
+                                    className="min-h-9 w-full rounded-md border border-slate-300 bg-slate-50 px-2.5 py-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#33B1C8]"
                                   />
                                 </label>
                               )}
                             </div>
 
                             {draft.notes && (
-                              <div className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs text-slate-700">
+                              <div className="mx-3 mt-3 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs text-slate-700">
                                 {draft.notes}
                               </div>
                             )}
 
                             {normalizeTimelineSubtasks((task as any).subtasks).length > 0 && (
-                              <div className="rounded-md border border-slate-200 bg-white px-2.5 py-2">
+                              <div className="mx-3 mt-3 rounded-md border border-slate-200 bg-slate-100/70 px-3 py-2.5">
                                 <div className="mb-1.5 text-[9px] font-semibold uppercase tracking-wide text-slate-500">Subtasks</div>
                                 <div className="flex flex-col gap-1.5">
                                   {normalizeTimelineSubtasks((task as any).subtasks).map((subtask) => (
@@ -4107,7 +4141,7 @@ NOTES
                               </div>
                             )}
 
-                            <div className="grid grid-cols-1 gap-2 lg:grid-cols-[1fr_auto] lg:items-end">
+                            <div className="grid grid-cols-1 gap-2 p-3 lg:grid-cols-[1fr_auto] lg:items-end">
                               <label className="flex flex-col gap-0.5 text-xs">
                                 <span className="text-[9px] uppercase text-slate-500 font-semibold">Notes</span>
                                 <textarea
@@ -4117,7 +4151,7 @@ NOTES
                                   onBlur={() => saveTaskNotesOnBlur(task)}
                                   rows={1}
                                   placeholder="Add task-specific notes..."
-                                  className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs"
+                                  className="w-full rounded-md border border-slate-300 bg-slate-50 px-2.5 py-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#33B1C8]"
                                 />
                               </label>
 
@@ -4129,10 +4163,31 @@ NOTES
                             </div>
                           </div>
                         </article>
+                        </React.Fragment>
                       );
                     })}
                 </div>
-              </div>
+              </section>
+
+              <section className="rounded-lg border border-rose-200 bg-rose-50/40 p-4" aria-labelledby="danger-zone-heading">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h4 id="danger-zone-heading" className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-rose-800"><ShieldAlert className="h-4 w-4" /> Danger Zone</h4>
+                    <p className="mt-1 text-xs text-slate-600">Deleting this course development is permanent and cannot be undone.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (confirm("Are you sure you want to delete this course development from Firestore permanently?")) {
+                        onDeleteCourse(activeCourse.id || '');
+                      }
+                    }}
+                    className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-md border border-rose-600 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wider text-rose-700 hover:bg-rose-700 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
+                  >
+                    <Trash2 className="h-4 w-4" /> Delete Course
+                  </button>
+                </div>
+              </section>
 
             </div>
           ) : (
