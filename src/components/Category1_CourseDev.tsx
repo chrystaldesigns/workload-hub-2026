@@ -28,6 +28,7 @@ type TimelineSubtask = {
   id: string;
   title: string;
   complete: boolean;
+  details: string;
 };
 
 type TimelineTaskExtra = CourseDevelopmentTask & {
@@ -39,8 +40,15 @@ type TimelineTaskExtra = CourseDevelopmentTask & {
 
 type TimelineReportType = 'sme' | 'id' | 'course';
 
-export const getDefaultCourseTaskStatus = (taskId: number): WorkStatus =>
-  [24, 44, 45, 46].includes(taskId) ? 'Projected' : 'Not Started';
+const PROJECTED_TASK_NAMES = new Set([
+  'Conduct midpoint review',
+  'Conduct final review',
+  'End compensation',
+  'Course completion',
+]);
+
+export const getDefaultCourseTaskStatus = (taskName: string): WorkStatus =>
+  PROJECTED_TASK_NAMES.has(taskName) ? 'Projected' : 'Not Started';
 
 export const preserveExistingCourseTaskStatus = (
   existingStatus: WorkStatus | undefined,
@@ -63,6 +71,7 @@ const normalizeTimelineSubtasks = (subtasks?: Array<string | Partial<TimelineSub
         id: `subtask-${index + 1}`,
         title: subtask,
         complete: false,
+        details: '',
       };
     }
 
@@ -70,11 +79,12 @@ const normalizeTimelineSubtasks = (subtasks?: Array<string | Partial<TimelineSub
       id: subtask.id || `subtask-${index + 1}`,
       title: subtask.title || '',
       complete: !!subtask.complete,
+      details: subtask.details || '',
     };
   });
 };
 
-const mergeRecalculatedTimeline = (
+export const mergeRecalculatedTimeline = (
   existingTasks: CourseDevelopmentTask[],
   recalculatedTasks: CourseDevelopmentTask[]
 ): CourseDevelopmentTask[] => {
@@ -82,20 +92,33 @@ const mergeRecalculatedTimeline = (
   const isGeneratedSchedulingNote = (note?: string) =>
     /^Schedule meeting the week of \d{2}-\d{2}-\d{2}$/.test((note || '').trim());
 
-  return recalculatedTasks.map((newTask) => {
-    const existing = existingTasks.find((task) => task.name === newTask.name);
+  const mergedTasks = recalculatedTasks.map((newTask) => {
+    const legacyMultimediaNames = newTask.name === 'Develop Module 1–3 Multimedia Content'
+      ? [1, 2, 3].map((moduleNumber) => `Develop Module ${moduleNumber} multimedia content`)
+      : newTask.name === 'Develop Module 4–7 Multimedia Content'
+        ? [4, 5, 6, 7].map((moduleNumber) => `Develop Module ${moduleNumber} multimedia content`)
+        : [];
+    const existing = existingTasks.find((task) => task.name === newTask.name)
+      || existingTasks.find((task) => task.name === legacyMultimediaNames[0]);
     if (!existing) return newTask;
 
-    const preserveHistoricalDates =
+    const isCombinedMultimediaTask = legacyMultimediaNames.length > 0;
+    const preserveHistoricalDates = !isCombinedMultimediaTask && (
       existing.status === 'Complete' ||
       (preservedPlanningTaskIds.has(Number(existing.id)) &&
-        !!(existing.startDate || existing.dueDate));
+        !!(existing.startDate || existing.dueDate))
+    );
 
     const existingSubtasks = normalizeTimelineSubtasks((existing as TimelineTaskExtra).subtasks);
     const nextSubtasks = normalizeTimelineSubtasks((newTask as TimelineTaskExtra).subtasks);
     const mergedSubtasks = nextSubtasks.map((subtask) => {
       const matchingExisting = existingSubtasks.find((item) => item.title === subtask.title);
-      return matchingExisting ? { ...subtask, complete: matchingExisting.complete } : subtask;
+      if (matchingExisting) return { ...subtask, ...matchingExisting, id: subtask.id, title: subtask.title };
+
+      const legacyTask = existingTasks.find((item) => item.name === subtask.title);
+      return legacyTask
+        ? { ...subtask, complete: legacyTask.status === 'Complete' }
+        : subtask;
     });
 
     return {
@@ -111,9 +134,32 @@ const mergeRecalculatedTimeline = (
       subtasks: mergedSubtasks,
     } as TimelineTaskExtra;
   });
+
+  const dueDateFor = (taskName: string) =>
+    mergedTasks.find((task) => task.name === taskName)?.dueDate || '';
+
+  return mergedTasks.map((task) => {
+    if (task.name === 'Develop Module 1–3 Multimedia Content') {
+      return {
+        ...task,
+        startDate: dueDateFor('Review & Build Module 1 content'),
+        dueDate: dueDateFor('Conduct midpoint review'),
+      };
+    }
+
+    if (task.name === 'Develop Module 4–7 Multimedia Content') {
+      return {
+        ...task,
+        startDate: dueDateFor('Review & Build Module 4 content'),
+        dueDate: dueDateFor('Conduct final review'),
+      };
+    }
+
+    return task;
+  });
 };
 
-const buildCourseDevelopmentTimeline = (
+export const buildCourseDevelopmentTimeline = (
   projectedCourseCompletionDate: string,
   onboarding: boolean,
   customBlocked: string[] = [],
@@ -176,24 +222,20 @@ const buildCourseDevelopmentTimeline = (
     startDate,
     dueDate,
     durationDays,
-    status: getDefaultCourseTaskStatus(id),
+    status: getDefaultCourseTaskStatus(name),
     notes: notes || '',
     subtasks: normalizeTimelineSubtasks(subtasks),
     durationLabel: durationLabel || (durationDays > 0 ? `${durationDays} days` : ''),
   } as TimelineTaskExtra);
 
-  const getModuleBaseId = (moduleNumber: number) => {
-    const baseIds: Record<number, number> = {
-      1: 14,
-      2: 17,
-      3: 20,
-      4: 26,
-      5: 29,
-      6: 32,
-      7: 35,
-    };
-
-    return baseIds[moduleNumber];
+  const moduleTaskIds: Record<number, [number, number]> = {
+    1: [14, 15],
+    2: [17, 18],
+    3: [19, 20],
+    4: [24, 25],
+    5: [27, 28],
+    6: [29, 30],
+    7: [31, 32],
   };
 
   const moduleTasks = (moduleNumber: number, offsetFromTemplates: number): TimelineTaskExtra[] => {
@@ -201,14 +243,11 @@ const buildCourseDevelopmentTimeline = (
     const developDue = workingDueDate(developStart, 5);
     const reviewStart = developDue;
     const reviewDue = workingDueDate(reviewStart, 1);
-    const multimediaStart = reviewDue;
-    const multimediaDue = workingDueDate(multimediaStart, 10);
-    const baseId = getModuleBaseId(moduleNumber);
+    const [developId, reviewId] = moduleTaskIds[moduleNumber];
 
     return [
-      task(baseId, `Develop Module ${moduleNumber} content`, 'Course Development', 'Subject Matter Expert', developStart, developDue, 5),
-      task(baseId + 1, `Review & Build Module ${moduleNumber} content`, 'Course Development', 'Instructional Designer', reviewStart, reviewDue, 1, [`Enter Module ${moduleNumber} multimedia task in Quickbase`]),
-      task(baseId + 2, `Develop Module ${moduleNumber} multimedia content`, 'Course Development', 'Multimedia', multimediaStart, multimediaDue, 0),
+      task(developId, `Develop Module ${moduleNumber} content`, 'Course Development', 'Subject Matter Expert', developStart, developDue, 5),
+      task(reviewId, `Review & Build Module ${moduleNumber} content`, 'Course Development', 'Instructional Designer', reviewStart, reviewDue, 1, [`Enter Module ${moduleNumber} multimedia task in Quickbase`]),
     ];
   };
 
@@ -227,10 +266,15 @@ const buildCourseDevelopmentTimeline = (
     task(12, 'Schedule midpoint meeting', 'Project Management', 'Instructional Designer', workingDate(midpointStart, -2), workingDate(midpointStart, -2), 0, undefined, `Schedule meeting the week of ${formatDisplayDateShortSafe(midpointStart)}`, '15 minutes'),
     task(13, 'Create module templates', 'Course Development', 'Instructional Designer', moduleTemplateStart, moduleTemplateDue, 14, ['Coordinate module delivery schedule', 'Configure calendar reminders', 'Module 1', 'Module 2', 'Module 3', 'Module 4', 'Module 5', 'Module 6', 'Module 7']),
     ...moduleTasks(1, 1),
+    task(16, 'Develop Module 1–3 Multimedia Content', 'Course Development', 'Multimedia', '', midpointStart, 0, [
+      'Develop Module 1 multimedia content',
+      'Develop Module 2 multimedia content',
+      'Develop Module 3 multimedia content',
+    ]),
     ...moduleTasks(2, 6),
     ...moduleTasks(3, 11),
-    task(23, 'Send midpoint reminder and agenda', 'Stakeholder Engagement', 'Instructional Designer', workingDate(midpointStart, -2), workingDate(midpointStart, -2), 0, undefined, undefined, '15 minutes'),
-    task(24, 'Conduct midpoint review', 'Milestone', 'Instructional Designer', midpointStart, midpointStart, 1, ['Send midpoint review meeting recap']),
+    task(21, 'Send midpoint reminder and agenda', 'Stakeholder Engagement', 'Instructional Designer', workingDate(midpointStart, -2), workingDate(midpointStart, -2), 0, undefined, undefined, '15 minutes'),
+    task(22, 'Conduct midpoint review', 'Milestone', 'Instructional Designer', midpointStart, midpointStart, 1, ['Send midpoint review meeting recap']),
     ...moduleTasks(4, 16),
     ...moduleTasks(5, 21),
     ...moduleTasks(6, 26),
@@ -254,6 +298,13 @@ const buildCourseDevelopmentTimeline = (
     earliestFinalReviewStart > latestFinalReviewStart
       ? earliestFinalReviewStart
       : latestFinalReviewStart;
+  const reviewBuildModule1 = tasks.find((item) => item.name === 'Review & Build Module 1 content');
+  const reviewBuildModule4 = tasks.find((item) => item.name === 'Review & Build Module 4 content');
+  const modulesOneToThree = tasks.find((item) => item.name === 'Develop Module 1–3 Multimedia Content');
+  if (modulesOneToThree) {
+    modulesOneToThree.startDate = reviewBuildModule1?.dueDate || '';
+    modulesOneToThree.dueDate = midpointStart;
+  }
   const establishedCompensationEnd = (existingTask(1)?.dueDate || '').slice(0, 10);
   const compensationEnd =
     establishedCompensationEnd >= finalReviewStart &&
@@ -262,16 +313,22 @@ const buildCourseDevelopmentTimeline = (
       : finalReviewStart;
 
   tasks.push(
-    task(25, 'Schedule final meeting', 'Project Management', 'Instructional Designer', workingDate(finalReviewStart, -2), workingDate(finalReviewStart, -2), 0, undefined, `Schedule meeting the week of ${formatDisplayDateShortSafe(finalReviewStart)}`, '15 minutes'),
-    task(38, 'Finalize course documents', 'Course Development', 'Subject Matter Expert', finalizeDocsStart, finalizeDocsDue, 3),
-    task(39, 'Submit proofreading request', 'Quality Assurance', 'Instructional Designer', proofRequestStart, proofRequestDue, 1),
-    task(40, 'Complete proofreading', 'Quality Assurance', 'Quality Assurance', proofreadingStart, proofreadingDue, 5),
-    task(41, 'Complete pre-QA checklist', 'Quality Assurance', 'Instructional Designer', preQaStart, preQaDue, 1, ['Request QA review in Quickbase']),
-    task(42, 'Complete QA review', 'Quality Assurance', 'Quality Assurance', qaStart, qaDue, 5, ['Address QA findings']),
-    task(43, 'Send final review reminder and agenda', 'Stakeholder Engagement', 'Instructional Designer', workingDate(finalReviewStart, -2), workingDate(finalReviewStart, -2), 0, undefined, undefined, '15 minutes'),
-    task(44, 'Conduct final review', 'Milestone', 'Instructional Designer', finalReviewStart, finalReviewStart, 1, ['Send final review meeting recap']),
-    task(45, 'End compensation', 'Project Closeout', 'Instructional Designer', compensationEnd, compensationEnd, 1, ['Send stipend notification email', 'Request stipend completion in Quickbase', 'Request code check and archive in Quickbase']),
-    task(46, 'Course completion', 'Milestone', 'Instructional Designer', developmentCompletionStart, developmentCompletionStart, 5, ['Multimedia complete code check and archive', 'Request course completion in Quickbase', 'Send project completion notification email'])
+    task(23, 'Schedule final meeting', 'Project Management', 'Instructional Designer', workingDate(finalReviewStart, -2), workingDate(finalReviewStart, -2), 0, undefined, `Schedule meeting the week of ${formatDisplayDateShortSafe(finalReviewStart)}`, '15 minutes'),
+    task(26, 'Develop Module 4–7 Multimedia Content', 'Course Development', 'Multimedia', reviewBuildModule4?.dueDate || '', finalReviewStart, 0, [
+      'Develop Module 4 multimedia content',
+      'Develop Module 5 multimedia content',
+      'Develop Module 6 multimedia content',
+      'Develop Module 7 multimedia content',
+    ]),
+    task(33, 'Finalize course documents', 'Course Development', 'Subject Matter Expert', finalizeDocsStart, finalizeDocsDue, 3),
+    task(34, 'Submit proofreading request', 'Quality Assurance', 'Instructional Designer', proofRequestStart, proofRequestDue, 1),
+    task(35, 'Complete proofreading', 'Quality Assurance', 'Quality Assurance', proofreadingStart, proofreadingDue, 5),
+    task(36, 'Complete pre-QA checklist', 'Quality Assurance', 'Instructional Designer', preQaStart, preQaDue, 1, ['Request QA review in Quickbase']),
+    task(37, 'Complete QA review', 'Quality Assurance', 'Quality Assurance', qaStart, qaDue, 5, ['Address QA findings']),
+    task(38, 'Send final review reminder and agenda', 'Stakeholder Engagement', 'Instructional Designer', workingDate(finalReviewStart, -2), workingDate(finalReviewStart, -2), 0, undefined, undefined, '15 minutes'),
+    task(39, 'Conduct final review', 'Milestone', 'Instructional Designer', finalReviewStart, finalReviewStart, 1, ['Send final review meeting recap']),
+    task(40, 'End compensation', 'Project Closeout', 'Instructional Designer', compensationEnd, compensationEnd, 1, ['Send stipend notification email', 'Request stipend completion in Quickbase', 'Request code check and archive in Quickbase']),
+    task(41, 'Course completion', 'Milestone', 'Instructional Designer', developmentCompletionStart, developmentCompletionStart, 5, ['Multimedia complete code check and archive', 'Request course completion in Quickbase', 'Send project completion notification email'])
   );
 
   tasks.sort((a, b) => Number(a.id) - Number(b.id));
@@ -319,7 +376,9 @@ export function Category1CourseDev({
   const [compensationDialogContent, setCompensationDialogContent] = useState('');
   const [editingCourse, setEditingCourse] = useState<typeof formData | null>(null);
   const [taskDrafts, setTaskDrafts] = useState<Record<string, Partial<CourseDevelopmentTask & { notes?: string; meetingTime?: string }>>>({});
+  const [subtaskDetailDrafts, setSubtaskDetailDrafts] = useState<Record<string, string>>({});
   const taskListRef = useRef<HTMLDivElement | null>(null);
+  const migratingCourseIdsRef = useRef<Set<string>>(new Set());
   const pendingTaskScrollRestoreRef = useRef<{
     taskId: number | string;
     scrollTop: number;
@@ -366,9 +425,35 @@ const archivedCourses = courseDevelopments.filter(
 
 const visibleCourses = showArchived ? archivedCourses : activeCourses;
 
-const activeCourse =
+  const activeCourse =
   visibleCourses.find((course) => course.id === selectedId) ||
   visibleCourses[0];
+
+  useEffect(() => {
+    if (!activeCourse?.id || migratingCourseIdsRef.current.has(activeCourse.id)) return;
+
+    const hasLegacyMultimediaTasks = activeCourse.tasks.some((task) =>
+      /^Develop Module [1-7] multimedia content$/i.test(task.name)
+    );
+    if (!hasLegacyMultimediaTasks) return;
+
+    migratingCourseIdsRef.current.add(activeCourse.id);
+    const projectedCompletionDate = getProjectedCompletionDate(activeCourse);
+    const generatedTasks = buildCourseDevelopmentTimeline(
+      projectedCompletionDate,
+      activeCourse.onboarding,
+      customBlocked,
+      activeCourse.tasks
+    );
+    const migratedTasks = mergeRecalculatedTimeline(activeCourse.tasks, generatedTasks);
+
+    void onUpdateCourse({
+      ...activeCourse,
+      tasks: migratedTasks,
+    }).catch(() => {
+      migratingCourseIdsRef.current.delete(activeCourse.id || '');
+    });
+  }, [activeCourse, customBlocked, onUpdateCourse]);
 
   const selectCourse = (courseId: string) => {
     setSelectedId(courseId);
@@ -691,13 +776,31 @@ const activeCourse =
   const autoSaveTaskField = async (task: CourseDevelopmentTask, field: string, value: string) => {
     if (!activeCourse) return;
 
-    const updatedTasks = activeCourse.tasks.map(item => {
-      if (item.id !== task.id) return item;
+    const linkedDateTarget = field === 'dueDate'
+      ? ({
+          'Review & Build Module 1 content': ['Develop Module 1–3 Multimedia Content', 'startDate'],
+          'Conduct midpoint review': ['Develop Module 1–3 Multimedia Content', 'dueDate'],
+          'Review & Build Module 4 content': ['Develop Module 4–7 Multimedia Content', 'startDate'],
+          'Conduct final review': ['Develop Module 4–7 Multimedia Content', 'dueDate'],
+        } as Record<string, [string, 'startDate' | 'dueDate']>)[task.name]
+      : undefined;
 
-      return {
-        ...item,
-        [field]: value,
-      };
+    const updatedTasks = activeCourse.tasks.map(item => {
+      if (item.id === task.id) {
+        return {
+          ...item,
+          [field]: value,
+        };
+      }
+
+      if (linkedDateTarget && item.name === linkedDateTarget[0]) {
+        return {
+          ...item,
+          [linkedDateTarget[1]]: value,
+        };
+      }
+
+      return item;
     });
 
     const preservedSelectedId = activeCourse.id || selectedId;
@@ -933,6 +1036,35 @@ const activeCourse =
         ...activeCourse,
         tasks: updatedTasks,
       });
+    });
+  };
+
+  const handleSaveSubtaskDetails = async (
+    taskId: number,
+    subtaskId: string,
+    details: string
+  ) => {
+    if (!activeCourse) return;
+
+    const updatedTasks = activeCourse.tasks.map((task) => {
+      if (task.id !== taskId) return task;
+
+      return {
+        ...task,
+        subtasks: normalizeTimelineSubtasks((task as TimelineTaskExtra).subtasks).map((subtask) =>
+          subtask.id === subtaskId ? { ...subtask, details } : subtask
+        ),
+      };
+    });
+
+    await preserveTaskListScroll(taskId, async () => {
+      await onUpdateCourse({ ...activeCourse, tasks: updatedTasks });
+    });
+
+    setSubtaskDetailDrafts((current) => {
+      const next = { ...current };
+      delete next[`${taskId}:${subtaskId}`];
+      return next;
     });
   };
 
@@ -3502,8 +3634,17 @@ NOTES
                       const isOver = currentStatus !== 'Complete' && !isNA && task.dueDate && task.dueDate < today;
                       const isEmailTask = /\[Email\]/i.test(task.name || '');
                       const displayTaskName = (task.name || '').replace(/\s*\[Email\]\s*/gi, '').trim();
-                      const meetingTaskIds = [4, 6, 11, 24, 44];
-                      const showMeetingTime = meetingTaskIds.includes(Number(task.id));
+                      const hasLinkedMultimediaDates =
+                        task.name === 'Develop Module 1–3 Multimedia Content' ||
+                        task.name === 'Develop Module 4–7 Multimedia Content';
+                      const meetingTaskNames = new Set([
+                        'Conduct onboarding meeting',
+                        'Conduct initial meeting',
+                        'Conduct kickoff meeting',
+                        'Conduct midpoint review',
+                        'Conduct final review',
+                      ]);
+                      const showMeetingTime = meetingTaskNames.has(task.name);
 
                       return (
                         <article
@@ -3661,7 +3802,7 @@ NOTES
                                     <Mail className="h-3.5 w-3.5" /> Module Delivery
                                   </button>
                                 )}
-                                {Number(task.id) === 23 && (
+                                {task.name === 'Send midpoint reminder and agenda' && (
                                   <button
                                     type="button"
                                     onClick={() => handleMidpointReminderAgenda(activeCourse)}
@@ -3670,7 +3811,7 @@ NOTES
                                     <Mail className="h-3.5 w-3.5" /> Midpoint Reminder and Agenda
                                   </button>
                                 )}
-                                {Number(task.id) === 24 && (
+                                {task.name === 'Conduct midpoint review' && (
                                   <button
                                     type="button"
                                     onClick={() => handleMidpointRecap(activeCourse)}
@@ -3679,7 +3820,7 @@ NOTES
                                     <Mail className="h-3.5 w-3.5" /> Midpoint Recap
                                   </button>
                                 )}
-                                {Number(task.id) === 25 && (
+                                {task.name === 'Schedule final meeting' && (
                                   <button
                                     type="button"
                                     onClick={() => handleScheduleFinalReview(activeCourse)}
@@ -3688,7 +3829,7 @@ NOTES
                                     <Calendar className="h-3.5 w-3.5" /> Schedule Final Review
                                   </button>
                                 )}
-                                {[16, 19, 22].includes(Number(task.id)) && (
+                                {task.name === 'Develop Module 1–3 Multimedia Content' && (
                                   <button
                                     type="button"
                                     onClick={() =>
@@ -3705,7 +3846,7 @@ NOTES
                                     <Clipboard className="h-3.5 w-3.5" /> Multimedia Request
                                   </button>
                                 )}
-                                {[28, 31, 34, 37].includes(Number(task.id)) && (
+                                {task.name === 'Develop Module 4–7 Multimedia Content' && (
                                   <button
                                     type="button"
                                     onClick={() =>
@@ -3722,7 +3863,7 @@ NOTES
                                     <Clipboard className="h-3.5 w-3.5" /> Multimedia Request
                                   </button>
                                 )}
-                                {Number(task.id) === 38 && (
+                                {task.name === 'Finalize course documents' && (
                                   <button
                                     type="button"
                                     onClick={() => handleCourseDocumentsEmail(activeCourse)}
@@ -3731,7 +3872,7 @@ NOTES
                                     <Mail className="h-3.5 w-3.5" /> Course Documents
                                   </button>
                                 )}
-                                {Number(task.id) === 39 && (
+                                {task.name === 'Submit proofreading request' && (
                                   <button
                                     type="button"
                                     onClick={() => handleSubmitProofreadingRequestQuickbase(activeCourse)}
@@ -3740,7 +3881,7 @@ NOTES
                                     <Clipboard className="h-3.5 w-3.5" /> Submit Proofreading Request
                                   </button>
                                 )}
-                                {Number(task.id) === 41 && (
+                                {task.name === 'Complete pre-QA checklist' && (
                                   <button
                                     type="button"
                                     onClick={() => handleRequestQaReviewQuickbase(activeCourse)}
@@ -3749,7 +3890,7 @@ NOTES
                                     <Clipboard className="h-3.5 w-3.5" /> Request QA Review
                                   </button>
                                 )}
-                                {Number(task.id) === 45 && (
+                                {task.name === 'End compensation' && (
   <button
     type="button"
     onClick={() => handleRequestCodeCheckArchiveQuickbase(activeCourse)}
@@ -3758,7 +3899,7 @@ NOTES
     <Clipboard className="h-3.5 w-3.5" /> Request Code Check and Archive
   </button>
 )}
-                                {Number(task.id) === 45 && (
+                                {task.name === 'End compensation' && (
                                   <button
                                     type="button"
                                     onClick={() => handleSendStipendNotification(activeCourse)}
@@ -3769,7 +3910,7 @@ NOTES
                                     <Mail className="h-3.5 w-3.5" /> Send stipend notification
                                   </button>
                                 )}
-                                {Number(task.id) === 46 && (
+                                {task.name === 'Course completion' && (
                                   <button
                                     type="button"
                                     onClick={() => handleSendProjectCompletionNotification(activeCourse)}
@@ -3780,7 +3921,7 @@ NOTES
                                     <Mail className="h-3.5 w-3.5" /> Send project completion notification
                                   </button>
                                 )}
-                                {Number(task.id) === 46 && (
+                                {task.name === 'Course completion' && (
                                   <button
                                     type="button"
                                     onClick={() => handleCourseCompletionRequest(activeCourse)}
@@ -3791,7 +3932,7 @@ NOTES
                                     <Clipboard className="h-3.5 w-3.5" /> Course Completion Request
                                   </button>
                                 )}
-                                {Number(task.id) === 43 && (
+                                {task.name === 'Send final review reminder and agenda' && (
                                   <button
                                     type="button"
                                     onClick={() => handleFinalReviewReminderAgenda(activeCourse)}
@@ -3801,7 +3942,7 @@ NOTES
                                   </button>
                                 )}
 
-                                {Number(task.id) === 44 && (
+                                {task.name === 'Conduct final review' && (
   <button
     type="button"
     onClick={() => handleFinalReviewRecap(activeCourse)}
@@ -3870,7 +4011,10 @@ NOTES
                                   name="startDate"
                                   value={draft.startDate || ''}
                                   onChange={(e) => autoSaveTaskField(task, 'startDate', e.target.value)}
-                                  className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs"
+                                  readOnly={hasLinkedMultimediaDates}
+                                  aria-readonly={hasLinkedMultimediaDates}
+                                  title={hasLinkedMultimediaDates ? 'Linked to the corresponding Review & Build task due date' : undefined}
+                                  className={`w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs ${hasLinkedMultimediaDates ? 'bg-slate-100 text-slate-600' : ''}`}
                                 />
                               </label>
 
@@ -3881,7 +4025,10 @@ NOTES
                                   name="dueDate"
                                   value={draft.dueDate || ''}
                                   onChange={(e) => autoSaveTaskField(task, 'dueDate', e.target.value)}
-                                  className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs"
+                                  readOnly={hasLinkedMultimediaDates}
+                                  aria-readonly={hasLinkedMultimediaDates}
+                                  title={hasLinkedMultimediaDates ? 'Linked to the corresponding review milestone due date' : undefined}
+                                  className={`w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs ${hasLinkedMultimediaDates ? 'bg-slate-100 text-slate-600' : ''}`}
                                 />
                               </label>
 
@@ -3910,17 +4057,35 @@ NOTES
                                 <div className="mb-1.5 text-[9px] font-semibold uppercase tracking-wide text-slate-500">Subtasks</div>
                                 <div className="flex flex-col gap-1.5">
                                   {normalizeTimelineSubtasks((task as any).subtasks).map((subtask) => (
-                                    <label key={subtask.id} className="flex items-center gap-2 text-xs text-slate-700">
+                                    <div key={subtask.id} className="flex flex-wrap items-center gap-2 text-xs text-slate-700">
                                       <input
+                                        id={`task-${task.id}-${subtask.id}`}
                                         type="checkbox"
                                         checked={subtask.complete}
                                         onChange={() => handleToggleSubtask(task.id as number, subtask.id)}
                                         className="h-3.5 w-3.5 rounded border-slate-300 accent-[#006282]"
                                       />
-                                      <span className={subtask.complete ? 'line-through text-slate-400' : ''}>
+                                      <label
+                                        htmlFor={`task-${task.id}-${subtask.id}`}
+                                        className={`min-w-48 flex-1 ${subtask.complete ? 'line-through text-slate-400' : ''}`}
+                                      >
                                         {subtask.title}
-                                      </span>
-                                    </label>
+                                      </label>
+                                      {/^Develop Module [1-7] multimedia content$/i.test(subtask.title) && (
+                                        <input
+                                          type="text"
+                                          value={subtaskDetailDrafts[`${task.id}:${subtask.id}`] ?? subtask.details}
+                                          onChange={(event) => setSubtaskDetailDrafts((current) => ({
+                                            ...current,
+                                            [`${task.id}:${subtask.id}`]: event.target.value,
+                                          }))}
+                                          onBlur={(event) => handleSaveSubtaskDetails(task.id as number, subtask.id, event.target.value)}
+                                          aria-label={`${subtask.title} title or details`}
+                                          placeholder="Enter title or details"
+                                          className="min-w-56 flex-[2_1_18rem] rounded-md border border-slate-300 px-2 py-1 text-xs"
+                                        />
+                                      )}
+                                    </div>
                                   ))}
                                 </div>
                               </div>
