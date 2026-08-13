@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { CourseDevelopment, CourseDevelopmentTask, InitialMeetingFormData } from '../types';
+import { CourseDevelopment, CourseDevelopmentTask, InitialMeetingFormData, WorkStatus } from '../types';
 import { InitialMeetingFormModal } from './InitialMeetingFormModal';
 import { generateInitialMeetingReport } from '../utils/initialMeetingReport';
 import { 
@@ -38,6 +38,14 @@ type TimelineTaskExtra = CourseDevelopmentTask & {
 };
 
 type TimelineReportType = 'sme' | 'id' | 'course';
+
+export const getDefaultCourseTaskStatus = (taskId: number): WorkStatus =>
+  [24, 44, 45, 46].includes(taskId) ? 'Projected' : 'Not Started';
+
+export const preserveExistingCourseTaskStatus = (
+  existingStatus: WorkStatus | undefined,
+  generatedStatus: WorkStatus
+): WorkStatus => existingStatus || generatedStatus;
 
 const addCalendarDays = (dateStr: string, days: number) => {
   const date = new Date(`${dateStr.slice(0, 10)}T12:00:00`);
@@ -92,7 +100,7 @@ const mergeRecalculatedTimeline = (
 
     return {
       ...newTask,
-      status: existing.status,
+      status: preserveExistingCourseTaskStatus(existing.status, newTask.status),
       startDate: preserveHistoricalDates ? existing.startDate : newTask.startDate,
       dueDate: preserveHistoricalDates ? existing.dueDate : newTask.dueDate,
       completionDate: existing.completionDate,
@@ -168,7 +176,7 @@ const buildCourseDevelopmentTimeline = (
     startDate,
     dueDate,
     durationDays,
-    status: 'Not Started',
+    status: getDefaultCourseTaskStatus(id),
     notes: notes || '',
     subtasks: normalizeTimelineSubtasks(subtasks),
     durationLabel: durationLabel || (durationDays > 0 ? `${durationDays} days` : ''),

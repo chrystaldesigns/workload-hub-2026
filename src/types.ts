@@ -9,6 +9,7 @@ export type Priority = "Low" | "Moderate" | "High" | "Critical";
 
 export type WorkStatus =
   | "Not Started"
+  | "Projected"
   | "In Progress"
   | "Developing (Content)"
   | "Developing (Canvas)"
