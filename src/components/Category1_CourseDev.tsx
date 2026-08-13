@@ -1563,7 +1563,11 @@ ${milestones.join("\n")}${offTimeSection}`;
       year: "2-digit",
     });
 
-    const to = course.deptTeam.smeEmail || "";
+    const to = [
+      course.deptTeam.smeEmail,
+      course.deptTeam.deanEmail,
+      course.deptTeam.associateDeanEmail,
+    ].filter(Boolean).join("; ");
     const cc = [course.deptTeam.deanEmail, course.deptTeam.managerEmail].filter(Boolean).join(",");
     const subject = `${course.courseNumber} Course Development Status ${today}`;
     const statusReport = generateWeeklyStatusReport(course);
@@ -2042,8 +2046,10 @@ If you are unable to attend a meeting where your attendance is required, please 
 
     const to = [
       course.deptTeam.deanEmail,
+      course.deptTeam.associateDeanEmail,
       "cel@fscj.edu",
       course.deptTeam.deanEmail,
+      course.deptTeam.associateDeanEmail,
       "Ansa.Reams.Johnson@fscj.edu",
       course.deptTeam.managerEmail,
       course.deptTeam.smeEmail,
@@ -2337,6 +2343,7 @@ Instructional Designer: Chrystal Wickline
       "kris.kristen@fscj.edu",
       "Golf.K@fscj.edu",
       course.deptTeam.deanEmail,
+      course.deptTeam.associateDeanEmail,
       "Ansa.Reams.Johnson@fscj.edu",
       course.deptTeam.managerEmail,
       "cel@fscj.edu",
@@ -2378,8 +2385,10 @@ Attached are the course outline and the course design plan for your reference.`;
     const to = [
       course.deptTeam.smeEmail,
       course.deptTeam.deanEmail,
+      course.deptTeam.associateDeanEmail,
       "cel@fscj.edu",
       course.deptTeam.deanEmail,
+      course.deptTeam.associateDeanEmail,
       "Ansa.Reams.Johnson@fscj.edu",
       course.deptTeam.managerEmail,
     ].filter(Boolean).join("; ");
@@ -2459,6 +2468,7 @@ Notes:
       "cel@fscj.edu",
       course.deptTeam.smeEmail,
       course.deptTeam.deanEmail,
+      course.deptTeam.associateDeanEmail,
       course.deptTeam.managerEmail,
     ].filter(Boolean).join("; ");
 
@@ -2506,6 +2516,7 @@ This email is a friendly reminder that we'll hold our midpoint review meeting fo
       "cel@fscj.edu",
       course.deptTeam.smeEmail,
       course.deptTeam.deanEmail,
+      course.deptTeam.associateDeanEmail,
       course.deptTeam.managerEmail,
     ].filter(Boolean).join("; ");
 
@@ -2554,6 +2565,7 @@ ${remainingStakeholderMilestones || "None at this time."}`;
       "cel@fscj.edu",
       course.deptTeam.smeEmail,
       course.deptTeam.deanEmail,
+      course.deptTeam.associateDeanEmail,
       course.deptTeam.managerEmail,
     ].filter(Boolean).join("; ");
 
@@ -2661,6 +2673,7 @@ Please:
       "cel@fscj.edu",
       course.deptTeam.smeEmail,
       course.deptTeam.deanEmail,
+      course.deptTeam.associateDeanEmail,
     ].filter(Boolean).join("; ");
 
     const popupTitle = `${course.courseNumber} Final Review Meeting Reminder for Course Development`;
@@ -2726,6 +2739,7 @@ This email is a friendly reminder that we will hold our final review meeting for
   const to = [
     course.deptTeam.smeEmail,
     course.deptTeam.deanEmail,
+    course.deptTeam.associateDeanEmail,
     "Ansa.Reams.Johnson@fscj.edu",
     course.deptTeam.managerEmail,
     "kris.kristen@fscj.edu",
@@ -2865,6 +2879,8 @@ The next email will provide details on course completion, including finalized mo
 
     const to = [
       course.deptTeam.smeEmail,
+      course.deptTeam.deanEmail,
+      course.deptTeam.associateDeanEmail,
       "Ansa.Reams.Johnson@fscj.edu",
       "martha.mcnulty@fscj.edu",
     ].filter(Boolean).join("; ");
@@ -3272,12 +3288,12 @@ NOTES
               {/* STAKEHOLDERS METADATA CARDS */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-y border-dashed border-[#E0DCD8] py-4 font-mono text-xs">
                 <div>
-                  <span className="text-slate-400 block uppercase text-[10px] mb-1">Division Sponsoring Program:</span>
+                  <span className="text-slate-400 block uppercase text-[10px] mb-1">College Program:</span>
                   <span className="font-semibold text-slate-800 uppercase">{activeCourse.program}</span>
                 </div>
                 <div>
-                  <span className="text-slate-400 block uppercase text-[10px] mb-1">Canvas / Sandbox Workspace:</span>
-                  <span className="font-semibold text-slate-800">{activeCourse.canvasVersion}</span>
+                  <span className="text-slate-400 block uppercase text-[10px] mb-1">Canvas Development Shell:</span>
+                  <span className="font-semibold text-slate-800 lowercase">{activeCourse.canvasVersion}</span>
                 </div>
               </div>
 
@@ -3842,7 +3858,7 @@ NOTES
                                     onClick={() => handleMidpointReminderAgenda(activeCourse)}
                                     className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
                                   >
-                                    <Mail className="h-3.5 w-3.5" /> Midpoint Reminder and Agenda
+                                    <Mail className="h-3.5 w-3.5" /> Midpoint Reminder
                                   </button>
                                 )}
                                 {task.name === 'Conduct midpoint review' && (
@@ -3950,11 +3966,11 @@ NOTES
                                   <button
                                     type="button"
                                     onClick={() => handleSendProjectCompletionNotification(activeCourse)}
-                                    aria-label="Send project completion notification"
-                                    title="Send project completion notification"
+                                    aria-label="Project Completion Notification"
+                                    title="Project Completion Notification"
                                     className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
                                   >
-                                    <Mail className="h-3.5 w-3.5" /> Send project completion notification
+                                    <Mail className="h-3.5 w-3.5" /> Project Completion Notification
                                   </button>
                                 )}
                                 {task.name === 'Course completion' && (
@@ -3974,7 +3990,7 @@ NOTES
                                     onClick={() => handleFinalReviewReminderAgenda(activeCourse)}
                                     className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
                                   >
-                                    <Mail className="h-3.5 w-3.5" /> Final Review Reminder and Agenda
+                                    <Mail className="h-3.5 w-3.5" /> Final Review Reminder
                                   </button>
                                 )}
 
