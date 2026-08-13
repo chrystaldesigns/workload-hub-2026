@@ -450,7 +450,6 @@ export default function App() {
         ...newTask,
         itemType: "standaloneTask" as any,
         status: newTask.status || "Not Started",
-        priority: newTask.priority || "Moderate",
         progress: Number(newTask.progress || 0),
       };
 

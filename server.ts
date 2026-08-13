@@ -408,13 +408,16 @@ async function startServer() {
         return res.status(400).json({ error: "Task Title is required." });
       }
 
+      if (payload.category !== "Home" && payload.category !== "UCF") {
+        return res.status(400).json({ error: "Category must be Home or UCF." });
+      }
+
       const record = await createRecord(
         "standalone-tasks",
         {
           ...payload,
           itemType: "standaloneTask",
           status: payload.status || "Not Started",
-          priority: payload.priority || "Moderate",
           progress: Number(payload.progress || 0),
         },
         inMemoryStandaloneTasks,

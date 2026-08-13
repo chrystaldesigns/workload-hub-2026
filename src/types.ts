@@ -355,6 +355,8 @@ export interface LssProject {
   updatedAt?: string;
 }
 
+export type StandaloneTaskCategory = "Home" | "UCF";
+
 export interface StandaloneTask {
   id?: string;
   itemType?: "standaloneTask";
@@ -379,7 +381,8 @@ export interface StandaloneTask {
   status: "Not Started" | "In Progress" | "Complete" | "On Hold" | "Overdue";
   progress: number;
 
-  priority: Priority;
+  priority?: Priority;
+  category?: StandaloneTaskCategory;
   alertStatus?: AlertStatus;
 
   actionType?: ActionType;

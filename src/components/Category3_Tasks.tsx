@@ -13,7 +13,7 @@ import {
   Archive,
   RotateCcw,
 } from "lucide-react";
-import { StandaloneTask } from "../types";
+import { StandaloneTask, StandaloneTaskCategory } from "../types";
 
 type AlertStatus = "No Concerns" | "Potential Concerns" | "High Priority Concerns";
 
@@ -41,14 +41,10 @@ const emptyTask: ExtendedStandaloneTask = {
   title: "",
   startDate: "",
   dueDate: "",
-  completionDate: "",
-  manualDuration: null,
-  durationMinutes: undefined,
-  durationDays: undefined,
   notes: "",
   status: "Not Started",
   progress: 0,
-  priority: "Moderate",
+  category: undefined,
   alertStatus: "No Concerns",
 };
 
@@ -62,10 +58,6 @@ function getTodayDateString() {
 
 function getTaskAlert(task: ExtendedStandaloneTask): AlertStatus {
   return task.alertStatus || "No Concerns";
-}
-
-function getTaskDuration(task: ExtendedStandaloneTask) {
-  return task.manualDuration ?? task.durationDays ?? "";
 }
 
 function isOverdue(task: ExtendedStandaloneTask) {
@@ -104,7 +96,14 @@ export function Category3Tasks({
     ? (standaloneTasks as ExtendedStandaloneTask[])
     : [];
   const [showArchived, setShowArchived] = useState(false);
-  const visibleTasks = safeTasks.filter((task) => showArchived || !task.archived);
+  const [categoryFilter, setCategoryFilter] = useState<"All" | StandaloneTaskCategory>("All");
+  const [newTaskCategoryError, setNewTaskCategoryError] = useState("");
+  const [editTaskCategoryError, setEditTaskCategoryError] = useState("");
+  const visibleTasks = safeTasks.filter(
+    (task) =>
+      (showArchived || !task.archived) &&
+      (categoryFilter === "All" || task.category === categoryFilter)
+  );
   const archivedTasks = safeTasks.filter((task) => task.archived);
 
   const [selectedId, setSelectedId] = useState<string>("");
@@ -123,16 +122,11 @@ export function Category3Tasks({
   ) => {
     const { name, value } = e.target;
 
+    if (name === "category") setNewTaskCategoryError("");
+
     setNewTask((prev) => ({
       ...prev,
-      [name]:
-        name === "progress"
-          ? Number(value)
-          : name === "manualDuration" || name === "durationMinutes" || name === "durationDays"
-            ? value === ""
-              ? undefined
-              : Number(value)
-            : value,
+      [name]: name === "progress" ? Number(value) : name === "category" ? value || undefined : value,
     }));
   };
 
@@ -143,16 +137,11 @@ export function Category3Tasks({
 
     const { name, value } = e.target;
 
+    if (name === "category") setEditTaskCategoryError("");
+
     setEditingTask({
       ...editingTask,
-      [name]:
-        name === "progress"
-          ? Number(value)
-          : name === "manualDuration" || name === "durationMinutes" || name === "durationDays"
-            ? value === ""
-              ? undefined
-              : Number(value)
-            : value,
+      [name]: name === "progress" ? Number(value) : name === "category" ? value || undefined : value,
     });
   };
 
@@ -161,6 +150,11 @@ export function Category3Tasks({
 
     if (!newTask.title.trim()) {
       alert("Task Title is required.");
+      return;
+    }
+
+    if (!newTask.category) {
+      setNewTaskCategoryError("Select Home or UCF before saving this task.");
       return;
     }
 
@@ -180,6 +174,7 @@ export function Category3Tasks({
 
     onAddTask(taskToSave as StandaloneTask);
     setNewTask(emptyTask);
+    setNewTaskCategoryError("");
   };
 
   const startEditing = (task: ExtendedStandaloneTask) => {
@@ -189,10 +184,12 @@ export function Category3Tasks({
     }
 
     setEditingTask({ ...task });
+    setEditTaskCategoryError("");
   };
 
   const cancelEditing = () => {
     setEditingTask(null);
+    setEditTaskCategoryError("");
   };
 
   const saveEditing = () => {
@@ -200,6 +197,11 @@ export function Category3Tasks({
 
     if (!editingTask.title.trim()) {
       alert("Task Title is required.");
+      return;
+    }
+
+    if (!editingTask.category) {
+      setEditTaskCategoryError("Select Home or UCF before saving this task.");
       return;
     }
 
@@ -235,7 +237,10 @@ export function Category3Tasks({
       ...task,
       itemType: "standaloneTask",
       status: nextStatus,
-      completionDate: nextStatus === "Complete" ? task.completionDate || getTodayDateString() : "",
+      completionDate:
+        nextStatus === "Complete"
+          ? task.completionDate || getTodayDateString()
+          : task.completionDate,
       progress: nextStatus === "Complete" ? 100 : nextStatus === "Not Started" ? 0 : 50,
       updatedAt: new Date().toISOString(),
     };
@@ -328,17 +333,22 @@ export function Category3Tasks({
     }
   };
 
-  const getPriorityBadgeClass = (priority?: string) => {
-    switch (priority) {
-      case "Critical":
-        return "bg-red-700 text-white";
-      case "High":
-        return "bg-orange-700 text-white";
-      case "Moderate":
-        return "bg-[#003E52] text-white";
-      default:
-        return "bg-slate-600 text-white";
-    }
+  const getCategoryBadgeClass = (category?: StandaloneTaskCategory) => {
+    if (category === "Home") return "border-green-300 bg-green-100 text-green-800";
+    if (category === "UCF") return "border-amber-300 bg-amber-100 text-amber-900";
+    return "border-slate-300 bg-slate-100 text-slate-600";
+  };
+
+  const getCategoryAccentClass = (category?: StandaloneTaskCategory) => {
+    if (category === "Home") return "border-l-green-500";
+    if (category === "UCF") return "border-l-amber-400";
+    return "border-l-slate-300";
+  };
+
+  const getCategorySelectClass = (category?: StandaloneTaskCategory) => {
+    if (category === "Home") return "border-green-300 bg-green-100 text-green-800";
+    if (category === "UCF") return "border-amber-300 bg-amber-100 text-amber-900";
+    return "border-slate-300 bg-white text-slate-700";
   };
 
   const renderTaskFields = (
@@ -394,38 +404,6 @@ export function Category3Tasks({
         </div>
 
         <div>
-          <label htmlFor={`${prefix}-completionDate`} className="mb-1 block text-sm font-medium text-slate-700">
-            Completion Date
-          </label>
-          <input
-            id={`${prefix}-completionDate`}
-            name="completionDate"
-            type="date"
-            value={task.completionDate || ""}
-            onChange={onChange}
-            className="w-full rounded-xl border border-slate-300 px-3 py-2"
-          />
-        </div>
-
-        <div>
-          <label htmlFor={`${prefix}-manualDuration`} className="mb-1 block text-sm font-medium text-slate-700">
-            Duration
-          </label>
-          <input
-            id={`${prefix}-manualDuration`}
-            name="manualDuration"
-            type="number"
-            min={0}
-            step={0.25}
-            value={getTaskDuration(task)}
-            onChange={onChange}
-            placeholder="Example: 1, 2.5, 4"
-            className="w-full rounded-xl border border-slate-300 px-3 py-2"
-          />
-          <p className="mt-1 text-xs text-slate-500">Enter duration in workdays.</p>
-        </div>
-
-        <div>
           <label htmlFor={`${prefix}-status`} className="mb-1 block text-sm font-medium text-slate-700">
             Status
           </label>
@@ -444,21 +422,27 @@ export function Category3Tasks({
         </div>
 
         <div>
-          <label htmlFor={`${prefix}-priority`} className="mb-1 block text-sm font-medium text-slate-700">
-            Priority
+          <label htmlFor={`${prefix}-category`} className="mb-1 block text-sm font-medium text-slate-700">
+            Category
           </label>
           <select
-            id={`${prefix}-priority`}
-            name="priority"
-            value={task.priority}
+            id={`${prefix}-category`}
+            name="category"
+            value={task.category || ""}
             onChange={onChange}
-            className="w-full rounded-xl border border-slate-300 px-3 py-2"
+            aria-describedby={`${prefix}-category-error`}
+            aria-invalid={prefix === "new-task" ? !!newTaskCategoryError : !!editTaskCategoryError}
+            className={`w-full rounded-xl border px-3 py-2 outline-none focus:ring-2 focus:ring-[#33B1C8] ${getCategorySelectClass(task.category)}`}
           >
-            <option>Low</option>
-            <option>Moderate</option>
-            <option>High</option>
-            <option>Critical</option>
+            <option value="" disabled>Select category</option>
+            <option value="Home">Home</option>
+            <option value="UCF">UCF</option>
           </select>
+          {(prefix === "new-task" ? newTaskCategoryError : editTaskCategoryError) && (
+            <p id={`${prefix}-category-error`} className="mt-1 text-sm font-medium text-red-700">
+              {prefix === "new-task" ? newTaskCategoryError : editTaskCategoryError}
+            </p>
+          )}
         </div>
 
         <div>
@@ -512,26 +496,75 @@ export function Category3Tasks({
   };
 
   return (
-    <section className="space-y-6 px-4 py-6 sm:px-6 lg:px-8">
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="mb-5 flex items-center gap-3">
-          <div className="rounded-xl bg-[#003E52] p-3 text-white">
-            <CheckSquare className="h-6 w-6" aria-hidden="true" />
+    <section className="space-y-6 bg-slate-50 px-4 py-6 sm:px-6 lg:px-8">
+      <div className="rounded-2xl border border-slate-200 bg-slate-100 p-5 shadow-sm sm:p-6">
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="rounded-xl bg-[#003E52] p-3 text-white">
+              <CheckSquare className="h-6 w-6" aria-hidden="true" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-semibold text-[#003E52]">Tasks</h2>
+              <p className="text-sm text-slate-600">
+                Add and manage standalone tasks that are not tied to Course Developments or Projects.
+              </p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-xl font-semibold text-slate-900">Tasks</h2>
-            <p className="text-sm text-slate-600">
-              Add and manage standalone tasks that are not tied to Course Developments or Projects.
-            </p>
-          </div>
+          <button
+            type="button"
+            onClick={() =>
+              document
+                .getElementById("add-standalone-task")
+                ?.scrollIntoView({ behavior: "smooth" })
+            }
+            className="inline-flex items-center justify-center gap-2 self-start rounded-xl bg-[#008BA3] px-4 py-2 font-medium text-white shadow-sm hover:bg-[#00788d] focus:outline-none focus:ring-2 focus:ring-[#33B1C8] focus:ring-offset-2"
+          >
+            <PlusCircle className="h-5 w-5" aria-hidden="true" />
+            Add Task
+          </button>
         </div>
 
+        <div className="mt-5 flex flex-wrap items-center gap-2" aria-label="Filter tasks by category">
+          <span className="mr-1 text-xs font-semibold uppercase tracking-wide text-slate-600">Category</span>
+          {(["All", "Home", "UCF"] as const).map((filter) => {
+            const active = categoryFilter === filter;
+            const activeClass = filter === "Home"
+              ? "border-green-600 bg-green-700 text-white"
+              : filter === "UCF"
+                ? "border-amber-400 bg-amber-300 text-amber-950"
+                : "border-[#003E52] bg-[#003E52] text-white";
+
+            return (
+              <button
+                key={filter}
+                type="button"
+                onClick={() => setCategoryFilter(filter)}
+                aria-pressed={active}
+                className={`rounded-full border px-3 py-1.5 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-[#33B1C8] focus:ring-offset-2 ${
+                  active ? activeClass : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                {filter}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div
+        id="add-standalone-task"
+        className="scroll-mt-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6"
+      >
+        <div className="mb-5">
+          <h3 className="text-lg font-semibold text-[#003E52]">Add Task</h3>
+          <p className="text-sm text-slate-600">Enter the task details and choose a category.</p>
+        </div>
         <form onSubmit={handleCreateTask} className="space-y-4">
           {renderTaskFields(newTask, handleNewTaskChange, "new-task")}
 
           <button
             type="submit"
-            className="inline-flex items-center gap-2 rounded-xl bg-[#003E52] px-4 py-2 font-medium text-white hover:bg-[#073C5C]"
+            className="inline-flex items-center gap-2 rounded-xl bg-[#003E52] px-4 py-2 font-medium text-white hover:bg-[#073C5C] focus:outline-none focus:ring-2 focus:ring-[#33B1C8] focus:ring-offset-2"
           >
             <PlusCircle className="h-5 w-5" aria-hidden="true" />
             Create Task
@@ -558,7 +591,13 @@ export function Category3Tasks({
           </div>
 
           {sortedTasks.length === 0 ? (
-            <p className="text-sm text-slate-600">{showArchived ? "No archived tasks found." : "No tasks have been added yet."}</p>
+            <p className="text-sm text-slate-600">
+              {categoryFilter !== "All"
+                ? `No ${categoryFilter} tasks found.`
+                : showArchived
+                  ? "No archived tasks found."
+                  : "No tasks have been added yet."}
+            </p>
           ) : (
             <div className="space-y-3">
               {sortedTasks.map((task) => {
@@ -571,26 +610,28 @@ export function Category3Tasks({
                     key={task.id || task.title}
                     type="button"
                     onClick={() => setSelectedId(task.id || "")}
-                    className={`w-full rounded-xl border p-4 text-left transition ${
+                    className={`w-full rounded-xl border border-l-4 p-4 text-left shadow-sm transition ${getCategoryAccentClass(task.category)} ${
+                      task.status === "Complete" ? "bg-slate-50 text-slate-600" : "bg-white text-slate-900"
+                    } ${
                       isSelected
-                        ? "border-[#003E52] bg-[#003E52] text-white shadow-sm"
+                        ? "border-r-[#003E52] border-y-[#003E52] ring-2 ring-[#33B1C8]/30"
                         : overdue
-                          ? "border-red-200 bg-red-50 text-slate-900 hover:bg-red-100"
-                          : "border-slate-200 bg-white text-slate-900 hover:bg-slate-50"
+                          ? "border-r-red-200 border-y-red-200 hover:bg-red-50"
+                          : "border-r-slate-200 border-y-slate-200 hover:bg-slate-50"
                     }`}
                   >
                     <div className="flex items-start gap-3">
                       <div className="mt-0.5">{getStatusIcon(task)}</div>
 
                       <div className="min-w-0 flex-1">
-                        <h4 className={`font-semibold ${isSelected ? "text-white" : "text-slate-900"}`}>
+                        <h4 className={`font-semibold text-[#003E52] ${task.status === "Complete" ? "line-through opacity-70" : ""}`}>
                           {task.title}
                         </h4>
-                        <p className={`mt-1 text-sm ${isSelected ? "text-slate-100" : "text-slate-600"}`}>
+                        <p className="mt-1 text-sm text-slate-600">
                           Due: {task.dueDate || "Not set"}
                         </p>
                         {task.archived && (
-                          <p className={`mt-1 text-xs font-semibold uppercase ${isSelected ? "text-orange-100" : "text-[#B35C06]"}`}>
+                          <p className="mt-1 text-xs font-semibold uppercase text-[#B35C06]">
                             Archived{task.archivedDate ? ` • ${task.archivedDate}` : ""}
                           </p>
                         )}
@@ -608,15 +649,15 @@ export function Category3Tasks({
                             </span>
                           )}
 
-                          <span className={`rounded-full px-2 py-1 text-xs font-medium ${getPriorityBadgeClass(task.priority)}`}>
-                            {task.priority}
+                          <span className={`rounded-full border px-2 py-1 text-xs font-semibold ${getCategoryBadgeClass(task.category)}`}>
+                            {task.category ? task.category.toUpperCase() : "SELECT CATEGORY"}
                           </span>
                         </div>
                       </div>
                     </div>
 
                     <div className="mt-3">
-                      <div className={`mb-1 flex justify-between text-xs ${isSelected ? "text-slate-100" : "text-slate-600"}`}>
+                      <div className="mb-1 flex justify-between text-xs text-slate-600">
                         <span>Progress</span>
                         <span>{task.progress || 0}%</span>
                       </div>
@@ -674,16 +715,11 @@ export function Category3Tasks({
                   <p className="mt-1 text-sm text-slate-600">
                     Start: {activeTask.startDate || "Not set"} · Due: {activeTask.dueDate || "Not set"}
                   </p>
-                  {activeTask.completionDate && (
-                    <p className="mt-1 text-sm text-slate-600">
-                      Completed: {activeTask.completionDate}
-                    </p>
-                  )}
                 </div>
 
                 <div className="flex flex-wrap gap-2">
-                  <span className={`rounded-full px-3 py-1 text-xs font-medium ${getPriorityBadgeClass(activeTask.priority)}`}>
-                    {activeTask.priority}
+                  <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${getCategoryBadgeClass(activeTask.category)}`}>
+                    {activeTask.category ? activeTask.category.toUpperCase() : "SELECT CATEGORY"}
                   </span>
                   <span className={`rounded-full px-3 py-1 text-xs font-medium ${getAlertBadgeClass(getTaskAlert(activeTask))}`}>
                     {getTaskAlert(activeTask)}
@@ -738,22 +774,13 @@ export function Category3Tasks({
                 </div>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-2">
                 <div className="rounded-xl bg-slate-50 p-4">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                     Status
                   </p>
                   <p className="mt-1 text-lg font-semibold text-slate-900">
                     {activeTask.status}
-                  </p>
-                </div>
-
-                <div className="rounded-xl bg-slate-50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Duration
-                  </p>
-                  <p className="mt-1 text-lg font-semibold text-slate-900">
-                    {getTaskDuration(activeTask) || "Not set"}
                   </p>
                 </div>
 
