@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -14,6 +14,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { StandaloneTask, StandaloneTaskCategory } from "../types";
+import { DashboardNavigationTarget } from "./Dashboard";
 
 type AlertStatus = "No Concerns" | "Potential Concerns" | "High Priority Concerns";
 
@@ -34,6 +35,8 @@ interface Category3TasksProps {
   onAddTask: (task: StandaloneTask) => void;
   onUpdateTask: (task: StandaloneTask) => void;
   onDeleteTask: (id: string) => void;
+  navigationTarget?: DashboardNavigationTarget | null;
+  onNavigationComplete?: () => void;
 }
 
 const emptyTask: ExtendedStandaloneTask = {
@@ -91,6 +94,8 @@ export function Category3Tasks({
   onAddTask,
   onUpdateTask,
   onDeleteTask,
+  navigationTarget,
+  onNavigationComplete,
 }: Category3TasksProps) {
   const safeTasks = Array.isArray(standaloneTasks)
     ? (standaloneTasks as ExtendedStandaloneTask[])
@@ -109,6 +114,21 @@ export function Category3Tasks({
   const [selectedId, setSelectedId] = useState<string>("");
   const [newTask, setNewTask] = useState<ExtendedStandaloneTask>(emptyTask);
   const [editingTask, setEditingTask] = useState<ExtendedStandaloneTask | null>(null);
+  const [highlightedId, setHighlightedId] = useState("");
+
+  useEffect(() => {
+    if (!navigationTarget?.itemId) return;
+    setShowArchived(false);
+    setCategoryFilter("All");
+    setSelectedId(navigationTarget.itemId);
+    setHighlightedId(navigationTarget.itemId);
+    const frame = window.setTimeout(() => document.querySelector(`[data-standalone-task-id="${CSS.escape(navigationTarget.itemId)}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 50);
+    const clear = window.setTimeout(() => {
+      setHighlightedId("");
+      onNavigationComplete?.();
+    }, 2500);
+    return () => { window.clearTimeout(frame); window.clearTimeout(clear); };
+  }, [navigationTarget, onNavigationComplete]);
 
   const sortedTasks = useMemo(() => sortTasksByDueDate(visibleTasks), [visibleTasks]);
 
@@ -608,9 +628,10 @@ export function Category3Tasks({
                 return (
                   <button
                     key={task.id || task.title}
+                    data-standalone-task-id={task.id}
                     type="button"
                     onClick={() => setSelectedId(task.id || "")}
-                    className={`w-full rounded-xl border border-l-4 p-4 text-left shadow-sm transition ${getCategoryAccentClass(task.category)} ${
+                    className={`w-full rounded-xl border border-l-4 p-4 text-left shadow-sm transition ${highlightedId === task.id ? "ring-4 ring-[#33B1C8]" : ""} ${getCategoryAccentClass(task.category)} ${
                       task.status === "Complete" ? "bg-slate-50 text-slate-600" : "bg-white text-slate-900"
                     } ${
                       isSelected

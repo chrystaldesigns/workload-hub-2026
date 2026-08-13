@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { CalendarSettings, OutlookEvent } from "../types";
 import { Plus } from "lucide-react";
+import { DashboardNavigationTarget } from "./Dashboard";
 import {
   FSCJ_HOLIDAYS,
   getSummerBounds,
@@ -14,13 +15,30 @@ interface CalendarPanelProps {
   onConnectOutlook: (clientId: string, tenantId: string) => void;
   onDisconnectOutlook: () => Promise<void>;
   onTriggerSync: () => Promise<void>;
+  navigationTarget?: DashboardNavigationTarget | null;
+  onNavigationComplete?: () => void;
 }
 
 export function CalendarSettingsPanel({
   settings,
+  outlookEvents,
   onUpdateBlockedDates,
+  navigationTarget,
+  onNavigationComplete,
 }: CalendarPanelProps) {
   const [newBlockedDate, setNewBlockedDate] = useState("");
+  const [highlightedEventId, setHighlightedEventId] = useState("");
+
+  useEffect(() => {
+    if (!navigationTarget?.itemId) return;
+    setHighlightedEventId(navigationTarget.itemId);
+    const frame = window.setTimeout(() => document.querySelector(`[data-calendar-event-id="${CSS.escape(navigationTarget.itemId)}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 50);
+    const clear = window.setTimeout(() => {
+      setHighlightedEventId("");
+      onNavigationComplete?.();
+    }, 2500);
+    return () => { window.clearTimeout(frame); window.clearTimeout(clear); };
+  }, [navigationTarget, onNavigationComplete]);
 
   const bounds = getSummerBounds(2026);
 
@@ -77,6 +95,19 @@ export function CalendarSettingsPanel({
 
   return (
     <div className="p-6 max-w-7xl mx-auto flex flex-col gap-8">
+      {outlookEvents.length > 0 && (
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h3 className="text-sm font-semibold uppercase tracking-wider text-[#003E52]">Calendar Appointments</h3>
+          <div className="mt-3 divide-y divide-slate-100">
+            {outlookEvents.map((event) => (
+              <article key={event.id} data-calendar-event-id={event.id} className={`px-3 py-3 transition-shadow ${highlightedEventId === event.id ? "ring-4 ring-[#33B1C8]" : ""}`}>
+                <p className="font-semibold text-slate-900">{event.subject}</p>
+                <p className="text-xs text-slate-600">{new Date(event.start.dateTime).toLocaleString("en-US", { dateStyle: "medium", timeStyle: event.isAllDay ? undefined : "short", timeZone: "America/New_York" })}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      )}
       {/* CAPACITY STANDARDS */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white border border-[#E0DCD8] p-6 shadow-2xs">
         <div className="border-r border-slate-100 pr-4 flex flex-col justify-between">

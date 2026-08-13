@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   BarChart3,
   CheckCircle2,
@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { LssProject, LssTask } from "../types";
 import { stepWorkingDays } from "../utils/calendarEngine";
+import { DashboardNavigationTarget } from "./Dashboard";
 
 interface Category2Props {
   lssProjects: LssProject[];
@@ -22,6 +23,8 @@ interface Category2Props {
   onAddProject: (project: LssProject) => Promise<void>;
   onUpdateProject: (project: LssProject) => Promise<void>;
   onDeleteProject: (id: string) => Promise<void>;
+  navigationTarget?: DashboardNavigationTarget | null;
+  onNavigationComplete?: () => void;
 }
 
 type AlertStatus =
@@ -132,6 +135,8 @@ export function Category2LssProjects({
   onAddProject,
   onUpdateProject,
   onDeleteProject,
+  navigationTarget,
+  onNavigationComplete,
 }: Category2Props) {
   const safeProjects = Array.isArray(lssProjects) ? lssProjects : [];
   const [showArchived, setShowArchived] = useState(false);
@@ -144,6 +149,7 @@ export function Category2LssProjects({
   );
 
   const [selectedId, setSelectedId] = useState<string>("");
+  const [highlightedTaskId, setHighlightedTaskId] = useState("");
   const [formData, setFormData] = useState<ProjectFormData>(emptyProjectForm);
   const [editingProject, setEditingProject] = useState<ProjectFormData | null>(
     null,
@@ -162,6 +168,19 @@ export function Category2LssProjects({
       visibleProjects[0]
     );
   }, [visibleProjects, selectedId]);
+
+  useEffect(() => {
+    if (!navigationTarget?.parentId || !navigationTarget.itemId) return;
+    setShowArchived(false);
+    setSelectedId(navigationTarget.parentId);
+    setHighlightedTaskId(navigationTarget.itemId);
+    const frame = window.setTimeout(() => document.querySelector(`[data-project-task-id="${CSS.escape(navigationTarget.itemId)}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 100);
+    const clear = window.setTimeout(() => {
+      setHighlightedTaskId("");
+      onNavigationComplete?.();
+    }, 2500);
+    return () => { window.clearTimeout(frame); window.clearTimeout(clear); };
+  }, [navigationTarget, onNavigationComplete]);
 
   const calculatePhaseDates = (projectData: ProjectFormData) => {
     if (!projectData.startDate) {
@@ -1638,7 +1657,8 @@ export function Category2LssProjects({
                   {selectedTasks.map((task, index) => (
                     <article
                       key={task.id || index}
-                      className="rounded-xl border border-slate-200 bg-slate-50 p-4"
+                      data-project-task-id={task.id}
+                      className={`rounded-xl border border-slate-200 bg-slate-50 p-4 transition-shadow ${highlightedTaskId === String(task.id) ? "ring-4 ring-[#33B1C8]" : ""}`}
                     >
                       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                         <div className="flex gap-3">

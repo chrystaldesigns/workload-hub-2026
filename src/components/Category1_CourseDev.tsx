@@ -1,5 +1,6 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { CourseDevelopment, CourseDevelopmentTask, InitialMeetingFormData, WorkStatus } from '../types';
+import { DashboardNavigationTarget } from './Dashboard';
 import { InitialMeetingFormModal } from './InitialMeetingFormModal';
 import { generateInitialMeetingReport } from '../utils/initialMeetingReport';
 import { 
@@ -22,6 +23,8 @@ interface Category1Props {
   onAddCourse: (course: CourseDevelopment) => Promise<void>;
   onUpdateCourse: (course: CourseDevelopment) => Promise<void>;
   onDeleteCourse: (id: string) => Promise<void>;
+  navigationTarget?: DashboardNavigationTarget | null;
+  onNavigationComplete?: () => void;
 }
 
 
@@ -392,7 +395,9 @@ export function Category1CourseDev({
   customBlocked,
   onAddCourse, 
   onUpdateCourse, 
-  onDeleteCourse 
+  onDeleteCourse,
+  navigationTarget,
+  onNavigationComplete,
 }: Category1Props) {
   const [selectedId, setSelectedId] = useState<string>(() => {
     if (typeof window === 'undefined') return courseDevelopments[0]?.id || '';
@@ -446,6 +451,7 @@ export function Category1CourseDev({
   });
 
   const [showArchived, setShowArchived] = useState(false);
+  const [highlightedTaskId, setHighlightedTaskId] = useState("");
 
 const activeCourses = courseDevelopments.filter(
   (course) => !(course as any).archived
@@ -456,6 +462,19 @@ const archivedCourses = courseDevelopments.filter(
 );
 
 const visibleCourses = showArchived ? archivedCourses : activeCourses;
+
+  useEffect(() => {
+    if (!navigationTarget?.parentId || !navigationTarget.itemId) return;
+    setShowArchived(false);
+    selectCourse(navigationTarget.parentId);
+    setHighlightedTaskId(navigationTarget.itemId);
+    const frame = window.setTimeout(() => document.querySelector(`[data-task-id="${CSS.escape(navigationTarget.itemId)}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
+    const clear = window.setTimeout(() => {
+      setHighlightedTaskId("");
+      onNavigationComplete?.();
+    }, 2500);
+    return () => { window.clearTimeout(frame); window.clearTimeout(clear); };
+  }, [navigationTarget, onNavigationComplete]);
 
   const activeCourse =
   visibleCourses.find((course) => course.id === selectedId) ||
@@ -3705,7 +3724,7 @@ NOTES
                         )}
                         <article
                           data-task-id={task.id}
-                          className={`overflow-hidden rounded-lg border border-l-4 bg-white ${getTaskStatusAccent(currentStatus, !!isOver)} ${isNA ? 'border-slate-200 bg-slate-50/70' : 'border-y-slate-200 border-r-slate-200'}`}
+                            className={`overflow-hidden rounded-lg border border-l-4 bg-white transition-shadow ${highlightedTaskId === String(task.id) ? 'ring-4 ring-[#33B1C8]' : ''} ${getTaskStatusAccent(currentStatus, !!isOver)} ${isNA ? 'border-slate-200 bg-slate-50/70' : 'border-y-slate-200 border-r-slate-200'}`}
                         >
                           <div className="flex flex-col">
                             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-slate-100/70 px-3 py-2.5">

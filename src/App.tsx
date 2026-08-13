@@ -8,7 +8,7 @@ import {
 } from "./types";
 import { Header } from "./components/Header";
 import { Navigation } from "./components/Navigation";
-import { Dashboard } from "./components/Dashboard";
+import { Dashboard, DashboardNavigationTarget } from "./components/Dashboard";
 import { Category1CourseDev } from "./components/Category1_CourseDev";
 import { Category2LssProjects } from "./components/Category2_LssProjects";
 import { Category3Tasks } from "./components/Category3_Tasks";
@@ -19,6 +19,7 @@ import { apiFetch } from "./api";
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>("dashboard");
+  const [navigationTarget, setNavigationTarget] = useState<DashboardNavigationTarget | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [errorMsg, setErrorMsg] = useState<string>("");
 
@@ -594,6 +595,15 @@ export default function App() {
   };
 
   const renderTabContent = () => {
+    const navigateFromDashboard = (target: DashboardNavigationTarget) => {
+      setNavigationTarget(target);
+      setActiveTab(
+        target.sourceType === "courseDevelopment" ? "category1" :
+          target.sourceType === "project" ? "category2" :
+            target.sourceType === "calendar" ? "calendar" : "category3"
+      );
+    };
+
     switch (activeTab) {
       case "dashboard":
         return (
@@ -601,9 +611,8 @@ export default function App() {
             courseDevelopments={courseDevelopments}
             lssProjects={lssProjects}
             standaloneTasks={standaloneTasks}
-            onOpenCourseDevelopments={() => setActiveTab("category1")}
-            onOpenProjects={() => setActiveTab("category2")}
-            onOpenTasks={() => setActiveTab("category3")}
+            outlookEvents={outlookEvents}
+            onNavigate={navigateFromDashboard}
           />
         );
 
@@ -615,6 +624,8 @@ export default function App() {
             onAddCourse={handleAddCourse}
             onUpdateCourse={handleUpdateCourse}
             onDeleteCourse={handleDeleteCourse}
+            navigationTarget={navigationTarget?.sourceType === "courseDevelopment" ? navigationTarget : null}
+            onNavigationComplete={() => setNavigationTarget(null)}
           />
         );
 
@@ -626,6 +637,8 @@ export default function App() {
             onAddProject={handleAddProject}
             onUpdateProject={handleUpdateProject}
             onDeleteProject={handleDeleteProject}
+            navigationTarget={navigationTarget?.sourceType === "project" ? navigationTarget : null}
+            onNavigationComplete={() => setNavigationTarget(null)}
           />
         );
 
@@ -636,6 +649,8 @@ export default function App() {
             onAddTask={handleAddTask}
             onUpdateTask={handleUpdateTask}
             onDeleteTask={handleDeleteTask}
+            navigationTarget={navigationTarget?.sourceType === "standaloneTask" ? navigationTarget : null}
+            onNavigationComplete={() => setNavigationTarget(null)}
           />
         );
 
@@ -648,6 +663,8 @@ export default function App() {
             onConnectOutlook={handleConnectOutlook}
             onDisconnectOutlook={handleDisconnectOutlook}
             onTriggerSync={loadDashboardData}
+            navigationTarget={navigationTarget?.sourceType === "calendar" ? navigationTarget : null}
+            onNavigationComplete={() => setNavigationTarget(null)}
           />
         );
 
@@ -657,9 +674,8 @@ export default function App() {
             courseDevelopments={courseDevelopments}
             lssProjects={lssProjects}
             standaloneTasks={standaloneTasks}
-            onOpenCourseDevelopments={() => setActiveTab("category1")}
-            onOpenProjects={() => setActiveTab("category2")}
-            onOpenTasks={() => setActiveTab("category3")}
+            outlookEvents={outlookEvents}
+            onNavigate={navigateFromDashboard}
           />
         );
     }
