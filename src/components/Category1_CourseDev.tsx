@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { CourseDevelopment, CourseDevelopmentTask, InitialMeetingFormData, WorkStatus } from '../types';
 import { DashboardNavigationTarget } from './Dashboard';
 import { InitialMeetingFormModal } from './InitialMeetingFormModal';
@@ -48,6 +48,107 @@ const COURSE_TOOL_BUTTON_CLASS =
   'inline-flex min-h-10 max-w-full items-center justify-center gap-2 rounded-md border border-slate-700 bg-sky-50 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-slate-800 transition-colors hover:border-slate-800 hover:bg-sky-100 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#33B1C8] focus-visible:ring-offset-2';
 
 const COURSE_TOOL_ICON_CLASS = 'h-4 w-4 shrink-0';
+
+const formatDateInputValue = (value?: string) => {
+  if (!value) return '';
+  const match = value.slice(0, 10).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return match ? `${match[2]}/${match[3]}/${match[1].slice(-2)}` : '';
+};
+
+export const parseManualDateInput = (value: string) => {
+  const match = value.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/);
+  if (!match) return { value: '', error: 'Enter a complete date as MM/DD/YY.' };
+
+  const month = Number(match[1]);
+  const day = Number(match[2]);
+  const year = match[3].length === 2 ? 2000 + Number(match[3]) : Number(match[3]);
+  const date = new Date(year, month - 1, day, 12, 0, 0, 0);
+  const valid = year >= 1900 && year <= 9999 && month >= 1 && month <= 12 &&
+    date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
+
+  return valid
+    ? { value: formatDate(date), error: '' }
+    : { value: '', error: 'Enter a valid calendar date.' };
+};
+
+function TaskDateField({
+  label,
+  fieldId,
+  name,
+  value,
+  readOnly,
+  title,
+  onCommit,
+}: {
+  label: string;
+  fieldId: string;
+  name: 'startDate' | 'dueDate';
+  value: string;
+  readOnly?: boolean;
+  title?: string;
+  onCommit: (value: string) => void | Promise<void>;
+}) {
+  const [draft, setDraft] = useState(() => formatDateInputValue(value));
+  const [error, setError] = useState('');
+  const textInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (document.activeElement !== textInputRef.current) {
+      setDraft(formatDateInputValue(value));
+      setError('');
+    }
+  }, [value]);
+
+  const commitDraft = () => {
+    if (readOnly) return;
+    if (!draft.trim() && !value) { setError(''); return; }
+    const parsed = parseManualDateInput(draft);
+    if (parsed.error) { setError(parsed.error); return; }
+    setError('');
+    setDraft(formatDateInputValue(parsed.value));
+    if (parsed.value !== value) void onCommit(parsed.value);
+  };
+
+  return (
+    <label className="flex min-w-0 flex-col gap-0.5">
+      <span className="text-[9px] font-semibold uppercase text-slate-500">{label}</span>
+      <span className="flex min-w-0 gap-1">
+        <input
+          ref={textInputRef}
+          type="text"
+          name={name}
+          value={draft}
+          onChange={(event) => { setDraft(event.target.value); setError(''); }}
+          onBlur={commitDraft}
+          onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); commitDraft(); } }}
+          placeholder="MM/DD/YY"
+          inputMode="numeric"
+          readOnly={readOnly}
+          aria-invalid={!!error}
+          aria-describedby={error ? `${fieldId}-error` : undefined}
+          title={title}
+          className={`min-h-9 min-w-0 flex-1 rounded-md border border-slate-300 px-2.5 py-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#33B1C8] ${readOnly ? 'bg-slate-100 text-slate-600' : 'bg-slate-50'}`}
+        />
+        {!readOnly && (
+          <input
+            type="date"
+            aria-label={`${label} calendar picker`}
+            value={value || ''}
+            onChange={(event) => {
+              const selected = event.target.value;
+              if (!selected) return;
+              setDraft(formatDateInputValue(selected));
+              setError('');
+              void onCommit(selected);
+            }}
+            className="min-h-9 w-11 rounded-md border border-slate-300 bg-slate-50 px-1 text-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#33B1C8]"
+          />
+        )}
+      </span>
+      {error && <span id={`${fieldId}-error`} className="text-[10px] font-medium text-rose-700">{error}</span>}
+    </label>
+  );
+}
 
 const COURSE_PHASES = [
   { title: 'Planning and Onboarding', firstTask: 'Start compensation' },
@@ -414,16 +515,8 @@ export function Category1CourseDev({
   const [editingCourse, setEditingCourse] = useState<typeof formData | null>(null);
   const [taskDrafts, setTaskDrafts] = useState<Record<string, Partial<CourseDevelopmentTask & { notes?: string; meetingTime?: string }>>>({});
   const [subtaskDetailDrafts, setSubtaskDetailDrafts] = useState<Record<string, string>>({});
-  const taskListRef = useRef<HTMLDivElement | null>(null);
   const migratingCourseIdsRef = useRef<Set<string>>(new Set());
-  const pendingTaskScrollRestoreRef = useRef<{
-    taskId: number | string;
-    scrollTop: number;
-    scrollLeft: number;
-    windowX: number;
-    windowY: number;
-    activeElementName: string;
-  } | null>(null);
+  const consumedNavigationRef = useRef('');
 
   // Form states for new Course
   const [formData, setFormData] = useState({
@@ -464,7 +557,13 @@ const archivedCourses = courseDevelopments.filter(
 const visibleCourses = showArchived ? archivedCourses : activeCourses;
 
   useEffect(() => {
-    if (!navigationTarget?.parentId || !navigationTarget.itemId) return;
+    if (!navigationTarget?.parentId || !navigationTarget.itemId) {
+      consumedNavigationRef.current = '';
+      return;
+    }
+    const navigationKey = `${navigationTarget.parentId}:${navigationTarget.itemId}`;
+    if (consumedNavigationRef.current === navigationKey) return;
+    consumedNavigationRef.current = navigationKey;
     setShowArchived(false);
     selectCourse(navigationTarget.parentId);
     setHighlightedTaskId(navigationTarget.itemId);
@@ -474,7 +573,7 @@ const visibleCourses = showArchived ? archivedCourses : activeCourses;
       onNavigationComplete?.();
     }, 2500);
     return () => { window.clearTimeout(frame); window.clearTimeout(clear); };
-  }, [navigationTarget, onNavigationComplete]);
+  }, [navigationTarget?.parentId, navigationTarget?.itemId]);
 
   const activeCourse =
   visibleCourses.find((course) => course.id === selectedId) ||
@@ -708,8 +807,6 @@ const visibleCourses = showArchived ? archivedCourses : activeCourses;
     }));
   };
 
-  const hasTaskDraftChanges = (task: CourseDevelopmentTask) => Boolean(taskDrafts[getTaskKey(task)]);
-
   const clearTaskDraft = (task: CourseDevelopmentTask) => {
     const key = getTaskKey(task);
     setTaskDrafts(prev => {
@@ -718,113 +815,6 @@ const visibleCourses = showArchived ? archivedCourses : activeCourses;
       return next;
     });
   };
-
-  const restorePendingTaskScroll = () => {
-    const pending = pendingTaskScrollRestoreRef.current;
-    if (!pending) return;
-
-    const taskList = taskListRef.current;
-
-    if (taskList) {
-      taskList.scrollTop = pending.scrollTop;
-      taskList.scrollLeft = pending.scrollLeft;
-
-      const editedTask = taskList.querySelector(`[data-task-id="${pending.taskId}"]`) as HTMLElement | null;
-      if (editedTask) {
-        const listRect = taskList.getBoundingClientRect();
-        const taskRect = editedTask.getBoundingClientRect();
-
-        if (taskRect.top < listRect.top || taskRect.bottom > listRect.bottom) {
-          editedTask.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-        }
-      }
-    }
-
-    window.scrollTo(pending.windowX, pending.windowY);
-
-    if (pending.activeElementName) {
-      const focusedTaskField = document.querySelector(
-        `[data-task-id="${pending.taskId}"] [name="${pending.activeElementName}"]`
-      ) as HTMLElement | null;
-      focusedTaskField?.focus?.({ preventScroll: true } as FocusOptions);
-    }
-  };
-
-  useLayoutEffect(() => {
-    if (!pendingTaskScrollRestoreRef.current) return;
-
-    restorePendingTaskScroll();
-    window.requestAnimationFrame(() => {
-      restorePendingTaskScroll();
-      window.setTimeout(restorePendingTaskScroll, 0);
-      window.setTimeout(restorePendingTaskScroll, 100);
-      window.setTimeout(() => {
-        restorePendingTaskScroll();
-        pendingTaskScrollRestoreRef.current = null;
-      }, 250);
-    });
-  }, [courseDevelopments]);
-
-  const preserveTaskListScroll = async (taskId: number | string, callback: () => Promise<void> | void) => {
-    const taskList = taskListRef.current;
-    const activeElement = document.activeElement as HTMLElement | null;
-
-    pendingTaskScrollRestoreRef.current = {
-      taskId,
-      scrollTop: taskList?.scrollTop ?? 0,
-      scrollLeft: taskList?.scrollLeft ?? 0,
-      windowX: window.scrollX,
-      windowY: window.scrollY,
-      activeElementName: activeElement?.getAttribute('name') || '',
-    };
-
-    await callback();
-
-    window.requestAnimationFrame(() => {
-      restorePendingTaskScroll();
-      window.setTimeout(restorePendingTaskScroll, 0);
-      window.setTimeout(restorePendingTaskScroll, 100);
-    });
-  };
-
-  const saveTaskChanges = async (task: CourseDevelopmentTask) => {
-    if (!activeCourse) return;
-
-    const draft = getTaskDraft(task);
-    const updatedTasks = activeCourse.tasks.map(item => {
-      if (item.id !== task.id) return item;
-
-      return {
-        ...item,
-        assignedTo: draft.assignedTo || item.assignedTo,
-        startDate: draft.startDate || '',
-        dueDate: draft.dueDate || '',
-        status: draft.status || item.status,
-        notes: draft.notes || '',
-        meetingTime: (draft as any).meetingTime || '',
-      };
-    });
-
-    const preservedSelectedId = activeCourse.id || selectedId;
-
-    if (preservedSelectedId && typeof window !== 'undefined') {
-      localStorage.setItem('workloadHubSelectedCourseId', preservedSelectedId);
-    }
-
-    await preserveTaskListScroll(task.id, async () => {
-      await onUpdateCourse({
-        ...activeCourse,
-        tasks: updatedTasks,
-      });
-
-      if (preservedSelectedId) {
-        setSelectedId(preservedSelectedId);
-      }
-
-      clearTaskDraft(task);
-    });
-  };
-
 
   const autoSaveTaskField = async (task: CourseDevelopmentTask, field: string, value: string) => {
     if (!activeCourse) return;
@@ -862,18 +852,13 @@ const visibleCourses = showArchived ? archivedCourses : activeCourses;
       localStorage.setItem('workloadHubSelectedCourseId', preservedSelectedId);
     }
 
-    await preserveTaskListScroll(task.id, async () => {
-      await onUpdateCourse({
-        ...activeCourse,
-        tasks: updatedTasks,
-      });
-
-      if (preservedSelectedId) {
-        setSelectedId(preservedSelectedId);
-      }
-
-      clearTaskDraft(task);
+    await onUpdateCourse({
+      ...activeCourse,
+      tasks: updatedTasks,
     });
+
+    if (preservedSelectedId) setSelectedId(preservedSelectedId);
+    clearTaskDraft(task);
   };
 
   const saveTaskNotesOnBlur = async (task: CourseDevelopmentTask) => {
@@ -1058,9 +1043,7 @@ const visibleCourses = showArchived ? archivedCourses : activeCourses;
       tasks: updatedTasks
     };
 
-    await preserveTaskListScroll(taskId, async () => {
-      await onUpdateCourse(updatedCourse);
-    });
+    await onUpdateCourse(updatedCourse);
   };
 
 
@@ -1084,11 +1067,9 @@ const visibleCourses = showArchived ? archivedCourses : activeCourses;
       };
     });
 
-    await preserveTaskListScroll(taskId, async () => {
-      await onUpdateCourse({
-        ...activeCourse,
-        tasks: updatedTasks,
-      });
+    await onUpdateCourse({
+      ...activeCourse,
+      tasks: updatedTasks,
     });
   };
 
@@ -1110,9 +1091,7 @@ const visibleCourses = showArchived ? archivedCourses : activeCourses;
       };
     });
 
-    await preserveTaskListScroll(taskId, async () => {
-      await onUpdateCourse({ ...activeCourse, tasks: updatedTasks });
-    });
+    await onUpdateCourse({ ...activeCourse, tasks: updatedTasks });
 
     setSubtaskDetailDrafts((current) => {
       const next = { ...current };
@@ -3681,7 +3660,7 @@ NOTES
                   <span className="text-[10px] font-medium text-slate-500">Task edits auto-save when changed</span>
                 </div>
 
-                <div ref={taskListRef} className="max-h-[680px] space-y-3 overflow-y-auto bg-slate-50/60 p-2 sm:p-3">
+                <div className="space-y-3 bg-slate-50/60 p-2 sm:p-3">
                   {activeCourse.tasks
                     .filter(t => activeCourse.hideCompletedTasks === false || (t.status !== 'Complete' && t.status !== 'Not Applicable'))
                     .map((task, index, visibleTasks) => {
@@ -4081,33 +4060,25 @@ NOTES
                                 </select>
                               </label>
 
-                              <label className="flex flex-col gap-0.5">
-                                <span className="text-[9px] uppercase text-slate-500 font-semibold">Start</span>
-                                <input
-                                  type="date"
-                                  name="startDate"
-                                  value={draft.startDate || ''}
-                                  onChange={(e) => autoSaveTaskField(task, 'startDate', e.target.value)}
-                                  readOnly={hasLinkedMultimediaDates}
-                                  aria-readonly={hasLinkedMultimediaDates}
-                                  title={hasLinkedMultimediaDates ? 'Linked to the corresponding Review & Build task due date' : undefined}
-                                  className={`min-h-9 w-full rounded-md border border-slate-300 px-2.5 py-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#33B1C8] ${hasLinkedMultimediaDates ? 'bg-slate-100 text-slate-600' : 'bg-slate-50'}`}
-                                />
-                              </label>
+                              <TaskDateField
+                                label="Start"
+                                fieldId={`task-${task.id}-start-date`}
+                                name="startDate"
+                                value={draft.startDate || ''}
+                                onCommit={(value) => autoSaveTaskField(task, 'startDate', value)}
+                                readOnly={hasLinkedMultimediaDates}
+                                title={hasLinkedMultimediaDates ? 'Linked to the corresponding Review & Build task due date' : undefined}
+                              />
 
-                              <label className="flex flex-col gap-0.5">
-                                <span className="text-[9px] uppercase text-slate-500 font-semibold">Due</span>
-                                <input
-                                  type="date"
-                                  name="dueDate"
-                                  value={draft.dueDate || ''}
-                                  onChange={(e) => autoSaveTaskField(task, 'dueDate', e.target.value)}
-                                  readOnly={hasLinkedMultimediaDates}
-                                  aria-readonly={hasLinkedMultimediaDates}
-                                  title={hasLinkedMultimediaDates ? 'Linked to the corresponding review milestone due date' : undefined}
-                                  className={`min-h-9 w-full rounded-md border border-slate-300 px-2.5 py-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#33B1C8] ${hasLinkedMultimediaDates ? 'bg-slate-100 text-slate-600' : 'bg-slate-50'}`}
-                                />
-                              </label>
+                              <TaskDateField
+                                label="Due"
+                                fieldId={`task-${task.id}-due-date`}
+                                name="dueDate"
+                                value={draft.dueDate || ''}
+                                onCommit={(value) => autoSaveTaskField(task, 'dueDate', value)}
+                                readOnly={hasLinkedMultimediaDates}
+                                title={hasLinkedMultimediaDates ? 'Linked to the corresponding review milestone due date' : undefined}
+                              />
 
                               {showMeetingTime && (
                                 <label className="flex flex-col gap-0.5">
