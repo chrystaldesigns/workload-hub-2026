@@ -444,7 +444,7 @@ export default function App() {
     try {
       if (!newTask.title?.trim()) {
         alert("Task Title is required.");
-        return;
+        return false;
       }
 
       const payload: StandaloneTask = {
@@ -471,16 +471,18 @@ export default function App() {
 
       await loadDashboardData();
       setActiveTab("category3");
+      return true;
     } catch (err) {
       console.error("Create Standalone Task failed:", err);
       alert("Standalone Task could not be saved.");
+      return false;
     }
   };
 
   const handleUpdateTask = async (updatedTask: StandaloneTask) => {
     if (!updatedTask.id) {
       alert("Task is missing an ID and cannot be updated.");
-      return;
+      return false;
     }
 
     try {
@@ -506,14 +508,16 @@ export default function App() {
       }
 
       await loadDashboardData();
+      return true;
     } catch (err) {
       console.error("Update Standalone Task failed:", err);
       alert("Standalone Task could not be updated.");
+      return false;
     }
   };
 
   const handleDeleteTask = async (id: string) => {
-    if (!id) return;
+    if (!id) return false;
 
     try {
       const res = await apiFetch(`/api/standalone-tasks/${id}`, {
@@ -526,9 +530,11 @@ export default function App() {
       }
 
       await loadDashboardData();
+      return true;
     } catch (err) {
       console.error("Delete Standalone Task failed:", err);
       alert("Standalone Task could not be deleted.");
+      return false;
     }
   };
 
