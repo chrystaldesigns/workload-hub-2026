@@ -8,8 +8,7 @@ export type DashboardNavigationTarget = {
   itemId: string;
 };
 
-type WeeklyCategory = "Home" | "UCF" | "Work" | "Uncategorized";
-type WeeklyFilter = "All" | "Work" | "Home" | "UCF";
+type WeeklyCategory = "Work";
 type WeeklyTask = DashboardNavigationTarget & {
   key: string;
   title: string;
@@ -55,12 +54,7 @@ const formatDate = (value: string) => value
   ? parseLocalDate(value).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
   : "—";
 
-const categoryClass = (category: WeeklyCategory) => {
-  if (category === "Home") return "border-green-300 bg-green-100 text-green-800";
-  if (category === "UCF") return "border-amber-300 bg-amber-100 text-amber-900";
-  if (category === "Work") return "border-sky-300 bg-sky-100 text-sky-900";
-  return "border-slate-300 bg-slate-100 text-slate-700";
-};
+const categoryClass = "border-sky-300 bg-sky-100 text-sky-900";
 
 const overlapsWeek = (task: WeeklyTask, weekStart: string, weekEnd: string) => {
   if (task.startDate && task.dueDate) return task.startDate <= weekEnd && task.dueDate >= weekStart;
@@ -71,7 +65,6 @@ const overlapsWeek = (task: WeeklyTask, weekStart: string, weekEnd: string) => {
 export function Dashboard({ courseDevelopments, lssProjects, standaloneTasks, onNavigate }: DashboardProps) {
   const today = dateFromLocal(new Date());
   const [weekStart, setWeekStart] = useState(startOfWeek(today));
-  const [filter, setFilter] = useState<WeeklyFilter>("All");
   const weekEnd = addDays(weekStart, 6);
 
   const allTasks = useMemo(() => {
@@ -85,8 +78,7 @@ export function Dashboard({ courseDevelopments, lssProjects, standaloneTasks, on
 
     (standaloneTasks || []).forEach((task) => {
       if (!task.id || task.archived || task.status === "Complete") return;
-      const category: WeeklyCategory = task.category === "Home" || task.category === "UCF" ? task.category : "Uncategorized";
-      add({ key: `standalone-${task.id}`, sourceType: "standaloneTask", itemId: task.id, title: task.title || "Task", startDate: normalizeDate(task.startDate), dueDate: normalizeDate(task.dueDate), category });
+      add({ key: `standalone-${task.id}`, sourceType: "standaloneTask", itemId: task.id, title: task.title || "Task", startDate: normalizeDate(task.startDate), dueDate: normalizeDate(task.dueDate), category: "Work" });
     });
 
     (courseDevelopments || []).filter((course) => !course.archived).forEach((course) => {
@@ -119,9 +111,6 @@ export function Dashboard({ courseDevelopments, lssProjects, standaloneTasks, on
       return a.dueDate.localeCompare(b.dueDate) || a.title.localeCompare(b.title);
     }), [allTasks, weekEnd, weekStart]);
 
-  const visibleTasks = weeklyTasks.filter((task) => filter === "All" || task.category === filter);
-  const countFor = (value: WeeklyFilter) => value === "All" ? weeklyTasks.length : weeklyTasks.filter((task) => task.category === value).length;
-
   return (
     <section className="space-y-5 bg-slate-50 px-4 py-5 sm:px-6 lg:px-8">
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -140,25 +129,19 @@ export function Dashboard({ courseDevelopments, lssProjects, standaloneTasks, on
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-200 bg-slate-100 p-5">
-          <div className="flex flex-wrap gap-2">
-            {(["All", "Work", "Home", "UCF"] as const).map((value) => <button key={value} type="button" aria-pressed={filter === value} onClick={() => setFilter(value)} className={`rounded-full border px-3 py-1.5 text-sm font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-[#33B1C8] ${filter === value ? value === "All" ? "border-[#003E52] bg-[#003E52] text-white" : categoryClass(value) : "border-slate-300 bg-white text-slate-700"}`}>{value} ({countFor(value)})</button>)}
-          </div>
-        </div>
-
-        {visibleTasks.length === 0 ? <p className="p-8 text-center text-sm text-slate-600">{filter === "All" ? "No tasks are scheduled for this week." : `No ${filter} tasks are scheduled for this week.`}</p> : (
+        {weeklyTasks.length === 0 ? <p className="p-8 text-center text-sm text-slate-600">No tasks are scheduled for this week.</p> : (
           <div role="table" aria-label="Weekly focus tasks" className="w-full">
             <div role="row" className="grid grid-cols-[minmax(0,1fr)_6.5rem_6.5rem] bg-[#003E52] px-3 py-2 text-xs font-bold uppercase tracking-wide text-white sm:grid-cols-[minmax(0,1fr)_10rem_10rem] sm:px-4">
               <span role="columnheader">Task</span><span role="columnheader">Start Date</span><span role="columnheader">Due Date</span>
             </div>
             <div role="rowgroup" className="divide-y divide-slate-200">
-              {visibleTasks.map((task, index) => {
+              {weeklyTasks.map((task, index) => {
                 const dueThisWeek = Boolean(task.dueDate && task.dueDate >= weekStart && task.dueDate <= weekEnd);
                 return <button key={task.key} type="button" role="row" onClick={() => onNavigate(task)} className={`grid w-full grid-cols-[minmax(0,1fr)_6.5rem_6.5rem] items-center gap-2 px-3 py-3 text-left text-sm transition-colors hover:bg-sky-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#008BA3] sm:grid-cols-[minmax(0,1fr)_10rem_10rem] sm:gap-4 sm:px-4 ${index % 2 ? "bg-slate-50/80" : "bg-white"} ${dueThisWeek ? "font-semibold" : ""}`}>
                   <span role="cell" className="min-w-0">
                     <span className="block text-[#003E52]">{task.title}</span>
                     <span className="mt-1 flex flex-wrap items-center gap-2">
-                      <span className={`w-fit rounded-full border px-2 py-0.5 text-xs ${dueThisWeek ? "font-semibold" : "font-medium"} ${categoryClass(task.category)}`}>{task.category}</span>
+                      <span className={`w-fit rounded-full border px-2 py-0.5 text-xs ${dueThisWeek ? "font-semibold" : "font-medium"} ${categoryClass}`}>{task.category}</span>
                       {task.sourceLabel && <span className={`truncate text-xs text-slate-500 ${dueThisWeek ? "font-semibold" : "font-normal"}`}>{task.sourceLabel}</span>}
                     </span>
                   </span>

@@ -221,7 +221,7 @@ export default function App() {
         (project: LssProject) => !project.archived
       );
       const activeTasks = safeTasks.filter(
-        (task: StandaloneTask) => !task.archived
+        (task: StandaloneTask) => !task.archived && task.status !== "Complete"
       );
 
       const safeCalendar = {
@@ -452,6 +452,10 @@ export default function App() {
         itemType: "standaloneTask" as any,
         status: newTask.status || "Not Started",
         progress: Number(newTask.progress || 0),
+        ...(newTask.status === "Complete" ? {
+          archived: true,
+          archivedDate: newTask.archivedDate || getLocalTodayIso(),
+        } : {}),
       };
 
       const res = await apiFetch("/api/standalone-tasks", {
@@ -484,6 +488,10 @@ export default function App() {
         ...updatedTask,
         itemType: "standaloneTask" as any,
         progress: Number(updatedTask.progress || 0),
+        ...(updatedTask.status === "Complete" ? {
+          archived: true,
+          archivedDate: updatedTask.archivedDate || getLocalTodayIso(),
+        } : {}),
       };
 
       const res = await apiFetch(`/api/standalone-tasks/${updatedTask.id}`, {
