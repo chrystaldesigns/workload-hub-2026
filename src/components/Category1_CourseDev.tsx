@@ -130,19 +130,22 @@ function TaskDateField({
           className={`min-h-9 min-w-0 flex-1 rounded-md border border-slate-300 px-2.5 py-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#33B1C8] ${readOnly ? 'bg-slate-100 text-slate-600' : 'bg-slate-50'}`}
         />
         {!readOnly && (
-          <input
-            type="date"
-            aria-label={`${label} calendar picker`}
-            value={value || ''}
-            onChange={(event) => {
-              const selected = event.target.value;
-              if (!selected) return;
-              setDraft(formatDateInputValue(selected));
-              setError('');
-              void onCommit(selected);
-            }}
-            className="min-h-9 w-11 rounded-md border border-slate-300 bg-slate-50 px-1 text-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#33B1C8]"
-          />
+          <span className="relative flex min-h-9 w-10 shrink-0 items-center justify-center rounded-md border border-slate-300 bg-slate-50 text-[#006282] focus-within:ring-2 focus-within:ring-[#33B1C8]">
+            <Calendar className="h-4 w-4" aria-hidden="true" />
+            <input
+              type="date"
+              aria-label={`Choose ${label.toLowerCase()} date`}
+              value={value || ''}
+              onChange={(event) => {
+                const selected = event.target.value;
+                if (!selected) return;
+                setDraft(formatDateInputValue(selected));
+                setError('');
+                void onCommit(selected);
+              }}
+              className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+            />
+          </span>
         )}
       </span>
       {error && <span id={`${fieldId}-error`} className="text-[10px] font-medium text-rose-700">{error}</span>}
@@ -4019,7 +4022,7 @@ NOTES
                               )}
                             </div>
 
-                            <div className={`grid grid-cols-1 gap-3 px-3 pt-3 text-xs sm:grid-cols-2 ${showMeetingTime ? 'xl:grid-cols-5' : 'xl:grid-cols-4'}`}>
+                            <div className="grid grid-cols-1 gap-3 px-3 pt-3 text-xs sm:grid-cols-2 lg:grid-cols-[minmax(12rem,1.3fr)_minmax(11rem,1fr)_11rem_11rem]">
                               <label className="flex flex-col gap-0.5">
                                 <span className="text-[9px] uppercase text-slate-500 font-semibold">Owner</span>
                                 <select
@@ -4080,8 +4083,11 @@ NOTES
                                 title={hasLinkedMultimediaDates ? 'Linked to the corresponding review milestone due date' : undefined}
                               />
 
-                              {showMeetingTime && (
-                                <label className="flex flex-col gap-0.5">
+                            </div>
+
+                            {showMeetingTime && (
+                              <div className="px-3 pt-3 text-xs">
+                                <label className="flex max-w-44 flex-col gap-0.5">
                                   <span className="text-[9px] uppercase text-slate-500 font-semibold">Meeting Time</span>
                                   <input
                                     type="time"
@@ -4091,8 +4097,8 @@ NOTES
                                     className="min-h-9 w-full rounded-md border border-slate-300 bg-slate-50 px-2.5 py-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#33B1C8]"
                                   />
                                 </label>
-                              )}
-                            </div>
+                              </div>
+                            )}
 
                             {draft.notes && (
                               <div className="mx-3 mt-3 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs text-slate-700">
