@@ -103,6 +103,7 @@ export function Category3Tasks({ standaloneTasks, onAddTask, onUpdateTask, onDel
   const [newTask, setNewTask] = useState<Task>(blankTask);
   const [editing, setEditing] = useState<Task | null>(null);
   const [highlightedId, setHighlightedId] = useState("");
+  const [creating, setCreating] = useState(false);
   const addButton = useRef<HTMLButtonElement>(null);
   const addTitle = useRef<HTMLInputElement>(null);
   const taskTrigger = useRef<HTMLElement | null>(null);
@@ -142,9 +143,15 @@ export function Category3Tasks({ standaloneTasks, onAddTask, onUpdateTask, onDel
   };
   const createTask = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (creating) return;
     if (!newTask.title.trim()) return alert("Task Title is required.");
-    const result = await onAddTask(completionState({ ...newTask, id: newTask.id || `standalone-${Date.now()}`, createdAt: newTask.createdAt || new Date().toISOString() }));
-    if (result !== false) { setNewTask(blankTask); setAddOpen(false); }
+    setCreating(true);
+    try {
+      const result = await onAddTask(completionState({ ...newTask, id: newTask.id || `standalone-${Date.now()}`, createdAt: newTask.createdAt || new Date().toISOString() }));
+      if (result !== false) { setNewTask(blankTask); setAddOpen(false); }
+    } finally {
+      setCreating(false);
+    }
   };
   const saveEdit = async () => {
     if (!editing) return;
@@ -224,7 +231,7 @@ export function Category3Tasks({ standaloneTasks, onAddTask, onUpdateTask, onDel
       <TaskTable title="Active Tasks" rows={activeTasks} isArchive={false} />
       {showArchived && <TaskTable title="Archived Tasks" rows={archivedTasks} isArchive />}
 
-      {addOpen && <Modal title="Add Task" description="Enter the details for a standalone work task." onClose={() => setAddOpen(false)} initialFocusRef={addTitle} restoreFocusRef={addButton}><form onSubmit={createTask} className="space-y-5 p-5">{fields(newTask, (event) => change(setNewTask, event), "new-task", addTitle)}<div className="flex flex-wrap justify-end gap-2"><button type="button" onClick={() => setAddOpen(false)} className={action}>Cancel</button><button type="submit" className={action}><PlusCircle className="h-4 w-4" />Create Task</button></div></form></Modal>}
+      {addOpen && <Modal title="Add Task" description="Enter the details for a standalone work task." onClose={() => { if (!creating) setAddOpen(false); }} initialFocusRef={addTitle} restoreFocusRef={addButton}><form onSubmit={createTask} className="space-y-5 p-5">{fields(newTask, (event) => change(setNewTask, event), "new-task", addTitle)}<div className="flex flex-wrap justify-end gap-2"><button type="button" disabled={creating} onClick={() => setAddOpen(false)} className={action}>Cancel</button><button type="submit" disabled={creating} className={`${action} disabled:cursor-wait disabled:opacity-60`}><PlusCircle className="h-4 w-4" />{creating ? "Creating..." : "Create Task"}</button></div></form></Modal>}
       {detailOpen && selected && <Modal title={editing ? "Edit Task" : "Task Details"} onClose={closeDetail} restoreFocusRef={taskTrigger}>
         {editing ? <div className="space-y-5 p-5">{fields(editing, (event) => change(setEditing as React.Dispatch<React.SetStateAction<Task>>, event), "edit-task")}<div className="flex flex-wrap justify-end gap-2"><button type="button" onClick={() => setEditing(null)} className={action}><X className="h-4 w-4" />Cancel</button><button type="button" onClick={saveEdit} className={action}><Save className="h-4 w-4" />Save Task</button></div></div> : (
           <div><div className="border-l-4 border-l-[#008BA3] bg-slate-50 p-5"><div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between"><div><div className="flex flex-wrap items-center gap-2"><h4 className="text-xl font-semibold text-[#003E52]">{selected.title}</h4>{archived(selected) && <span className="rounded-full border border-slate-400 bg-white px-2 py-0.5 text-xs font-bold uppercase text-slate-700">{selected.status === "Complete" ? "Completed" : "Archived"}</span>}</div><p className="mt-1 text-sm text-slate-600">Start: {displayDate(selected.startDate)} · Due: {displayDate(selected.dueDate)}</p></div><span className={`self-start rounded-full px-3 py-1 text-xs font-medium ${alertStyle(selected.alertStatus)}`}>{selected.alertStatus || "No Concerns"}</span></div></div>

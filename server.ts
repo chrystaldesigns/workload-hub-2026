@@ -404,22 +404,45 @@ async function startServer() {
         return res.status(400).json({ error: "Invalid Standalone Task payload." });
       }
 
-      if (!payload.title) {
+      if (typeof payload.title !== "string" || !payload.title.trim()) {
         return res.status(400).json({ error: "Task Title is required." });
       }
 
-      if (payload.category !== "Home" && payload.category !== "UCF") {
-        return res.status(400).json({ error: "Category must be Home or UCF." });
+      const isValidDate = (value: unknown) => {
+        if (value === undefined || value === "") return true;
+        if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+        const date = new Date(`${value}T12:00:00`);
+        if (Number.isNaN(date.getTime())) return false;
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}` === value;
+      };
+
+      if (!isValidDate(payload.startDate) || !isValidDate(payload.dueDate)) {
+        return res.status(400).json({ error: "Start Date and Due Date must be valid calendar dates." });
       }
+
+      const progress = Number(payload.progress ?? 0);
+      if (!Number.isFinite(progress)) return res.status(400).json({ error: "Progress must be a valid number." });
+
+      const taskPayload = {
+        id: typeof payload.id === "string" ? payload.id : undefined,
+        itemType: "standaloneTask",
+        title: payload.title.trim(),
+        startDate: typeof payload.startDate === "string" ? payload.startDate : "",
+        dueDate: typeof payload.dueDate === "string" ? payload.dueDate : "",
+        status: payload.status || "Not Started",
+        alertStatus: payload.alertStatus || "No Concerns",
+        progress,
+        archived: Boolean(payload.archived),
+        ...(typeof payload.archivedDate === "string" && payload.archivedDate ? { archivedDate: payload.archivedDate } : {}),
+        ...(typeof payload.notes === "string" && payload.notes.trim() ? { notes: payload.notes } : {}),
+        ...(typeof payload.createdAt === "string" && payload.createdAt ? { createdAt: payload.createdAt } : {}),
+      };
+
+      const sanitizedTaskPayload = Object.fromEntries(Object.entries(taskPayload).filter(([, value]) => value !== undefined));
 
       const record = await createRecord(
         "standalone-tasks",
-        {
-          ...payload,
-          itemType: "standaloneTask",
-          status: payload.status || "Not Started",
-          progress: Number(payload.progress || 0),
-        },
+        sanitizedTaskPayload,
         inMemoryStandaloneTasks,
         "task",
         res
