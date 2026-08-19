@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   CourseDevelopment,
   LssProject,
@@ -32,6 +32,7 @@ export default function App() {
   });
   const [outlookEvents, setOutlookEvents] = useState<OutlookEvent[]>([]);
   const [alertCount, setAlertCount] = useState<number>(0);
+  const hasLoadedDataRef = useRef(false);
 
   const getLocalTodayIso = () => {
     const now = new Date();
@@ -188,8 +189,9 @@ export default function App() {
   };
 
   const loadDashboardData = async () => {
+    const isInitialLoad = !hasLoadedDataRef.current;
     try {
-      setLoading(true);
+      if (isInitialLoad) setLoading(true);
       setErrorMsg("");
 
       const [cdRes, lssRes, taskRes, calRes, outRes] = await Promise.all([
@@ -272,11 +274,12 @@ export default function App() {
       });
 
       setAlertCount(overdueTasks + nonComplianceCount);
+      hasLoadedDataRef.current = true;
     } catch (err: any) {
       console.error("Dashboard load failed:", err);
       setErrorMsg(err.message || "System failed loading academic records.");
     } finally {
-      setLoading(false);
+      if (isInitialLoad) setLoading(false);
     }
   };
 
