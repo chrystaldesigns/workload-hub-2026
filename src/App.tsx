@@ -451,15 +451,23 @@ export default function App() {
       }
 
       const payload: StandaloneTask = {
-        ...newTask,
-        itemType: "standaloneTask" as any,
+        ...(newTask.id ? { id: newTask.id } : {}),
+        itemType: "standaloneTask",
+        title: newTask.title.trim(),
+        ...(newTask.startDate ? { startDate: newTask.startDate } : {}),
+        ...(newTask.dueDate ? { dueDate: newTask.dueDate } : {}),
         status: newTask.status || "Not Started",
         progress: Number(newTask.progress || 0),
+        alertStatus: newTask.alertStatus || "No Concerns",
+        archived: newTask.status === "Complete" || Boolean(newTask.archived),
+        ...(newTask.notes?.trim() ? { notes: newTask.notes } : {}),
+        ...(newTask.createdAt ? { createdAt: newTask.createdAt } : {}),
         ...(newTask.status === "Complete" ? {
-          archived: true,
           archivedDate: newTask.archivedDate || getLocalTodayIso(),
         } : {}),
       };
+
+      console.info("Creating standalone task with payload keys:", Object.keys(payload));
 
       const res = await apiFetch("/api/standalone-tasks", {
         method: "POST",
@@ -469,15 +477,15 @@ export default function App() {
 
       if (!res.ok) {
         const error = await res.json().catch(() => ({}));
-        throw new Error(error.error || "Standalone Task could not be saved.");
+        throw new Error(error.error || `Standalone Task could not be saved (HTTP ${res.status}).`);
       }
 
       await loadDashboardData();
       setActiveTab("category3");
       return true;
     } catch (err) {
-      console.error("Create Standalone Task failed:", err);
-      alert("Standalone Task could not be saved.");
+      console.error("Failed to create standalone task:", err);
+      alert(err instanceof Error ? err.message : "Standalone Task could not be saved.");
       return false;
     }
   };
