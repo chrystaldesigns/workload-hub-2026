@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { CourseDevelopment, CourseDevelopmentTask, InitialMeetingFormData, WorkStatus } from '../types';
 import { DashboardNavigationTarget } from './Dashboard';
 import { InitialMeetingFormModal } from './InitialMeetingFormModal';
+import { SmeReviewEmailDialog } from './SmeReviewEmailDialog';
 import { generateInitialMeetingReport } from '../utils/initialMeetingReport';
 import { 
   FileText, Calendar, Plus, Mail, CheckCircle2, AlertTriangle, 
@@ -513,6 +514,7 @@ export function Category1CourseDev({
   const [showInitialMeetingForm, setShowInitialMeetingForm] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState<CourseDevelopmentTask | null>(null);
   const [showCompensationDialog, setShowCompensationDialog] = useState(false);
+  const [reviewEmailCourse, setReviewEmailCourse] = useState<CourseDevelopment | null>(null);
   const [compensationDialogTitle, setCompensationDialogTitle] = useState('SME Compensation Notice');
   const [compensationDialogContent, setCompensationDialogContent] = useState('');
   const [editingCourse, setEditingCourse] = useState<typeof formData | null>(null);
@@ -3888,6 +3890,15 @@ NOTES
                                     <Calendar className="h-3.5 w-3.5" /> Schedule Final Review
                                   </button>
                                 )}
+                                {hasLinkedMultimediaDates && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setReviewEmailCourse(activeCourse)}
+                                    className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
+                                  >
+                                    <Mail className="h-3.5 w-3.5" /> SME to Review Email
+                                  </button>
+                                )}
                                 {task.name === 'Develop Module 1–3 Multimedia Content' && (
                                   <button
                                     type="button"
@@ -4227,6 +4238,8 @@ NOTES
         </div>
 
       </div>
+
+      {reviewEmailCourse && <SmeReviewEmailDialog course={reviewEmailCourse} onClose={() => setReviewEmailCourse(null)} />}
 
       {showCompensationDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 px-4 py-6">
