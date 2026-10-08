@@ -1573,11 +1573,9 @@ ${milestones.join("\n")}${offTimeSection}`;
     });
 
     const to = [
-      course.deptTeam.smeEmail,
-      course.deptTeam.deanEmail,
-      course.deptTeam.associateDeanEmail,
+      course.deptTeam.smeEmail
     ].filter(Boolean).join("; ");
-    const cc = [course.deptTeam.deanEmail, course.deptTeam.managerEmail].filter(Boolean).join(",");
+    const cc = [course.deptTeam.deanEmail, course.deptTeam.managerEmail, course.deptTeam.associateDeanEmail,].filter(Boolean).join(",");
     const subject = `${course.courseNumber} Course Development Status ${today}`;
     const statusReport = generateWeeklyStatusReport(course);
 
