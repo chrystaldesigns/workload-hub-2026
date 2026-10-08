@@ -4,6 +4,7 @@ import { DashboardNavigationTarget } from './Dashboard';
 import { InitialMeetingFormModal } from './InitialMeetingFormModal';
 import { SmeReviewEmailDialog } from './SmeReviewEmailDialog';
 import { generateInitialMeetingReport } from '../utils/initialMeetingReport';
+import { getProofreadingRequest, migrateProofreadingTaskStructure } from '../utils/courseTaskStructure';
 import { 
   FileText, Calendar, Plus, Mail, CheckCircle2, AlertTriangle, 
   Trash2, Sliders, ChevronRight, Share2, Clipboard, ShieldAlert,
@@ -34,6 +35,7 @@ type TimelineSubtask = {
   title: string;
   complete: boolean;
   details: string;
+  sourceTask?: CourseDevelopmentTask;
 };
 
 type TimelineTaskExtra = CourseDevelopmentTask & {
@@ -218,6 +220,7 @@ const normalizeTimelineSubtasks = (subtasks?: Array<string | Partial<TimelineSub
     }
 
     return {
+      ...subtask,
       id: subtask.id || `subtask-${index + 1}`,
       title: subtask.title || '',
       complete: !!subtask.complete,
@@ -230,6 +233,8 @@ export const mergeRecalculatedTimeline = (
   existingTasks: CourseDevelopmentTask[],
   recalculatedTasks: CourseDevelopmentTask[]
 ): CourseDevelopmentTask[] => {
+  existingTasks = migrateProofreadingTaskStructure(existingTasks);
+  recalculatedTasks = migrateProofreadingTaskStructure(recalculatedTasks);
   const preservedPlanningTaskIds = new Set([1, 2, 3, 4, 5, 6, 7, 8, 9]);
   const isGeneratedSchedulingNote = (note?: string) =>
     /^Schedule meeting the week of \d{2}-\d{2}-\d{2}$/.test((note || '').trim());
@@ -262,8 +267,12 @@ export const mergeRecalculatedTimeline = (
         ? { ...subtask, complete: legacyTask.status === 'Complete' }
         : subtask;
     });
+    if (newTask.name === 'Complete proofreading') {
+      mergedSubtasks.push(...existingSubtasks.filter((subtask) => !mergedSubtasks.some((item) => item.title === subtask.title)));
+    }
 
     return {
+      ...existing,
       ...newTask,
       status: preserveExistingCourseTaskStatus(existing.status, newTask.status),
       startDate: preserveHistoricalDates ? existing.startDate : newTask.startDate,
@@ -472,9 +481,10 @@ export const buildCourseDevelopmentTimeline = (
   );
 
   tasks.sort((a, b) => Number(a.id) - Number(b.id));
+  const structuredTasks = migrateProofreadingTaskStructure(tasks);
 
   if (!onboarding) {
-    return tasks.map((item) => {
+    return structuredTasks.map((item) => {
       if ([2, 3, 4].includes(item.id as number)) {
         return { ...item, status: 'Not Applicable' };
       }
@@ -482,7 +492,7 @@ export const buildCourseDevelopmentTimeline = (
     });
   }
 
-  return tasks;
+  return structuredTasks;
 };
 
 function formatDisplayDateShortSafe(dateStr?: string) {
@@ -3034,7 +3044,7 @@ e.g.,
   };
 
   const handleSubmitProofreadingRequestQuickbase = (course: CourseDevelopment) => {
-    const proofreadingRequestTask = findTimelineTaskByExactName(course, "Submit proofreading request");
+    const proofreadingRequestTask = getProofreadingRequest(course.tasks);
     const finalReviewTask = findTimelineTaskByExactName(course, "Conduct final review");
 
     const dueDate = proofreadingRequestTask?.dueDate || proofreadingRequestTask?.startDate
@@ -3665,7 +3675,8 @@ NOTES
 
                 <div className="space-y-3 bg-slate-50/60 p-2 sm:p-3">
                   {activeCourse.tasks
-                    .filter(t => activeCourse.hideCompletedTasks === false || (t.status !== 'Complete' && t.status !== 'Not Applicable'))
+                    .filter(t => activeCourse.hideCompletedTasks === false || (t.status !== 'Complete' && t.status !== 'Not Applicable')
+                      || t.subtasks?.some((subtask) => subtask.title === 'Submit proofreading request' && !subtask.complete && subtask.sourceTask?.status !== 'Not Applicable'))
                     .map((task, index, visibleTasks) => {
                       const draft = getTaskDraft(task);
                       const currentStatus = draft.status || task.status;
@@ -3711,7 +3722,7 @@ NOTES
                           <div className="flex flex-col">
                             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-slate-100/70 px-3 py-2.5">
                               <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-                                <span className="inline-flex min-w-7 items-center justify-center rounded-md bg-slate-800 px-2 py-1 text-[10px] font-bold text-white" aria-label={`Task ${task.id}`}>{task.id}</span>
+                                <span className="inline-flex min-w-7 items-center justify-center rounded-md bg-slate-800 px-2 py-1 text-[10px] font-bold text-white" aria-label={`Task ${task.taskNumber ?? task.id}`}>{task.taskNumber ?? task.id}</span>
                                 <span className={`text-sm font-semibold leading-tight ${isComp ? 'line-through text-slate-400' : 'text-slate-800'}`}>
                                   {displayTaskName}
                                 </span>
@@ -3940,7 +3951,7 @@ NOTES
                                     <Mail className="h-3.5 w-3.5" /> Course Documents
                                   </button>
                                 )}
-                                {task.name === 'Submit proofreading request' && (
+                                {task.name.replace(/\s*\[[^\]]*\]\s*$/, '').trim() === 'Complete proofreading' && (
                                   <button
                                     type="button"
                                     onClick={() => handleSubmitProofreadingRequestQuickbase(activeCourse)}
@@ -4161,6 +4172,22 @@ NOTES
                                           placeholder="Enter title or details"
                                           className="min-w-56 flex-[2_1_18rem] rounded-md border border-slate-300 px-2 py-1 text-xs"
                                         />
+                                      )}
+                                      {subtask.title === 'Submit proofreading request' && (
+                                        <div className="basis-full space-y-1 pl-6">
+                                          <p className="text-[11px] text-slate-500">
+                                            {subtask.sourceTask?.assignedTo || 'Instructional Designer'} · Start {formatDisplayDateShortSafe(subtask.sourceTask?.startDate)} · Due {formatDisplayDateShortSafe(subtask.sourceTask?.dueDate)}
+                                          </p>
+                                          <textarea
+                                            rows={2}
+                                            value={subtaskDetailDrafts[`${task.id}:${subtask.id}`] ?? subtask.details}
+                                            onChange={(event) => setSubtaskDetailDrafts((current) => ({ ...current, [`${task.id}:${subtask.id}`]: event.target.value }))}
+                                            onBlur={(event) => handleSaveSubtaskDetails(task.id as number, subtask.id, event.target.value)}
+                                            aria-label="Submit proofreading request notes"
+                                            placeholder="Add task-specific notes..."
+                                            className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs"
+                                          />
+                                        </div>
                                       )}
                                     </div>
                                   ))}

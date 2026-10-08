@@ -103,6 +103,8 @@ export interface TaskActionTemplate {
 
 export interface CourseDevelopmentTask {
   id: number | string;
+  taskNumber?: number;
+  subtasks?: CourseDevelopmentSubtask[];
   itemType?: "courseDevelopmentTask";
 
   phase: string;
@@ -149,6 +151,15 @@ export interface CourseDevelopmentTask {
 
   isGenerated?: boolean;
   isManualOverride?: boolean;
+}
+
+export interface CourseDevelopmentSubtask {
+  id: string;
+  title: string;
+  complete: boolean;
+  details: string;
+  // Retain all fields from a main task moved into the subtask hierarchy.
+  sourceTask?: CourseDevelopmentTask;
 }
 
 export interface CourseMilestones {

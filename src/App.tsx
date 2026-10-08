@@ -16,6 +16,7 @@ import { CalendarSettingsPanel } from "./components/CalendarSettingsPanel";
 import { AlertCircle, RefreshCw } from "lucide-react";
 import { FSCJ_HOLIDAYS } from "./utils/calendarEngine";
 import { apiFetch } from "./api";
+import { migrateProofreadingTaskStructure } from "./utils/courseTaskStructure";
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>("dashboard");
@@ -212,7 +213,10 @@ export default function App() {
       const calData = await calRes.json();
       const outData = await outRes.json();
 
-      const safeCourses = Array.isArray(cdData) ? cdData : [];
+      const safeCourses = Array.isArray(cdData) ? cdData.map((course: CourseDevelopment) => ({
+        ...course,
+        tasks: migrateProofreadingTaskStructure(Array.isArray(course.tasks) ? course.tasks : []),
+      })) : [];
       const safeProjects = Array.isArray(lssData) ? lssData : [];
       const safeTasks = Array.isArray(taskData) ? taskData : [];
 
@@ -292,7 +296,7 @@ export default function App() {
       const payload: CourseDevelopment = {
         ...newCourse,
         itemType: "courseDevelopment" as any,
-        tasks: Array.isArray(newCourse.tasks) ? newCourse.tasks : [],
+        tasks: migrateProofreadingTaskStructure(Array.isArray(newCourse.tasks) ? newCourse.tasks : []),
       };
 
       const res = await apiFetch("/api/course-developments", {
@@ -324,7 +328,7 @@ export default function App() {
       const payload: CourseDevelopment = {
         ...updatedCourse,
         itemType: "courseDevelopment" as any,
-        tasks: Array.isArray(updatedCourse.tasks) ? updatedCourse.tasks : [],
+        tasks: migrateProofreadingTaskStructure(Array.isArray(updatedCourse.tasks) ? updatedCourse.tasks : []),
       };
 
       const res = await apiFetch(`/api/course-developments/${updatedCourse.id}`, {
