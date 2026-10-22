@@ -1,3 +1,4 @@
+import { migrateModuleTaskStructure } from './moduleTaskStructure';
 import { CourseDevelopmentTask, CourseDevelopmentSubtask } from '../types';
 
 export const PROOFREADING_REQUEST = 'Submit proofreading request';
@@ -13,7 +14,7 @@ export function getProofreadingRequest(tasks: CourseDevelopmentTask[]): CourseDe
 
 // IDs remain unchanged so saved edits, dependencies, and dashboard links retain
 // their identity. Only the displayed main-task numbers follow the new order.
-export function migrateProofreadingTaskStructure(tasks: CourseDevelopmentTask[]): CourseDevelopmentTask[] {
+export function migrateProofreadingTaskStructure(tasks: CourseDevelopmentTask[], renumber = true): CourseDevelopmentTask[] {
   const parent = tasks.find((task) => taskName(task.name) === COMPLETE_PROOFREADING);
   if (!parent) return tasks;
   const request = tasks.find((task) => taskName(task.name) === PROOFREADING_REQUEST);
@@ -34,8 +35,8 @@ export function migrateProofreadingTaskStructure(tasks: CourseDevelopmentTask[])
     const nextSubtasks = task === parent && moved
       ? [...subtasks.filter((subtask) => subtask.title !== PROOFREADING_REQUEST), moved]
       : task.subtasks;
-    if (task.taskNumber === index + 1 && nextSubtasks === task.subtasks) return task;
-    return { ...task, taskNumber: index + 1, ...(nextSubtasks ? { subtasks: nextSubtasks } : {}) };
+    if ((!renumber || task.taskNumber === index + 1) && nextSubtasks === task.subtasks) return task;
+    return { ...task, ...(renumber ? { taskNumber: index + 1 } : {}), ...(nextSubtasks ? { subtasks: nextSubtasks } : {}) };
   });
 }
 
@@ -49,7 +50,7 @@ export function getKickoffSchedulingWeek(tasks: CourseDevelopmentTask[]): string
   return match ? `${match[2]}/${match[3]}/${match[1].slice(-2)}` : 'TBD';
 }
 
-export function migrateKickoffTaskStructure(tasks: CourseDevelopmentTask[]): CourseDevelopmentTask[] {
+export function migrateKickoffTaskStructure(tasks: CourseDevelopmentTask[], renumber = true): CourseDevelopmentTask[] {
   const parent = tasks.find((task) => taskName(task.name) === 'Conduct initial meeting');
   if (!parent) return tasks;
   const request = tasks.find((task) => taskName(task.name) === 'Schedule kickoff meeting');
@@ -70,13 +71,13 @@ export function migrateKickoffTaskStructure(tasks: CourseDevelopmentTask[]): Cou
   const nextSubtasks = [...initialSubtasks, moved,
     ...subtasks.filter((subtask) => subtask.id !== KICKOFF_SCHEDULING_ID && !initialTitles.includes(subtask.title))];
   return tasks.filter((task) => task !== request).map((task, index) => {
-    if (task !== parent) return task.taskNumber === index + 1 ? task : { ...task, taskNumber: index + 1 };
-    if (!request && task.taskNumber === index + 1 && task.durationDays === 1 && task.durationLabel === '1 day'
+    if (task !== parent) return !renumber || task.taskNumber === index + 1 ? task : { ...task, taskNumber: index + 1 };
+    if (!request && (!renumber || task.taskNumber === index + 1) && task.durationDays === 1 && task.durationLabel === '1 day'
       && JSON.stringify(subtasks) === JSON.stringify(nextSubtasks)) return task;
-    return { ...task, taskNumber: index + 1, durationDays: 1, durationLabel: '1 day', subtasks: nextSubtasks };
+    return { ...task, ...(renumber ? { taskNumber: index + 1 } : {}), durationDays: 1, durationLabel: '1 day', subtasks: nextSubtasks };
   });
 }
 
-export function migrateCourseTaskStructure(tasks: CourseDevelopmentTask[]): CourseDevelopmentTask[] {
-  return migrateProofreadingTaskStructure(migrateKickoffTaskStructure(tasks));
+export function migrateCourseTaskStructure(tasks: CourseDevelopmentTask[], customBlocked: string[] = []): CourseDevelopmentTask[] {
+  return migrateModuleTaskStructure(migrateKickoffTaskStructure(migrateProofreadingTaskStructure(tasks, false), false), customBlocked);
 }

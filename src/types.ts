@@ -155,6 +155,12 @@ export interface CourseDevelopmentTask {
 }
 
 export interface CourseDevelopmentSubtask {
+  predecessorIds?: Array<number | string>;
+  dependencyIds?: Array<number | string>;
+  assignedTo?: RoleOwner;
+  startDate?: string;
+  dueDate?: string;
+  durationDays?: number;
   id: string;
   title: string;
   complete: boolean;

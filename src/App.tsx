@@ -215,7 +215,7 @@ export default function App() {
 
       const safeCourses = Array.isArray(cdData) ? cdData.map((course: CourseDevelopment) => ({
         ...course,
-        tasks: migrateCourseTaskStructure(Array.isArray(course.tasks) ? course.tasks : []),
+        tasks: migrateCourseTaskStructure(Array.isArray(course.tasks) ? course.tasks : [], Array.isArray(calData?.customBlocked) ? calData.customBlocked : []),
       })) : [];
       const safeProjects = Array.isArray(lssData) ? lssData : [];
       const safeTasks = Array.isArray(taskData) ? taskData : [];
@@ -296,7 +296,7 @@ export default function App() {
       const payload: CourseDevelopment = {
         ...newCourse,
         itemType: "courseDevelopment" as any,
-        tasks: migrateCourseTaskStructure(Array.isArray(newCourse.tasks) ? newCourse.tasks : []),
+        tasks: migrateCourseTaskStructure(Array.isArray(newCourse.tasks) ? newCourse.tasks : [], calendarSettings.customBlocked),
       };
 
       const res = await apiFetch("/api/course-developments", {
@@ -328,7 +328,7 @@ export default function App() {
       const payload: CourseDevelopment = {
         ...updatedCourse,
         itemType: "courseDevelopment" as any,
-        tasks: migrateCourseTaskStructure(Array.isArray(updatedCourse.tasks) ? updatedCourse.tasks : []),
+        tasks: migrateCourseTaskStructure(Array.isArray(updatedCourse.tasks) ? updatedCourse.tasks : [], calendarSettings.customBlocked),
       };
 
       const res = await apiFetch(`/api/course-developments/${updatedCourse.id}`, {

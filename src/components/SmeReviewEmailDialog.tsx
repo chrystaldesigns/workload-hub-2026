@@ -2,14 +2,14 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Clipboard, X } from 'lucide-react';
 import { CourseDevelopment } from '../types';
 
-export function SmeReviewEmailDialog({ course, onClose }: { course: CourseDevelopment; onClose: () => void }) {
+export function SmeReviewEmailDialog({ course, moduleRange, onClose }: { course: CourseDevelopment; moduleRange?: string; onClose: () => void }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [recipient, setRecipient] = useState(() => course.deptTeam?.smeEmail?.trim() || '[SME Email]');
   const courseNumber = course.courseNumber?.trim() || '[course number]';
   const [subject, setSubject] = useState(() => `Ready for Review: ${courseNumber} Activity Development`);
   const [body, setBody] = useState(() => `Good ${new Date().getHours() < 12 ? 'morning' : 'afternoon'},
 
-The activities in ${courseNumber} are now prepared for your review. Please check them at your convenience and reply to this email with either option so I can coordinate with multimedia about the next steps.
+The activities in ${courseNumber}${moduleRange ? ` for Modules ${moduleRange}` : ''} are now prepared for your review. Please check them at your convenience and reply to this email with either option so I can coordinate with multimedia about the next steps.
 
 1. All content has been reviewed and confirmed as accurate. No changes are necessary.
 2. I have the following edits.

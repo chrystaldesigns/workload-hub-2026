@@ -586,5 +586,5 @@ export function calculateTimelineTasks(
     { ...TASK_TEMPLATES[63], s: date_64, e: date_64 },
   ];
 
-  return migrateCourseTaskStructure(rawTemplates.map((tmp) => makeTask(tmp, onboarding)));
+  return migrateCourseTaskStructure(rawTemplates.map((tmp) => makeTask(tmp, onboarding)), customBlocked);
 }
