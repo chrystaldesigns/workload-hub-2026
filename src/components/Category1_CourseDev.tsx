@@ -5,7 +5,8 @@ import { InitialMeetingFormModal } from './InitialMeetingFormModal';
 import { SmeReviewEmailDialog } from './SmeReviewEmailDialog';
 import { generateInitialMeetingReport } from '../utils/initialMeetingReport';
 import {
-  DEVELOPMENT_GROUP, REVIEW_GROUP, MULTIMEDIA_EARLY, MULTIMEDIA_LATE,
+  DEVELOPMENT_LATE, MULTIMEDIA_EARLY, MULTIMEDIA_LATE,
+  isDevelopmentGroup, isReviewGroup, isModuleGroup,
   MIDPOINT_SCHEDULING_ID, expandModuleReportTasks, moduleSubtaskLabel,
   shortModuleDate, courseTaskNavigationId, formatModuleStatusEntry,
 } from '../utils/moduleTaskStructure';
@@ -169,7 +170,7 @@ const COURSE_PHASES = [
   { title: 'Course Design and Kickoff', firstTask: 'Finalize Course Design Plan' },
   { title: 'Modules 1–4 Development', firstTask: 'Create module templates' },
   { title: 'Midpoint Review', firstTask: 'Send midpoint reminder and agenda' },
-  { title: 'Modules 5–7 Development', firstTask: MULTIMEDIA_LATE },
+  { title: 'Modules 5–7 Development', firstTask: DEVELOPMENT_LATE },
   { title: 'Final Review and Close-out', firstTask: 'Finalize course documents' },
 ] as const;
 
@@ -251,7 +252,7 @@ export const mergeRecalculatedTimeline = (
   const mergedTasks = recalculatedTasks.map((newTask) => {
     const legacyMultimediaNames = newTask.name === 'Develop Module 1–4 Multimedia Content'
       ? [1, 2, 3, 4].map((moduleNumber) => `Develop Module ${moduleNumber} multimedia content`)
-      : newTask.name === 'Develop Module 5–7 Multimedia Content'
+      : newTask.name === MULTIMEDIA_LATE
         ? [5, 6, 7].map((moduleNumber) => `Develop Module ${moduleNumber} multimedia content`)
         : [];
     const existing = existingTasks.find((task) => task.name === newTask.name)
@@ -284,7 +285,7 @@ export const mergeRecalculatedTimeline = (
         ? { ...subtask, complete: legacyTask.status === 'Complete' }
         : subtask;
     });
-    if (newTask.name === 'Complete proofreading' || newTask.name === 'Conduct initial meeting' || newTask.name === DEVELOPMENT_GROUP || newTask.name === REVIEW_GROUP || isCombinedMultimediaTask) {
+    if (newTask.name === 'Complete proofreading' || newTask.name === 'Conduct initial meeting' || isModuleGroup(newTask.name) || isCombinedMultimediaTask) {
       mergedSubtasks.push(...existingSubtasks.filter((subtask) => !mergedSubtasks.some((item) => item.title === subtask.title)));
     }
 
@@ -460,7 +461,7 @@ export const buildCourseDevelopmentTimeline = (
       : finalReviewStart;
 
   tasks.push(
-    task(24, 'Develop Module 5–7 Multimedia Content', 'Course Development', 'Multimedia', reviewBuildModule4?.dueDate || '', finalReviewStart, 0, [
+    task(24, MULTIMEDIA_LATE, 'Course Development', 'Multimedia', reviewBuildModule4?.dueDate || '', finalReviewStart, 0, [
       'Develop Module 5 multimedia content',
       'Develop Module 6 multimedia content',
       'Develop Module 7 multimedia content',
@@ -3674,7 +3675,7 @@ NOTES
                       const displayTaskName = (task.name || '').replace(/\s*\[Email\]\s*/gi, '').trim();
                       const hasLinkedMultimediaDates =
                         task.name === 'Develop Module 1–4 Multimedia Content' ||
-                        task.name === 'Develop Module 5–7 Multimedia Content';
+                        task.name === MULTIMEDIA_LATE;
                       const meetingTaskNames = new Set([
                         'Conduct onboarding meeting',
                         'Conduct initial meeting',
@@ -3910,7 +3911,7 @@ NOTES
                                     <Clipboard className="h-3.5 w-3.5" /> Multimedia Request
                                   </button>
                                 )}
-                                {task.name === 'Develop Module 5–7 Multimedia Content' && (
+                                {task.name === MULTIMEDIA_LATE && (
                                   <button
                                     type="button"
                                     onClick={() =>
@@ -4074,8 +4075,8 @@ NOTES
                                 name="startDate"
                                 value={draft.startDate || ''}
                                 onCommit={(value) => autoSaveTaskField(task, 'startDate', value)}
-                                readOnly={hasLinkedMultimediaDates || task.name === REVIEW_GROUP}
-                                title={hasLinkedMultimediaDates || task.name === REVIEW_GROUP ? 'Linked to the corresponding module milestone' : undefined}
+                                readOnly={hasLinkedMultimediaDates || isReviewGroup(task.name)}
+                                title={hasLinkedMultimediaDates || isReviewGroup(task.name) ? 'Linked to the corresponding module milestone' : undefined}
                               />
 
                               <TaskDateField
@@ -4084,8 +4085,8 @@ NOTES
                                 name="dueDate"
                                 value={draft.dueDate || ''}
                                 onCommit={(value) => autoSaveTaskField(task, 'dueDate', value)}
-                                readOnly={hasLinkedMultimediaDates || task.name === DEVELOPMENT_GROUP || task.name === REVIEW_GROUP}
-                                title={hasLinkedMultimediaDates || task.name === DEVELOPMENT_GROUP || task.name === REVIEW_GROUP ? 'Calculated from the linked module or review milestone' : undefined}
+                                readOnly={hasLinkedMultimediaDates || isDevelopmentGroup(task.name) || isReviewGroup(task.name)}
+                                title={hasLinkedMultimediaDates || isDevelopmentGroup(task.name) || isReviewGroup(task.name) ? 'Calculated from the linked module or review milestone' : undefined}
                               />
 
                             </div>

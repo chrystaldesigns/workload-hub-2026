@@ -8,7 +8,7 @@ import { SmeReviewEmailDialog } from '../src/components/SmeReviewEmailDialog';
 import { migrateCourseTaskStructure } from '../src/utils/courseTaskStructure';
 import { countWorkingDaysBetween, stepWorkingDays } from '../src/utils/calendarEngine';
 import {
-  DEVELOPMENT_GROUP, REVIEW_GROUP, MULTIMEDIA_EARLY, MULTIMEDIA_LATE, MIDPOINT_SCHEDULING_ID,
+  DEVELOPMENT_GROUP, REVIEW_GROUP, DEVELOPMENT_LATE, REVIEW_LATE, isModuleGroup, MULTIMEDIA_EARLY, MULTIMEDIA_LATE, MIDPOINT_SCHEDULING_ID,
   expandModuleReportTasks, formatModuleStatusEntry, moduleSubtaskLabel,
   resolveCourseTaskReference, courseTaskNavigationId,
 } from '../src/utils/moduleTaskStructure';
@@ -19,7 +19,7 @@ const named = (tasks: Task[], name: string) => tasks.find((task) => task.name ==
 // then seed user edits so migration checks do not depend on default statuses.
 function legacy() {
   const template = build();
-  const tasks = template.flatMap((task) => task.name === DEVELOPMENT_GROUP || task.name === REVIEW_GROUP
+  const tasks = template.flatMap((task) => isModuleGroup(task.name)
     ? task.subtasks!.filter((subtask) => /^(develop|review)-module-/.test(subtask.id)).map((subtask) => structuredClone(subtask.sourceTask!))
     : [structuredClone(task)]).sort((a, b) => Number(a.id) - Number(b.id));
   const early = named(tasks, MULTIMEDIA_EARLY);
@@ -84,8 +84,8 @@ test('new projects consolidate in place, keep IDs, schedule inclusive workdays, 
   for (const onboarding of [true, false]) {
     const tasks = buildCourseDevelopmentTimeline('2027-05-03', onboarding);
     assertSchedule(tasks);
-    assert.equal(tasks.length, 31);
-    assert.deepEqual(tasks.map((task) => task.taskNumber), Array.from({ length: 31 }, (_, index) => index + 1));
+    assert.equal(tasks.length, 27);
+    assert.deepEqual(tasks.map((task) => task.taskNumber), Array.from({ length: 27 }, (_, index) => index + 1));
     assert.equal(named(tasks, DEVELOPMENT_GROUP).id, 13);
     assert.equal(named(tasks, DEVELOPMENT_GROUP).taskNumber, 12);
     assert.equal(named(tasks, REVIEW_GROUP).id, 14);
@@ -211,29 +211,6 @@ test('removed-task dependencies resolve to their own child milestones and old na
   }
 });
 
-test('Modules 5–7 use only explicitly defined QB dates and preserve unresolved scheduling', () => {
-  const original = legacy();
-  const tasks = migrateCourseTaskStructure(original);
-  for (let module = 5; module <= 7; module++) {
-    const review = named(tasks, `Review & Build Module ${module} content`);
-    const qb = review.subtasks!.find((subtask) => subtask.title === `Enter Module ${module} multimedia task in Quickbase`)!;
-    const multimedia = named(tasks, MULTIMEDIA_LATE).subtasks![module - 5];
-    assert.equal(qb.startDate, undefined);
-    assert.equal(multimedia.startDate, undefined);
-    assert.equal(moduleSubtaskLabel(multimedia), `Develop Module ${module} multimedia content: Start TBD`);
-  }
-  assert.equal(named(tasks, MULTIMEDIA_LATE).startDate, named(original, 'Develop Module 4–7 Multimedia Content').startDate);
-  named(tasks, 'Review & Build Module 5 content').subtasks![0].startDate = '2027-05-06';
-  let moved = migrateCourseTaskStructure(tasks);
-  assert.equal(named(moved, MULTIMEDIA_LATE).subtasks![0].startDate, '2027-05-06');
-  named(moved, 'Review & Build Module 5 content').subtasks![0].startDate = '2027-05-07';
-  moved = migrateCourseTaskStructure(moved);
-  assert.equal(named(moved, MULTIMEDIA_LATE).subtasks![0].startDate, '2027-05-07');
-  assert.deepEqual(migrateCourseTaskStructure(moved), moved);
-  named(original, 'Review & Build Module 6 content').subtasks = [];
-  const updated = migrateCourseTaskStructure(original);
-  assert.equal(named(updated, MULTIMEDIA_LATE).subtasks![1].startDate, undefined);
-});
 
 const course = (tasks: Task[]): CourseDevelopment => ({
   id: 'module-test', courseNumber: 'TEST1234', courseTitle: 'Module workflow', tasks,
@@ -282,4 +259,181 @@ test('extra saved children and multimedia notes survive migration and recalculat
   const merged = mergeRecalculatedTimeline(migrated, build());
   assert.equal(named(merged, REVIEW_GROUP).subtasks!.find((subtask) => subtask.title === 'Review accessibility')!.details, 'Keep this review');
   assert.equal(named(merged, MULTIMEDIA_EARLY).subtasks!.find((subtask) => subtask.title === 'Verify media captions')!.complete, true);
+});
+
+function assertLateSchedule(tasks: Task[], blocked: string[] = []) {
+  const dev = named(tasks, DEVELOPMENT_LATE);
+  const review = named(tasks, REVIEW_LATE);
+  const multimedia = named(tasks, MULTIMEDIA_LATE);
+  assert.equal(dev.subtasks!.length, 3);
+  assert.equal(review.subtasks!.length, 6);
+  for (let index = 0; index < 3; index++) {
+    const module = index + 5;
+    const development = dev.subtasks![index];
+    const build = review.subtasks![index * 2];
+    const qb = review.subtasks![index * 2 + 1];
+    assert.equal(development.title, `Develop Module ${module} content`);
+    assert.equal(build.title, `Review & Build Module ${module} content`);
+    assert.equal(qb.title, `Enter Module ${module} multimedia task in Quickbase`);
+    assert.equal(countWorkingDaysBetween(development.startDate!, development.dueDate!, blocked), 5);
+    assert.equal(countWorkingDaysBetween(build.startDate!, build.dueDate!, blocked), 1);
+    if (index) assert.equal(development.startDate, dev.subtasks![index - 1].dueDate);
+    assert.equal(build.startDate, development.dueDate);
+    assert.equal(qb.startDate, build.dueDate);
+    assert.equal(qb.dueDate, build.dueDate);
+    assert.equal(qb.durationDays, 0);
+    assert.equal(multimedia.subtasks![index].startDate, qb.startDate);
+    assert.equal(moduleSubtaskLabel(multimedia.subtasks![index]).includes('Due'), false);
+  }
+  assert.equal(dev.startDate, dev.subtasks![0].startDate);
+  assert.equal(dev.dueDate, dev.subtasks![2].dueDate);
+  assert.equal(dev.durationDays, 15);
+  assert.equal(review.startDate, review.subtasks![0].startDate);
+  assert.equal(review.dueDate, review.subtasks![5].dueDate);
+  assert.equal(review.durationDays, 3);
+  assert(countWorkingDaysBetween(review.startDate!, review.dueDate!, blocked) > 3);
+  assert.equal(multimedia.startDate, multimedia.subtasks![0].startDate);
+  assert.equal(multimedia.dueDate, named(tasks, 'Conduct final review').dueDate);
+}
+
+test('Modules 5–7 use the shared inclusive schedule, stable IDs, sequential numbers, and matching card order', () => {
+  for (const onboarding of [true, false]) {
+    const tasks = buildCourseDevelopmentTimeline('2027-05-03', onboarding);
+    assertLateSchedule(tasks);
+    const dev = named(tasks, DEVELOPMENT_LATE);
+    const review = named(tasks, REVIEW_LATE);
+    const media = named(tasks, MULTIMEDIA_LATE);
+    assert.deepEqual([dev.id, review.id, media.id], [25, 26, 24]);
+    assert.deepEqual([dev.taskNumber, review.taskNumber, media.taskNumber], [17, 18, 19]);
+    assert.deepEqual([dev.assignedTo, review.assignedTo, media.assignedTo], ['Subject Matter Expert', 'Instructional Designer', 'Multimedia']);
+    assert.deepEqual(tasks.slice(tasks.indexOf(dev), tasks.indexOf(dev) + 3).map((task) => task.name), [DEVELOPMENT_LATE, REVIEW_LATE, MULTIMEDIA_LATE]);
+    assert(!tasks.some((task) => /^Develop Module [5-7] content$|^Review & Build Module [5-7] content$/.test(task.name)));
+    assert.equal(tasks.filter((task) => [DEVELOPMENT_LATE, REVIEW_LATE].includes(task.name)).reduce((sum, task) => sum + task.durationDays!, 0), 18);
+  }
+});
+
+test('Modules 5–7 migration archives full standalone records and preserves notes, status, owners, QB data, and descriptions', () => {
+  const old = legacy();
+  named(old, 'Develop Module 6 content').status = 'Complete';
+  named(old, 'Develop Module 6 content').completionDate = '2027-01-21';
+  named(old, 'Develop Module 7 content').status = 'On Hold';
+  named(old, 'Develop Module 5 content').notes = 'Saved development notes';
+  named(old, 'Review & Build Module 6 content').assignedTo = 'Operations';
+  named(old, 'Review & Build Module 6 content').subtasks![0].complete = true;
+  named(old, 'Review & Build Module 6 content').subtasks![0].details = 'Saved Quickbase instructions';
+  const media = named(old, 'Develop Module 4–7 Multimedia Content');
+  media.status = 'On Hold';
+  media.subtasks!.find((subtask) => subtask.title === 'Develop Module 7 multimedia content')!.details = 'Existing animation description';
+  const before = JSON.stringify(old);
+  const migrated = migrateCourseTaskStructure(old);
+  assertLateSchedule(migrated);
+  const dev = named(migrated, DEVELOPMENT_LATE);
+  const review = named(migrated, REVIEW_LATE);
+  for (let index = 0; index < 3; index++) {
+    assert.deepEqual(dev.subtasks![index].sourceTask, named(old, `Develop Module ${index + 5} content`));
+    assert.deepEqual(review.subtasks![index * 2].sourceTask, named(old, `Review & Build Module ${index + 5} content`));
+  }
+  assert.equal(dev.subtasks![1].complete, true);
+  assert.equal(dev.subtasks![0].details, 'Saved development notes');
+  assert.equal(review.subtasks![3].complete, true);
+  assert.equal(review.subtasks![3].details, 'Saved Quickbase instructions');
+  assert.equal(named(migrated, MULTIMEDIA_LATE).status, 'On Hold');
+  assert.equal(named(migrated, MULTIMEDIA_LATE).notes, media.notes);
+  assert.equal(named(migrated, MULTIMEDIA_LATE).subtasks![2].details, 'Existing animation description');
+  assert.equal(dev.startDate, named(old, 'Develop Module 5 content').startDate);
+  assert.equal(JSON.stringify(old), before);
+  assert.deepEqual(migrateCourseTaskStructure(JSON.parse(JSON.stringify(migrated))), migrated);
+});
+
+test('late module dates cross weekends, holidays, and month boundaries without altering Modules 1–4', () => {
+  for (const start of ['2026-10-29', '2026-11-24', '2026-12-18']) {
+    const blocked = ['2026-11-02', '2026-12-21'];
+    const tasks = build(blocked);
+    const early = tasks.filter((task) => [DEVELOPMENT_GROUP, REVIEW_GROUP, MULTIMEDIA_EARLY].includes(task.name));
+    named(tasks, DEVELOPMENT_LATE).startDate = start;
+    const shifted = migrateCourseTaskStructure(tasks, blocked);
+    assertLateSchedule(shifted, blocked);
+    assert.deepEqual(shifted.filter((task) => [DEVELOPMENT_GROUP, REVIEW_GROUP, MULTIMEDIA_EARLY].includes(task.name)), early);
+    assert.equal(named(shifted, DEVELOPMENT_LATE).subtasks![0].dueDate, stepWorkingDays(start, 4, 1, blocked));
+  }
+});
+
+test('Status QB includes nine independent late entries and reflects saved checkbox changes without duplicate parents', () => {
+  const tasks = build();
+  const dev = named(tasks, DEVELOPMENT_LATE);
+  dev.subtasks![1].complete = true;
+  const review = named(tasks, REVIEW_LATE);
+  review.subtasks![2].complete = true;
+  review.subtasks![3].complete = true;
+  const saved = migrateCourseTaskStructure(JSON.parse(JSON.stringify(tasks)));
+  const entries = expandModuleReportTasks(saved).filter((task) => /^(Develop|Review & Build|Enter) Module [5-7] (content|multimedia task)/.test(task.name));
+  assert.equal(entries.length, 9);
+  assert(!expandModuleReportTasks(saved).some((task) => [DEVELOPMENT_LATE, REVIEW_LATE].includes(task.name)));
+  for (const entry of entries) {
+    const text = formatModuleStatusEntry(entry);
+    assert(text.includes('Parent: '));
+    assert(text.includes('start ') && text.includes('due '));
+    assert(text.includes(entry.status));
+  }
+  assert.equal(entries.find((task) => task.name === 'Develop Module 6 content')!.status, 'Complete');
+  assert.equal(entries.find((task) => task.name === 'Review & Build Module 6 content')!.status, 'Complete');
+  assert.equal(entries.find((task) => task.name === 'Enter Module 6 multimedia task in Quickbase')!.status, 'Complete');
+  named(saved, DEVELOPMENT_LATE).subtasks![1].complete = false;
+  assert.equal(expandModuleReportTasks(saved).find((task) => task.name === 'Develop Module 6 content')!.status, 'Not Started');
+});
+
+test('late descriptions and completion persist through recalculation while final review keeps its original formula', () => {
+  const old = build();
+  named(old, DEVELOPMENT_LATE).subtasks![1].complete = true;
+  named(old, REVIEW_LATE).subtasks![3].details = 'Edited QB notes';
+  named(old, MULTIMEDIA_LATE).subtasks![2].details = 'Edited Module 7 animation';
+  named(old, MULTIMEDIA_LATE).subtasks![2].complete = true;
+  named(old, 'Complete Course Design Plan').startDate = '2027-02-10';
+  named(old, 'Complete Course Design Plan').dueDate = '2027-02-10';
+  const generated = buildCourseDevelopmentTimeline('2027-07-30', true, ['2027-03-01'], old);
+  const merged = mergeRecalculatedTimeline(old, generated, ['2027-03-01']);
+  assertLateSchedule(merged, ['2027-03-01']);
+  assert.notEqual(named(merged, DEVELOPMENT_LATE).startDate, named(old, DEVELOPMENT_LATE).startDate);
+  assert.equal(named(merged, DEVELOPMENT_LATE).subtasks![1].complete, true);
+  assert.equal(named(merged, REVIEW_LATE).subtasks![3].details, 'Edited QB notes');
+  assert.equal(named(merged, MULTIMEDIA_LATE).subtasks![2].details, 'Edited Module 7 animation');
+  assert.equal(named(merged, MULTIMEDIA_LATE).subtasks![2].complete, true);
+  assert.equal(named(merged, 'Conduct final review').dueDate, named(generated, 'Conduct final review').dueDate);
+});
+
+test('late dependencies target the correct module milestone and legacy links navigate to the new parent', () => {
+  const old = legacy();
+  named(old, 'Finalize course documents').predecessorIds = [30];
+  named(old, 'Conduct final review').dependencyIds = [27];
+  const tasks = migrateCourseTaskStructure(old);
+  assert.deepEqual(named(tasks, 'Finalize course documents').predecessorIds, ['26/review-module-7']);
+  assert.deepEqual(named(tasks, 'Conduct final review').dependencyIds, ['25/develop-module-6']);
+  assert.equal(resolveCourseTaskReference(tasks, '26/review-module-7')!.name, 'Review & Build Module 7 content');
+  assert.equal(courseTaskNavigationId(tasks, '27'), '25');
+  assert.equal(courseTaskNavigationId(tasks, '30'), '26');
+  for (const parent of tasks) for (const child of parent.subtasks || []) {
+    for (const ref of [...(child.dependencyIds || []), ...(child.predecessorIds || [])]) assert(resolveCourseTaskReference(tasks, ref));
+  }
+});
+
+test('late cards reuse dated checkbox, description, notes, duration, and multimedia pop-up controls', () => {
+  const tasks = build();
+  named(tasks, MULTIMEDIA_LATE).subtasks![2].details = 'Persisted multimedia title';
+  const html = renderToStaticMarkup(React.createElement(Category1CourseDev, {
+    courseDevelopments: [course(tasks)], customBlocked: [],
+    onAddCourse: async () => {}, onUpdateCourse: async () => {}, onDeleteCourse: async () => {},
+  }));
+  const card = (id: number) => html.match(new RegExp(`<article data-task-id="${id}"[\\s\\S]*?<\\/article>`))![0];
+  assert.equal((card(25).match(/type="checkbox"/g) || []).length, 3);
+  assert.equal((card(26).match(/type="checkbox"/g) || []).length, 6);
+  assert.equal((card(24).match(/type="checkbox"/g) || []).length, 3);
+  assert.equal((card(24).match(/placeholder="Enter title or details"/g) || []).length, 3);
+  assert(card(24).includes('Persisted multimedia title'));
+  assert(card(24).includes('SME to Review Email'));
+  assert(card(24).includes('Multimedia Request'));
+  assert(!/multimedia content: Start [^<]*Due/.test(card(24)));
+  assert(card(25).includes('15 workdays'));
+  assert(card(26).includes('3 workdays'));
+  assert(!html.includes('<article data-task-id="27"'));
+  assert(!html.includes('<article data-task-id="30"'));
 });

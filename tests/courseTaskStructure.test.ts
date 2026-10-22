@@ -27,13 +27,13 @@ const legacy = (status: CourseDevelopmentTask['status'] = 'Complete') => {
   return { tasks: original, request };
 };
 
-test('new developments have 31 sequential main tasks and one unnumbered request subtask', () => {
+test('new developments have 27 sequential main tasks and one unnumbered request subtask', () => {
   for (const onboarding of [true, false]) {
     const tasks = buildCourseDevelopmentTimeline('2027-05-03', onboarding);
-    assert.equal(tasks.length, 31);
-    assert.deepEqual(tasks.map((task) => task.taskNumber), Array.from({ length: 31 }, (_, index) => index + 1));
-    assert.equal(findParent(tasks).taskNumber, 25);
-    assert.equal(tasks.at(-1)!.taskNumber, 31);
+    assert.equal(tasks.length, 27);
+    assert.deepEqual(tasks.map((task) => task.taskNumber), Array.from({ length: 27 }, (_, index) => index + 1));
+    assert.equal(findParent(tasks).taskNumber, 21);
+    assert.equal(tasks.at(-1)!.taskNumber, 27);
     assert(!tasks.some((task) => task.name === 'Submit proofreading request'));
     assert.equal(findParent(tasks).subtasks!.filter((task) => task.title === 'Submit proofreading request').length, 1);
     assert.equal(findParent(tasks).subtasks![0].complete, false);
@@ -53,7 +53,7 @@ test('saved task migration preserves every original request field and all other 
     assert.deepEqual(moved.sourceTask, request);
     assert.equal(findParent(migrated).status, 'Complete');
     assert.equal(findParent(migrated).id, 33);
-    assert.equal(findParent(migrated).taskNumber, 25);
+    assert.equal(findParent(migrated).taskNumber, 21);
     assert.equal(JSON.stringify(tasks), before);
     assert.deepEqual(migrated.map((task) => task.name), tasks.filter((task) => task !== request).map((task) => task.name));
     for (const task of migrated.filter((task) => task.name !== 'Complete proofreading')) {
@@ -72,7 +72,7 @@ test('recalculation and save/reload retain edited subtask progress, notes, histo
   findParent(migrated).subtasks![0].details = 'Edited request notes';
   findParent(migrated).subtasks!.push({ id: 'custom', title: 'Existing custom subtask', complete: true, details: 'Keep me' });
   const merged = mergeRecalculatedTimeline(JSON.parse(JSON.stringify(migrated)), template());
-  assert.equal(merged.length, 31);
+  assert.equal(merged.length, 27);
   assert.deepEqual(findParent(merged).subtasks, findParent(migrated).subtasks);
   assert.deepEqual(getProofreadingRequest(merged), request);
   assert.equal(findParent(merged).status, 'Complete');
@@ -85,7 +85,7 @@ test('legacy annotated names migrate and a missing parent does not discard the r
   const annotated = tasks.map((task) => task.name === 'Submit proofreading request' ? { ...task, name: task.name + ' [Quickbase]' }
     : task.name === 'Complete proofreading' ? { ...task, name: task.name + ' [Quality Assurance]' } : task);
   const migrated = migrateCourseTaskStructure(annotated);
-  assert.equal(migrated.length, 31);
+  assert.equal(migrated.length, 27);
   assert.equal(getProofreadingRequest(migrated)!.dueDate, '2026-10-02');
   const noParent = tasks.filter((task) => task.name !== 'Complete proofreading');
   assert.equal(getProofreadingRequest(migrateCourseTaskStructure(noParent))!.notes, getProofreadingRequest(noParent)!.notes);
@@ -111,7 +111,7 @@ test('parent renders the only proofreading pop-out button and exposes the incomp
     onAddCourse: async () => {}, onUpdateCourse: async () => {}, onDeleteCourse: async () => {},
   }));
   const parent = html.match(/<article data-task-id="33"[\s\S]*?<\/article>/)![0];
-  assert(parent.includes('aria-label="Task 25"'));
+  assert(parent.includes('aria-label="Task 21"'));
   assert(parent.includes('Submit proofreading request notes'));
   assert(parent.includes('Preserve these proofreading instructions.'));
   assert.equal((parent.match(/Submit Proofreading Request<\/button>/g) || []).length, 1);
