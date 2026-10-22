@@ -3,7 +3,7 @@ import { CourseDevelopmentTask, CourseDevelopmentSubtask } from '../types';
 export const PROOFREADING_REQUEST = 'Submit proofreading request';
 export const COMPLETE_PROOFREADING = 'Complete proofreading';
 
-const taskName = (name: string) => name.replace(/\s*\[[^\]]*\]\s*$/, '').trim();
+const taskName = (name: string) => name.replace(/\s*\[[^\]]*\]\s*$/, '').trim().replace(/, then Send recap$/i, '');
 
 export function getProofreadingRequest(tasks: CourseDevelopmentTask[]): CourseDevelopmentTask | undefined {
   return tasks.find((task) => taskName(task.name) === PROOFREADING_REQUEST)
@@ -37,4 +37,46 @@ export function migrateProofreadingTaskStructure(tasks: CourseDevelopmentTask[])
     if (task.taskNumber === index + 1 && nextSubtasks === task.subtasks) return task;
     return { ...task, taskNumber: index + 1, ...(nextSubtasks ? { subtasks: nextSubtasks } : {}) };
   });
+}
+
+export const KICKOFF_SCHEDULING_ID = 'schedule-kickoff-meeting';
+
+// Read the actual kickoff milestone so manual date edits and recalculation agree.
+export function getKickoffSchedulingWeek(tasks: CourseDevelopmentTask[]): string {
+  const kickoff = tasks.find((task) => taskName(task.name) === 'Conduct kickoff meeting');
+  const date = (kickoff?.startDate || kickoff?.dueDate || '').slice(0, 10);
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  return match ? `${match[2]}/${match[3]}/${match[1].slice(-2)}` : 'TBD';
+}
+
+export function migrateKickoffTaskStructure(tasks: CourseDevelopmentTask[]): CourseDevelopmentTask[] {
+  const parent = tasks.find((task) => taskName(task.name) === 'Conduct initial meeting');
+  if (!parent) return tasks;
+  const request = tasks.find((task) => taskName(task.name) === 'Schedule kickoff meeting');
+  const subtasks = parent.subtasks || [];
+  const previous = subtasks.find((subtask) => subtask.id === KICKOFF_SCHEDULING_ID);
+  const title = `Schedule kickoff meeting for the week of ${getKickoffSchedulingWeek(tasks)}`;
+  const moved: CourseDevelopmentSubtask = {
+    ...previous,
+    id: KICKOFF_SCHEDULING_ID,
+    title,
+    complete: previous?.complete ?? (request?.status === 'Complete'),
+    details: previous?.details ?? (request?.notes && !/^Schedule meeting the week of /.test(request.notes) ? request.notes : ''),
+    ...(request ? { sourceTask: request } : {}),
+  };
+  const initialTitles = ['Send Initial Meeting Recap', 'Draft Course Design Plan', 'Send Course Design Plan draft to SME'];
+  const initialSubtasks = initialTitles.map((title, index) => subtasks.find((subtask) => subtask.title === title)
+    || { id: `subtask-${index + 1}`, title, complete: false, details: '' });
+  const nextSubtasks = [...initialSubtasks, moved,
+    ...subtasks.filter((subtask) => subtask.id !== KICKOFF_SCHEDULING_ID && !initialTitles.includes(subtask.title))];
+  return tasks.filter((task) => task !== request).map((task, index) => {
+    if (task !== parent) return task.taskNumber === index + 1 ? task : { ...task, taskNumber: index + 1 };
+    if (!request && task.taskNumber === index + 1 && task.durationDays === 1 && task.durationLabel === '1 day'
+      && JSON.stringify(subtasks) === JSON.stringify(nextSubtasks)) return task;
+    return { ...task, taskNumber: index + 1, durationDays: 1, durationLabel: '1 day', subtasks: nextSubtasks };
+  });
+}
+
+export function migrateCourseTaskStructure(tasks: CourseDevelopmentTask[]): CourseDevelopmentTask[] {
+  return migrateProofreadingTaskStructure(migrateKickoffTaskStructure(tasks));
 }

@@ -4,7 +4,7 @@ import { DashboardNavigationTarget } from './Dashboard';
 import { InitialMeetingFormModal } from './InitialMeetingFormModal';
 import { SmeReviewEmailDialog } from './SmeReviewEmailDialog';
 import { generateInitialMeetingReport } from '../utils/initialMeetingReport';
-import { getProofreadingRequest, migrateProofreadingTaskStructure } from '../utils/courseTaskStructure';
+import { getKickoffSchedulingWeek, KICKOFF_SCHEDULING_ID, getProofreadingRequest, migrateCourseTaskStructure } from '../utils/courseTaskStructure';
 import { 
   FileText, Calendar, Plus, Mail, CheckCircle2, AlertTriangle, 
   Trash2, Sliders, ChevronRight, Share2, Clipboard, ShieldAlert,
@@ -233,8 +233,8 @@ export const mergeRecalculatedTimeline = (
   existingTasks: CourseDevelopmentTask[],
   recalculatedTasks: CourseDevelopmentTask[]
 ): CourseDevelopmentTask[] => {
-  existingTasks = migrateProofreadingTaskStructure(existingTasks);
-  recalculatedTasks = migrateProofreadingTaskStructure(recalculatedTasks);
+  existingTasks = migrateCourseTaskStructure(existingTasks);
+  recalculatedTasks = migrateCourseTaskStructure(recalculatedTasks);
   const preservedPlanningTaskIds = new Set([1, 2, 3, 4, 5, 6, 7, 8, 9]);
   const isGeneratedSchedulingNote = (note?: string) =>
     /^Schedule meeting the week of \d{2}-\d{2}-\d{2}$/.test((note || '').trim());
@@ -259,7 +259,7 @@ export const mergeRecalculatedTimeline = (
     const existingSubtasks = normalizeTimelineSubtasks((existing as TimelineTaskExtra).subtasks);
     const nextSubtasks = normalizeTimelineSubtasks((newTask as TimelineTaskExtra).subtasks);
     const mergedSubtasks = nextSubtasks.map((subtask) => {
-      const matchingExisting = existingSubtasks.find((item) => item.title === subtask.title);
+      const matchingExisting = existingSubtasks.find((item) => item.title === subtask.title || (subtask.id === KICKOFF_SCHEDULING_ID && item.id === KICKOFF_SCHEDULING_ID));
       if (matchingExisting) return { ...subtask, ...matchingExisting, id: subtask.id, title: subtask.title };
 
       const legacyTask = existingTasks.find((item) => item.name === subtask.title);
@@ -267,7 +267,7 @@ export const mergeRecalculatedTimeline = (
         ? { ...subtask, complete: legacyTask.status === 'Complete' }
         : subtask;
     });
-    if (newTask.name === 'Complete proofreading') {
+    if (newTask.name === 'Complete proofreading' || newTask.name === 'Conduct initial meeting') {
       mergedSubtasks.push(...existingSubtasks.filter((subtask) => !mergedSubtasks.some((item) => item.title === subtask.title)));
     }
 
@@ -289,7 +289,7 @@ export const mergeRecalculatedTimeline = (
   const dueDateFor = (taskName: string) =>
     mergedTasks.find((task) => task.name === taskName)?.dueDate || '';
 
-  return mergedTasks.map((task) => {
+  return migrateCourseTaskStructure(mergedTasks.map((task) => {
     if (task.name === 'Develop Module 1–3 Multimedia Content') {
       return {
         ...task,
@@ -307,7 +307,7 @@ export const mergeRecalculatedTimeline = (
     }
 
     return task;
-  });
+  }));
 };
 
 export const buildCourseDevelopmentTimeline = (
@@ -481,7 +481,7 @@ export const buildCourseDevelopmentTimeline = (
   );
 
   tasks.sort((a, b) => Number(a.id) - Number(b.id));
-  const structuredTasks = migrateProofreadingTaskStructure(tasks);
+  const structuredTasks = migrateCourseTaskStructure(tasks);
 
   if (!onboarding) {
     return structuredTasks.map((item) => {
@@ -2040,6 +2040,7 @@ Thank you, and I look forward to a productive initial meeting.`;
     const content = `TO: ${to}
 CC: ${cc}
 SUBJECT: ${course.courseNumber} Kickoff Meeting for Course Development
+Schedule meeting the week of ${getKickoffSchedulingWeek(course.tasks)}
 ATTACHMENT: Course Outline, Course Design Plan
 
 Good ${greetingTime},
@@ -3676,7 +3677,7 @@ NOTES
                 <div className="space-y-3 bg-slate-50/60 p-2 sm:p-3">
                   {activeCourse.tasks
                     .filter(t => activeCourse.hideCompletedTasks === false || (t.status !== 'Complete' && t.status !== 'Not Applicable')
-                      || t.subtasks?.some((subtask) => subtask.title === 'Submit proofreading request' && !subtask.complete && subtask.sourceTask?.status !== 'Not Applicable'))
+                      || t.subtasks?.some((subtask) => (subtask.title === 'Submit proofreading request' || subtask.id === KICKOFF_SCHEDULING_ID) && !subtask.complete && subtask.sourceTask?.status !== 'Not Applicable'))
                     .map((task, index, visibleTasks) => {
                       const draft = getTaskDraft(task);
                       const currentStatus = draft.status || task.status;
@@ -3793,9 +3794,7 @@ NOTES
                                     >
                                       <Mail className="h-3.5 w-3.5" /> Send Course Design Plan Draft
                                     </button>
-                                  </div>
-                                )}
-                                {Number(task.id) === 8 && (
+
                                   <button
                                     type="button"
                                     onClick={() => handleScheduleKickoffMeeting(activeCourse)}
@@ -3805,6 +3804,7 @@ NOTES
                                   >
                                     <Calendar className="h-3.5 w-3.5" /> Schedule kickoff meeting
                                   </button>
+                                  </div>
                                 )}
                                                                 {Number(task.id) === 10 && (
                                   <button
@@ -4171,6 +4171,16 @@ NOTES
                                           aria-label={`${subtask.title} title or details`}
                                           placeholder="Enter title or details"
                                           className="min-w-56 flex-[2_1_18rem] rounded-md border border-slate-300 px-2 py-1 text-xs"
+                                        />
+                                      )}
+                                      {subtask.id === KICKOFF_SCHEDULING_ID && subtask.details && (
+                                        <textarea
+                                          rows={2}
+                                          value={subtaskDetailDrafts[`${task.id}:${subtask.id}`] ?? subtask.details}
+                                          onChange={(event) => setSubtaskDetailDrafts((current) => ({ ...current, [`${task.id}:${subtask.id}`]: event.target.value }))}
+                                          onBlur={(event) => handleSaveSubtaskDetails(task.id as number, subtask.id, event.target.value)}
+                                          aria-label="Schedule kickoff meeting notes"
+                                          className="basis-full rounded-md border border-slate-300 px-2 py-1 text-xs"
                                         />
                                       )}
                                       {subtask.title === 'Submit proofreading request' && (

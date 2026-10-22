@@ -1,5 +1,5 @@
 import { CourseDevelopmentTask } from "../types";
-import { migrateProofreadingTaskStructure } from './courseTaskStructure';
+import { migrateCourseTaskStructure } from './courseTaskStructure';
 
 export const TIMEZONE = "America/New_York";
 
@@ -586,5 +586,5 @@ export function calculateTimelineTasks(
     { ...TASK_TEMPLATES[63], s: date_64, e: date_64 },
   ];
 
-  return migrateProofreadingTaskStructure(rawTemplates.map((tmp) => makeTask(tmp, onboarding)));
+  return migrateCourseTaskStructure(rawTemplates.map((tmp) => makeTask(tmp, onboarding)));
 }

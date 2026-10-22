@@ -132,6 +132,7 @@ export interface CourseDevelopmentTask {
   effectiveDuration?: number | null;
 
   durationDays?: number;
+  durationLabel?: string;
   durationMinutes?: number;
 
   notes?: string;
