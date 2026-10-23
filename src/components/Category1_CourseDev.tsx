@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { CourseDevelopment, CourseDevelopmentTask, InitialMeetingFormData, WorkStatus } from '../types';
+import { CourseDevelopment, CourseDevelopmentTask, InitialMeetingFormData, WorkStatus, TermRelease } from '../types';
+import { TargetTermFields, TargetTermSummary } from './TargetTermFields';
+import { TermPlanningSettings, normalizeTermRelease, courseTargetYear, courseTargetLabel, targetTermFields } from '../utils/termPlanning';
 import { DashboardNavigationTarget } from './Dashboard';
 import { CourseMaterialsFields } from './CourseMaterialsFields';
 import { courseMaterialsFormValues, courseMaterialsValidation, courseMaterialsFields } from '../utils/courseMaterials';
@@ -32,6 +34,7 @@ import {
 interface Category1Props {
   courseDevelopments: CourseDevelopment[];
   customBlocked: string[];
+  termPlanning?: TermPlanningSettings;
   onAddCourse: (course: CourseDevelopment) => Promise<void>;
   onUpdateCourse: (course: CourseDevelopment) => Promise<void>;
   onDeleteCourse: (id: string) => Promise<void>;
@@ -509,6 +512,7 @@ function formatDisplayDateShortSafe(dateStr?: string) {
 export function Category1CourseDev({ 
   courseDevelopments, 
   customBlocked,
+  termPlanning,
   onAddCourse, 
   onUpdateCourse, 
   onDeleteCourse,
@@ -545,7 +549,8 @@ export function Category1CourseDev({
     workshopCourse: '',
     devType: 'Original' as const,
     versionNumber: 1,
-    termRelease: 'Fall B' as const,
+    termRelease: 'Fall Term' as TermRelease,
+    targetTermYear: String(new Date().getFullYear()),
     termDeadline: '2026-12-15',
     devStagger: 14,
     onboarding: true,
@@ -729,7 +734,8 @@ const visibleCourses = showArchived ? archivedCourses : activeCourses;
       workshopCourse: course.workshopCourse || '',
       devType: course.devType || 'Original',
       versionNumber: Number(course.versionNumber || 1),
-      termRelease: course.termRelease || 'Fall B',
+      termRelease: normalizeTermRelease(course.termRelease) || course.termRelease,
+      targetTermYear: String(courseTargetYear(course) || ''),
       termDeadline: course.termDeadline || '',
       devStagger: Number(course.devStagger || 14),
       onboarding: !!course.onboarding,
@@ -768,6 +774,7 @@ const visibleCourses = showArchived ? archivedCourses : activeCourses;
       return;
     }
 
+    if (editingCourse.targetTermYear && (!Number.isInteger(Number(editingCourse.targetTermYear)) || Number(editingCourse.targetTermYear) < 1900 || Number(editingCourse.targetTermYear) > 9999)) { alert('Enter a valid Target Term Year.'); return; }
     const materialsError = courseMaterialsValidation(editingCourse, false);
     if (materialsError) { alert(materialsError); return; }
 
@@ -781,7 +788,7 @@ const visibleCourses = showArchived ? archivedCourses : activeCourses;
       workshopCourse: editingCourse.workshopCourse.trim().toLowerCase(),
       devType: editingCourse.devType,
       versionNumber: Number(editingCourse.versionNumber || 1),
-      termRelease: editingCourse.termRelease,
+      ...targetTermFields(editingCourse.termRelease, editingCourse.targetTermYear, activeCourse),
       termDeadline: editingCourse.termDeadline || activeCourse.termDeadline,
       calculatedDeadline: calculateProjectedCompletionDate(editingCourse.termDeadline || activeCourse.termDeadline),
       devStagger: Number(editingCourse.devStagger || 14),
@@ -969,6 +976,7 @@ const visibleCourses = showArchived ? archivedCourses : activeCourses;
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.targetTermYear || !Number.isInteger(Number(formData.targetTermYear)) || Number(formData.targetTermYear) < 1900 || Number(formData.targetTermYear) > 9999) { alert('Enter a valid Target Term Year.'); return; }
     const materialsError = courseMaterialsValidation(formData);
     if (materialsError) { alert(materialsError); return; }
     // Start of Term is the static anchor. Projected Course Completion is 30 working days before it.
@@ -985,7 +993,7 @@ const visibleCourses = showArchived ? archivedCourses : activeCourses;
       workshopCourse: formData.workshopCourse || `wickline-wrkshp-cel-${formData.courseNumber.toUpperCase()}-v${formData.versionNumber}`,
       devType: formData.devType,
       versionNumber: Number(formData.versionNumber),
-      termRelease: formData.termRelease,
+      ...targetTermFields(formData.termRelease, formData.targetTermYear),
       termDeadline: startOfTerm,
       calculatedDeadline: projectedCompletionDate,
       devStagger: Number(formData.devStagger),
@@ -1024,7 +1032,8 @@ const visibleCourses = showArchived ? archivedCourses : activeCourses;
       workshopCourse: '',
       devType: 'Original',
       versionNumber: 1,
-      termRelease: 'Fall B',
+      termRelease: 'Fall Term',
+      targetTermYear: String(new Date().getFullYear()),
       termDeadline: '2026-12-15',
       devStagger: 14,
       onboarding: true,
@@ -3146,9 +3155,10 @@ NOTES
                       {activeCourse.devType} - Canvas V{activeCourse.versionNumber}
                     </span>
                     <span className="rounded-full border border-slate-300 bg-white px-2.5 py-1 text-[10px] uppercase tracking-wider text-slate-600">
-                      Term Release: {activeCourse.termRelease} 
+                      Term Release: {courseTargetLabel(activeCourse)}
                     </span>
                   </div>
+                  <TargetTermSummary termRelease={activeCourse.termRelease} targetTermYear={courseTargetYear(activeCourse) || ''} settings={termPlanning} />
                   <h2 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
                     {activeCourse.courseNumber}: {activeCourse.courseTitle}
                   </h2>
@@ -3455,20 +3465,9 @@ NOTES
                       <input type="number" name="versionNumber" value={editingCourse.versionNumber} onChange={handleEditingChange} className="px-3 py-2 border border-slate-300 bg-white" />
                     </label>
 
-                    <label className="flex flex-col gap-1">
-                      <span className="text-[10px] uppercase text-slate-500 font-semibold">Term Release</span>
-                      <select name="termRelease" value={editingCourse.termRelease} onChange={handleEditingChange} className="px-3 py-2 border border-slate-300 bg-white">
-                        <option value="Spring A">Spring A</option>
-                        <option value="Spring B">Spring B</option>
-                        <option value="Spring C">Spring C</option>
-                        <option value="Summer A">Summer A</option>
-                        <option value="Summer B">Summer B</option>
-                        <option value="Summer C">Summer C</option>
-                        <option value="Fall A">Fall A</option>
-                        <option value="Fall B">Fall B</option>
-                        <option value="Fall C">Fall C</option>
-                      </select>
-                    </label>
+                    <TargetTermFields termRelease={editingCourse.termRelease} targetTermYear={editingCourse.targetTermYear} settings={termPlanning}
+                      onTermChange={(termRelease) => setEditingCourse((previous) => previous ? { ...previous, termRelease } : previous)}
+                      onYearChange={(targetTermYear) => setEditingCourse((previous) => previous ? { ...previous, targetTermYear } : previous)} />
 
                     <label className="flex flex-col gap-1">
                       <span className="text-[10px] uppercase text-slate-500 font-semibold">Start of Term</span>
@@ -4421,25 +4420,9 @@ NOTES
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Target Term Release:</label>
-                  <select
-                    name="termRelease"
-                    value={formData.termRelease}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-1.5 border border-slate-350 bg-white text-xs animate-fade-in"
-                  >
-                    <option value="Spring A">Spring A</option>
-                    <option value="Spring B">Spring B</option>
-                    <option value="Spring C">Spring C</option>
-                    <option value="Summer A">Summer A</option>
-                    <option value="Summer B">Summer B</option>
-                    <option value="Summer C">Summer C</option>
-                    <option value="Fall A">Fall A</option>
-                    <option value="Fall B">Fall B</option>
-                    <option value="Fall C">Fall C</option>
-                  </select>
-                </div>
+                <TargetTermFields termRelease={formData.termRelease} targetTermYear={formData.targetTermYear} settings={termPlanning} requiredYear
+                  onTermChange={(termRelease) => setFormData((previous) => ({ ...previous, termRelease }))}
+                  onYearChange={(targetTermYear) => setFormData((previous) => ({ ...previous, targetTermYear }))} />
                 <div>
                   <label className="block text-[9px] uppercase font-semibold text-slate-500 mb-1">Start of Term:</label>
                   <input

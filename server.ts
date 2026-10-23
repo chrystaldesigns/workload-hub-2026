@@ -1,4 +1,5 @@
 import express from "express";
+import { validateTermPlanningSettings, validateCourseTargetTerm } from "./src/utils/termPlanning";
 import { validateSavedCourseMaterials } from "./src/utils/courseMaterials";
 import { createServer as createViteServer } from "vite";
 import path from "path";
@@ -244,6 +245,8 @@ async function startServer() {
 
       const materialsError = validateSavedCourseMaterials(payload, true);
       if (materialsError) return res.status(400).json({ error: materialsError });
+      const termError = validateCourseTargetTerm(payload);
+      if (termError) return res.status(400).json({ error: termError });
 
       const record = await createRecord(
         "course-developments",
@@ -269,6 +272,8 @@ async function startServer() {
     try {
       const materialsError = validateSavedCourseMaterials(req.body);
       if (materialsError) return res.status(400).json({ error: materialsError });
+      const termError = validateCourseTargetTerm(req.body);
+      if (termError) return res.status(400).json({ error: termError });
 
       const record = await updateRecord(
         "course-developments",
@@ -534,7 +539,12 @@ async function startServer() {
 
   app.post("/api/calendar-settings", async (req, res) => {
     try {
+      if (req.body.termPlanning !== undefined) {
+        const error = validateTermPlanningSettings(req.body.termPlanning);
+        if (error) return res.status(400).json({ error });
+      }
       const payload = {
+        ...(req.body.termPlanning !== undefined ? { termPlanning: req.body.termPlanning } : {}),
         customBlocked: Array.isArray(req.body.customBlocked) ? req.body.customBlocked : [],
         outlookConnected: !!req.body.outlookConnected,
         outlookEmail: req.body.outlookEmail || "",

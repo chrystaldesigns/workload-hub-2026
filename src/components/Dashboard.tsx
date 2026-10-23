@@ -1,3 +1,5 @@
+import { TermPlanningSection } from './TermPlanningSection';
+import { TermPlanningSettings, courseTargetLabel } from '../utils/termPlanning';
 import React, { useMemo, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { CourseDevelopment, LssProject, OutlookEvent, StandaloneTask } from "../types";
@@ -19,6 +21,8 @@ type WeeklyTask = DashboardNavigationTarget & {
 };
 
 interface DashboardProps {
+  termPlanning?: TermPlanningSettings;
+  onSaveTermPlanning?: (settings: TermPlanningSettings) => Promise<void>;
   courseDevelopments: CourseDevelopment[];
   lssProjects: LssProject[];
   standaloneTasks: StandaloneTask[];
@@ -62,7 +66,7 @@ const overlapsWeek = (task: WeeklyTask, weekStart: string, weekEnd: string) => {
   return Boolean(existingDate && existingDate >= weekStart && existingDate <= weekEnd);
 };
 
-export function Dashboard({ courseDevelopments, lssProjects, standaloneTasks, onNavigate }: DashboardProps) {
+export function Dashboard({ courseDevelopments, lssProjects, standaloneTasks, onNavigate, termPlanning, onSaveTermPlanning }: DashboardProps) {
   const today = dateFromLocal(new Date());
   const [weekStart, setWeekStart] = useState(startOfWeek(today));
   const weekEnd = addDays(weekStart, 6);
@@ -85,7 +89,7 @@ export function Dashboard({ courseDevelopments, lssProjects, standaloneTasks, on
       if (!course.id) return;
       (course.tasks || []).forEach((task) => {
         if (task.id === undefined || task.status === "Complete" || task.status === "Not Applicable") return;
-        add({ key: `course-${course.id}-${task.id}`, sourceType: "courseDevelopment", parentId: course.id, itemId: String(task.id), title: task.name || "Course Development Task", startDate: normalizeDate(task.startDate || task.effectiveStartDate), dueDate: normalizeDate(task.dueDate || task.effectiveDueDate), category: "Work", sourceLabel: `${course.courseNumber || course.courseTitle} • Course Development` });
+        add({ key: `course-${course.id}-${task.id}`, sourceType: "courseDevelopment", parentId: course.id, itemId: String(task.id), title: task.name || "Course Development Task", startDate: normalizeDate(task.startDate || task.effectiveStartDate), dueDate: normalizeDate(task.dueDate || task.effectiveDueDate), category: "Work", sourceLabel: `${course.courseNumber || course.courseTitle} • ${courseTargetLabel(course)} • Course Development` });
       });
     });
 
@@ -153,6 +157,7 @@ export function Dashboard({ courseDevelopments, lssProjects, standaloneTasks, on
           </div>
         )}
       </div>
+      <TermPlanningSection settings={termPlanning} onSave={onSaveTermPlanning} />
     </section>
   );
 }

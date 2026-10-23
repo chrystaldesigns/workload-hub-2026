@@ -16,6 +16,7 @@ import { CalendarSettingsPanel } from "./components/CalendarSettingsPanel";
 import { AlertCircle, RefreshCw } from "lucide-react";
 import { FSCJ_HOLIDAYS } from "./utils/calendarEngine";
 import { apiFetch } from "./api";
+import { TermPlanningSettings } from "./utils/termPlanning";
 import { migrateCourseTaskStructure } from "./utils/courseTaskStructure";
 
 export default function App() {
@@ -231,6 +232,7 @@ export default function App() {
       );
 
       const safeCalendar = {
+        ...(calData?.termPlanning ? { termPlanning: calData.termPlanning } : {}),
         customBlocked: Array.isArray(calData?.customBlocked) ? calData.customBlocked : [],
         outlookConnected: !!calData?.outlookConnected,
         outlookEmail: calData?.outlookEmail || "",
@@ -553,6 +555,18 @@ export default function App() {
     }
   };
 
+  const handleUpdateTermPlanning = async (termPlanning: TermPlanningSettings) => {
+    const res = await apiFetch('/api/calendar-settings', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...calendarSettings, termPlanning }),
+    });
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({}));
+      throw new Error(error.error || 'Term calendar could not be saved.');
+    }
+    await loadDashboardData();
+  };
+
   const handleUpdateBlockedDates = async (dates: string[]) => {
     try {
       const payload: CalendarSettings = {
@@ -637,6 +651,8 @@ export default function App() {
       case "dashboard":
         return (
           <Dashboard
+            termPlanning={calendarSettings.termPlanning}
+            onSaveTermPlanning={handleUpdateTermPlanning}
             courseDevelopments={courseDevelopments}
             lssProjects={lssProjects}
             standaloneTasks={standaloneTasks}
@@ -648,6 +664,7 @@ export default function App() {
       case "category1":
         return (
           <Category1CourseDev
+            termPlanning={calendarSettings.termPlanning}
             courseDevelopments={courseDevelopments}
             customBlocked={calendarSettings.customBlocked || []}
             onAddCourse={handleAddCourse}
@@ -700,6 +717,8 @@ export default function App() {
       default:
         return (
           <Dashboard
+            termPlanning={calendarSettings.termPlanning}
+            onSaveTermPlanning={handleUpdateTermPlanning}
             courseDevelopments={courseDevelopments}
             lssProjects={lssProjects}
             standaloneTasks={standaloneTasks}

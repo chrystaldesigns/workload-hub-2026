@@ -1,3 +1,4 @@
+import type { TermPlanningSettings } from './utils/termPlanning';
 export type ItemType = "courseDevelopment" | "project" | "standaloneTask";
 
 export type AlertStatus =
@@ -47,6 +48,9 @@ export type DevelopmentType =
   | "Modification";
 
 export type TermRelease =
+  | "Spring Term"
+  | "Summer Term"
+  | "Fall Term"
   | "Spring A"
   | "Spring B"
   | "Spring C"
@@ -263,6 +267,9 @@ export interface CourseDevelopment {
 
   versionNumber: number | string;
 
+  academicYear?: string | number;
+  targetTermYear?: number;
+  originalTermRelease?: string;
   termRelease: TermRelease;
   termDeadline: string;
 
@@ -424,6 +431,7 @@ export interface OutlookEvent {
 }
 
 export interface CalendarSettings {
+  termPlanning?: TermPlanningSettings;
   customBlocked: string[];
   outlookConnected?: boolean;
   outlookEmail?: string;
