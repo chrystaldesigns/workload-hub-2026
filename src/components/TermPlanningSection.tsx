@@ -1,9 +1,12 @@
+import { CoursePlanningViews, type CoursePlanningProps } from './CoursePlanningViews';
+import { recommendedWindow } from '../utils/forwardSchedule';
 import React, { useState } from 'react';
 import { TermPlanningSettings, TermCalendarRecord, TARGET_TERMS, TargetTerm, TERM_SOURCE, OPERATING_SOURCE, FLEX_SCHEDULE_SOURCE,
   getTermPlanningSettings, upcomingTerms, planningDeadline, planningDateLabel, termId, termAcademicYear, validateTermPlanningSettings } from '../utils/termPlanning';
 
-export function TermPlanningSection({ settings, onSave, today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' }) }: {
+export function TermPlanningSection({ settings, onSave, courses, customBlocked, onCreateProject, onSelectStart, today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' }) }: {
   settings?: TermPlanningSettings; onSave?: (settings: TermPlanningSettings) => Promise<void>; today?: string;
+} & CoursePlanningProps & {
 }) {
   const config = getTermPlanningSettings(settings);
   const draftFor = (term: TargetTerm, year: number) => {
@@ -36,7 +39,7 @@ export function TermPlanningSection({ settings, onSave, today = new Date().toLoc
       if (index >= 0) calendars[index] = calendar; else calendars.push(calendar);
       record.operatingCalendarId = calendar.id;
     }
-    const next = { terms: [...config.terms.filter((term) => term.id !== record.id), record], operatingCalendars: calendars };
+    const next = { ...config, terms: [...config.terms.filter((term) => term.id !== record.id), record], operatingCalendars: calendars };
     const validation = validateTermPlanningSettings(next);
     if (validation) { setError(validation); return; }
     setSaving(true); setError('');
@@ -50,14 +53,14 @@ export function TermPlanningSection({ settings, onSave, today = new Date().toLoc
     </div>
     <div className="grid gap-4 md:grid-cols-3">
       {upcomingTerms(today, settings).map((term) => {
-        const deadline = planningDeadline(term, settings);
+        const deadline = planningDeadline(term, settings, customBlocked);
         const calendar = config.operatingCalendars.find((item) => item.id === term.operatingCalendarId);
         return <article key={term.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm">
           <h3 className="mb-3 font-semibold text-[#003E52]">{term.term} {term.year}</h3>
           <dl className="space-y-3">
             <div><dt className="font-semibold">Session A Start</dt><dd>{planningDateLabel(term.sessionAStartDate)}</dd></div>
             <div><dt className="font-semibold">Course Completion Deadline</dt><dd>{deadline.date ? planningDateLabel(deadline.date) : 'Requires confirmation'}</dd><dd className="text-xs text-slate-500">{deadline.message}</dd></div>
-            <div><dt className="font-semibold">Recommended Project Start Window</dt><dd>Pending scheduling configuration</dd></div>
+            <div><dt className="font-semibold">Recommended Project Start Window</dt><dd>{(() => { const window = recommendedWindow(true, deadline.date, config, customBlocked); return window ? `${planningDateLabel(window.earliest)} – ${planningDateLabel(window.latest)} (onboarding; ${config.multimediaWorkdays ? 'configured multimedia estimate' : 'confirm multimedia estimate'}${window.calendarConfirmed ? '' : '; incomplete calendar coverage'})` : 'Requires confirmed Session A date'; })()}</dd></div>
             <div><dt className="font-semibold">Calendar Source</dt><dd><a className="text-[#006282] underline" href={term.sourceUrl} target="_blank" rel="noreferrer">FSCJ Academic Calendar</a></dd>
               <dd className="text-xs text-slate-500">{term.verificationStatus === 'verified' ? 'Verified' : term.verificationStatus === 'manual' ? 'Manual entry — not verified' : 'Date requires confirmation'} · {term.academicYear} · Last verified: {term.lastVerifiedDate || 'Not verified'}</dd></div>
             {calendar && <div><dt className="font-semibold">Operating calendar and closures</dt><dd><a className="text-[#006282] underline" href={calendar.sourceUrl} target="_blank" rel="noreferrer">{calendar.academicYear} FSCJ Operating Calendar</a></dd>
@@ -67,6 +70,8 @@ export function TermPlanningSection({ settings, onSave, today = new Date().toLoc
       })}
     </div>
     <p className="mt-3 text-xs text-slate-500">The completion deadline covers all course development work. The following 30 workdays are reserved for administrative copying. <a href={FLEX_SCHEDULE_SOURCE} target="_blank" rel="noreferrer" className="underline">FSCJ flexible workweek policy</a>.</p>
+    <CoursePlanningViews courses={courses} settings={config} customBlocked={customBlocked} onSave={onSave} onCreateProject={onCreateProject} onSelectStart={onSelectStart}/>
+    {onSave && <div className="mt-4 flex flex-wrap gap-3 text-sm"><label>Recommended window (workdays)<input type="number" min="1" max="260" defaultValue={config.planningWindowWorkdays||15} onBlur={e=>{const value=Number(e.target.value);if(Number.isInteger(value)&&value>0&&value<=260)void onSave({...config,planningWindowWorkdays:value}).catch(e=>setError(String(e)));}} className="ml-2 w-20 rounded border p-1"/></label><label>Multimedia estimate per module (workdays; requires confirmation)<input type="number" min="1" max="260" defaultValue={config.multimediaWorkdays||''} placeholder="Confirm" onBlur={e=>{const value=Number(e.target.value);if(Number.isInteger(value)&&value>0&&value<=260)void onSave({...config,multimediaWorkdays:value}).catch(e=>setError(String(e)));}} className="ml-2 w-20 rounded border p-1"/></label></div>}
     {editing && <form onSubmit={save} className="mt-5 space-y-3 border-t border-slate-200 pt-4">
       <h3 className="font-semibold text-[#003E52]">Maintain official term dates and closures</h3>
       <div className="grid gap-3 sm:grid-cols-2">

@@ -133,10 +133,12 @@ test('calendar validation rejects ambiguous dates, nonofficial sources, duplicat
   assert.equal(termId('Spring Term',2028), 'spring-2028');
 });
 
-test('dashboard cards show three upcoming terms, sources, verification, and pending forward-scheduling windows', () => {
+test('dashboard cards show three upcoming terms, sources, verification, and calculated forward-scheduling windows', () => {
   const html = renderToStaticMarkup(React.createElement(TermPlanningSection, { today: '2026-10-23', onSave: async () => {} }));
   assert(html.includes('FSCJ Term Release Planning'));
-  assert.equal((html.match(/Pending scheduling configuration/g) || []).length, 3);
+  assert(!html.includes('Pending scheduling configuration'));
+  assert(html.includes('confirm multimedia estimate'));
+  assert(html.includes('Requires confirmed Session A date'));
   assert(html.includes('Spring Term 2027'));
   assert(html.includes('Summer Term 2027'));
   assert(html.includes('Fall Term 2027'));

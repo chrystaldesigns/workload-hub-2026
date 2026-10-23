@@ -106,6 +106,8 @@ export interface TaskActionTemplate {
 }
 
 export interface CourseDevelopmentTask {
+  schedulingWarnings?: string[];
+  dependencyType?: string;
   id: number | string;
   taskNumber?: number;
   subtasks?: CourseDevelopmentSubtask[];
@@ -159,6 +161,8 @@ export interface CourseDevelopmentTask {
 }
 
 export interface CourseDevelopmentSubtask {
+  autoStartDate?: string; autoDueDate?: string; manualStartDate?: string | null; manualDueDate?: string | null;
+  templateDueDate?: string; scheduledEmailDate?: string; dependencyType?: string; schedulingWarnings?: string[];
   predecessorIds?: Array<number | string>;
   dependencyIds?: Array<number | string>;
   assignedTo?: RoleOwner;
@@ -246,6 +250,8 @@ export interface InitialMeetingFormData {
 }
 
 export interface CourseDevelopment {
+  scheduleVersion?: 1; projectStartDate?: string; multimediaWorkdays?: number; proposalId?: string;
+  schedulingWarnings?: string[]; legacyScheduleSnapshot?: CourseDevelopmentTask[];
   // Unanswered legacy records must remain unknown rather than defaulting to No.
   usesThirdPartyPlatform?: boolean;
   thirdPartyPlatformNames?: string;

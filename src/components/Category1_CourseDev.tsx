@@ -1,3 +1,6 @@
+import { forwardSchedule, recalculateCourse } from '../utils/forwardSchedule';
+import { proposalProjectId } from '../utils/planningRows';
+import { getCourseTerm, planningDeadline, type ProposedCourse } from '../utils/termPlanning';
 import React, { useEffect, useRef, useState } from 'react';
 import { CourseDevelopment, CourseDevelopmentTask, InitialMeetingFormData, WorkStatus, TermRelease } from '../types';
 import { TargetTermFields, TargetTermSummary } from './TargetTermFields';
@@ -32,6 +35,8 @@ import {
 } from '../utils/calendarEngine';
 
 interface Category1Props {
+  planningProposal?: ProposedCourse | null;
+  onPlanningCancel?: () => void;
   courseDevelopments: CourseDevelopment[];
   customBlocked: string[];
   termPlanning?: TermPlanningSettings;
@@ -44,6 +49,7 @@ interface Category1Props {
 
 
 type TimelineSubtask = {
+  templateDueDate?: string; scheduledEmailDate?: string; manualStartDate?: string|null; manualDueDate?: string|null;
   id: string;
   title: string;
   complete: boolean;
@@ -511,6 +517,8 @@ function formatDisplayDateShortSafe(dateStr?: string) {
 
 export function Category1CourseDev({ 
   courseDevelopments, 
+  planningProposal,
+  onPlanningCancel,
   customBlocked,
   termPlanning,
   onAddCourse, 
@@ -523,6 +531,8 @@ export function Category1CourseDev({
     if (typeof window === 'undefined') return courseDevelopments[0]?.id || '';
     return localStorage.getItem('workloadHubSelectedCourseId') || courseDevelopments[0]?.id || '';
   });
+  const [projectStartDate,setProjectStartDate] = useState(new Date().toLocaleDateString('en-CA'));
+  const [creationBusy,setCreationBusy] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showVersionInformation, setShowVersionInformation] = useState(false);
   const [timelineReport, setTimelineReport] = useState<TimelineReportType | null>(null);
@@ -566,6 +576,8 @@ export function Category1CourseDev({
     alertStatus: 'No Concerns' as const,
   });
 
+  useEffect(() => { if(!planningProposal)return; setFormData(previous=>({...previous,courseNumber:planningProposal.courseNumber,termRelease:planningProposal.termRelease,targetTermYear:String(planningProposal.targetTermYear),onboarding:planningProposal.onboarding,termDeadline:getCourseTerm(planningProposal,termPlanning)?.sessionAStartDate||previous.termDeadline}));setProjectStartDate(planningProposal.projectStartDate||'');setShowAddModal(true); },[planningProposal?.id]);
+
   const [showArchived, setShowArchived] = useState(false);
   const [highlightedTaskId, setHighlightedTaskId] = useState("");
 
@@ -603,33 +615,6 @@ const visibleCourses = showArchived ? archivedCourses : activeCourses;
   visibleCourses.find((course) => course.id === selectedId) ||
   visibleCourses[0];
 
-  useEffect(() => {
-    if (!activeCourse?.id || migratingCourseIdsRef.current.has(activeCourse.id)) return;
-
-    const hasLegacyStandaloneTasks = activeCourse.tasks.some((task) =>
-      /^Develop Module [1-7] multimedia content$/i.test(task.name) ||
-      task.name === 'Schedule midpoint meeting' ||
-      task.name === 'Schedule final meeting'
-    );
-    if (!hasLegacyStandaloneTasks) return;
-
-    migratingCourseIdsRef.current.add(activeCourse.id);
-    const projectedCompletionDate = getProjectedCompletionDate(activeCourse);
-    const generatedTasks = buildCourseDevelopmentTimeline(
-      projectedCompletionDate,
-      activeCourse.onboarding,
-      customBlocked,
-      activeCourse.tasks
-    );
-    const migratedTasks = mergeRecalculatedTimeline(activeCourse.tasks, generatedTasks, customBlocked);
-
-    void onUpdateCourse({
-      ...activeCourse,
-      tasks: migratedTasks,
-    }).catch(() => {
-      migratingCourseIdsRef.current.delete(activeCourse.id || '');
-    });
-  }, [activeCourse, customBlocked, onUpdateCourse]);
 
   const selectCourse = (courseId: string) => {
     setSelectedId(courseId);
@@ -834,6 +819,7 @@ const visibleCourses = showArchived ? archivedCourses : activeCourses;
         ...getTaskDraft(task),
         ...prev[key],
         [field]: value,
+
       },
     }));
   };
@@ -855,6 +841,8 @@ const visibleCourses = showArchived ? archivedCourses : activeCourses;
         return {
           ...item,
           [field]: value,
+          ...(activeCourse.scheduleVersion===1 && field==='startDate' ? {manualStartDate:value||null, ...([4,6,11,21,37].includes(Number(item.id))?{manualDueDate:value||null}:{})}:{}),
+          ...(activeCourse.scheduleVersion===1 && field==='dueDate' ? {manualDueDate:value||null, ...([4,6,11,21,37].includes(Number(item.id))?{manualStartDate:value||null}:{})}:{}),
         };
       }
 
@@ -1019,7 +1007,13 @@ const visibleCourses = showArchived ? archivedCourses : activeCourses;
       tasks: generatedTasks
     };
 
-    await onAddCourse(newCourse);
+    if (creationBusy) return;
+    setCreationBusy(true);
+    try {
+      const planned = recalculateCourse({...newCourse,projectStartDate,scheduleVersion:1,...(planningProposal?{id:proposalProjectId(planningProposal),proposalId:planningProposal.id}:{})},termPlanning,customBlocked);
+      await onAddCourse(planned);
+    } catch { setCreationBusy(false); return; }
+    setCreationBusy(false);
     setShowAddModal(false);
     
     // Clear state
@@ -1124,6 +1118,7 @@ const visibleCourses = showArchived ? archivedCourses : activeCourses;
   const handleStartOfTermChange = async (newStartOfTerm: string) => {
     if (!activeCourse) return;
 
+    if(activeCourse.scheduleVersion===1){await onUpdateCourse({...activeCourse,termDeadline:newStartOfTerm});return;}
     const projectedCompletionDate = calculateProjectedCompletionDate(newStartOfTerm);
     const generatedTasks = buildCourseDevelopmentTimeline(projectedCompletionDate, activeCourse.onboarding, customBlocked, activeCourse.tasks);
     const recalculatedTasks = mergeRecalculatedTimeline(activeCourse.tasks, generatedTasks, customBlocked);
@@ -1140,20 +1135,16 @@ const visibleCourses = showArchived ? archivedCourses : activeCourses;
 
   const handleRecalculateCurrentTimeline = async () => {
     if (!activeCourse) return;
+    const chosenStart = window.prompt('Project start date (YYYY-MM-DD). Adopting forward scheduling preserves a snapshot and treats existing dates as manual overrides. Clear individual overrides to use the dependency defaults.', activeCourse.projectStartDate || activeCourse.tasks.find(t=>Number(t.id)===(activeCourse.onboarding?2:5))?.startDate || projectStartDate);
+    if(!chosenStart)return;
+    try { const legacy = activeCourse.scheduleVersion!==1; await onUpdateCourse(recalculateCourse({...activeCourse,projectStartDate:chosenStart,...(legacy?{legacyScheduleSnapshot:structuredClone(activeCourse.tasks),tasks:activeCourse.tasks.map(t=>({...t,manualStartDate:t.startDate||null,manualDueDate:t.dueDate||null,subtasks:t.subtasks?.map(s=>({...s,manualStartDate:s.startDate||null,manualDueDate:s.dueDate||null}))}))}:{})},termPlanning,customBlocked)); } catch(e) {alert(String(e));}
 
-    const projectedCompletionDate = getProjectedCompletionDate(activeCourse);
-    const generatedTasks = buildCourseDevelopmentTimeline(projectedCompletionDate, activeCourse.onboarding, customBlocked, activeCourse.tasks);
-    const recalculatedTasks = mergeRecalculatedTimeline(activeCourse.tasks, generatedTasks, customBlocked);
-
-    await onUpdateCourse({
-      ...activeCourse,
-      tasks: recalculatedTasks,
-    });
   };
 
   const handleToggleOnboarding = async () => {
     if (!activeCourse) return;
     const nextOnboarding = !activeCourse.onboarding;
+    if(activeCourse.scheduleVersion===1){await onUpdateCourse(recalculateCourse({...activeCourse,onboarding:nextOnboarding},termPlanning,customBlocked));return;}
     const generatedTasks = buildCourseDevelopmentTimeline(getProjectedCompletionDate(activeCourse), nextOnboarding, customBlocked, activeCourse.tasks);
     const recalculatedTasks = mergeRecalculatedTimeline(activeCourse.tasks, generatedTasks, customBlocked);
     const updatedCourse = {
@@ -1470,7 +1461,7 @@ Instructional Designer, FSCJ Online`;
 
   const findTimelineTaskByExactName = (course: CourseDevelopment, taskName: string) => {
     const targetName = taskName.trim().toLowerCase();
-    return (course.tasks || []).find((task) => (task.name || '').trim().toLowerCase() === targetName);
+    return (course.tasks || []).find((task) => (task.name || '').trim().toLowerCase() === targetName || (course.scheduleVersion===1 && targetName==='end compensation' && Number(task.id)===37));
   };
 
   const formatMilestoneLine = (label: string, task?: CourseDevelopmentTask) => {
@@ -3266,8 +3257,9 @@ NOTES
                   <button type="button" onClick={() => startEditingCourse(activeCourse)} className={COURSE_TOOL_BUTTON_CLASS}>
                     <Pencil className={COURSE_TOOL_ICON_CLASS} aria-hidden="true" /> Edit
                   </button>
+                  {activeCourse.scheduleVersion===1 && <div className="space-y-2 text-xs"><label>Project start <input type="date" value={activeCourse.projectStartDate||''} onChange={e=>{if(e.target.value)void onUpdateCourse(recalculateCourse({...activeCourse,projectStartDate:e.target.value},termPlanning,customBlocked));}} className="rounded border p-1"/></label><label>Multimedia estimate (workdays per module)<input type="number" min="1" max="260" value={activeCourse.multimediaWorkdays||''} placeholder="Confirm" onChange={e=>{const n=Number(e.target.value);if(Number.isInteger(n)&&n>0&&n<=260)void onUpdateCourse(recalculateCourse({...activeCourse,multimediaWorkdays:n},termPlanning,customBlocked));}} className="ml-2 w-20 rounded border p-1"/></label><details><summary>Schedule warnings ({activeCourse.schedulingWarnings?.length||0})</summary>{activeCourse.schedulingWarnings?.map((w,i)=><p key={i} className="text-amber-800">{w}</p>)}</details></div>}
                   <button type="button" onClick={handleRecalculateCurrentTimeline} className={COURSE_TOOL_BUTTON_CLASS}>
-                    <RefreshCw className={COURSE_TOOL_ICON_CLASS} aria-hidden="true" /> Recalculate Timeline
+                    <RefreshCw className={COURSE_TOOL_ICON_CLASS} aria-hidden="true" /> {activeCourse.scheduleVersion===1 ? 'Recalculate Forward Schedule' : 'Adopt Forward Schedule'}
                   </button>
                   <button type="button" onClick={() => { setShowArchived((current) => !current); setSelectedId(''); }} className={COURSE_TOOL_BUTTON_CLASS}>
                     <Eye className={COURSE_TOOL_ICON_CLASS} aria-hidden="true" /> {showArchived ? `Show Active (${activeCourses.length})` : `Show Archived (${archivedCourses.length})`}
@@ -3473,7 +3465,7 @@ NOTES
                       <span className="text-[10px] uppercase text-slate-500 font-semibold">Start of Term</span>
                       <input type="date" name="termDeadline" value={editingCourse.termDeadline} onChange={handleEditingChange} className="px-3 py-2 border border-slate-300 bg-white" />
                       <span className="text-[10px] text-slate-500">Start of Term: {formatDisplayDateShort(editingCourse.termDeadline)}</span>
-                      <span className="text-[10px] text-slate-500">Projected Course Completion: {formatDisplayDateShort(calculateProjectedCompletionDate(editingCourse.termDeadline))}</span>
+                      <span className="text-[10px] text-slate-500">Projected Course Completion: {formatDisplayDateShort(getProjectedCompletionDate(activeCourse))}</span>
                     </label>
 
                     <label className="flex flex-col gap-1">
@@ -3866,7 +3858,7 @@ NOTES
                                     <Clipboard className="h-3.5 w-3.5" /> Request QA Review
                                   </button>
                                 )}
-                                {task.name === 'End compensation' && (
+                                {(task.name === 'End compensation' || (activeCourse.scheduleVersion===1 && Number(task.id)===37)) && (
   <button
     type="button"
     onClick={() => handleRequestCodeCheckArchiveQuickbase(activeCourse)}
@@ -3875,7 +3867,7 @@ NOTES
     <Clipboard className="h-3.5 w-3.5" /> Request Code Check and Archive
   </button>
 )}
-                                {task.name === 'End compensation' && (
+                                {(task.name === 'End compensation' || (activeCourse.scheduleVersion===1 && Number(task.id)===37)) && (
                                   <button
                                     type="button"
                                     onClick={() => handleSendStipendNotification(activeCourse)}
@@ -4002,6 +3994,7 @@ NOTES
 
                             </div>
 
+                            {activeCourse.scheduleVersion===1 && (task.manualStartDate||task.manualDueDate) && <button type="button" className="mx-3 mt-2 text-xs text-[#006282] underline" onClick={()=>onUpdateCourse(recalculateCourse({...activeCourse,tasks:activeCourse.tasks.map(t=>t.id===task.id?{...t,manualStartDate:null,manualDueDate:null}:t)},termPlanning,customBlocked))}>Use calculated dates</button>}
                             {showMeetingTime && (
                               <div className="px-3 pt-3 text-xs">
                                 <label className="flex max-w-44 flex-col gap-0.5">
@@ -4040,8 +4033,9 @@ NOTES
                                         htmlFor={`task-${task.id}-${subtask.id}`}
                                         className={`min-w-48 flex-1 ${subtask.complete ? 'line-through text-slate-400' : ''}`}
                                       >
-                                        {(subtask.startDate !== undefined || /^Develop Module \d+ multimedia content$/i.test(subtask.title)) ? moduleSubtaskLabel(subtask) : subtask.title}
+                                        {subtask.templateDueDate ? `${subtask.title}: Template Due ${subtask.templateDueDate} — Scheduled Email ${subtask.scheduledEmailDate}` : (subtask.startDate !== undefined || /^Develop Module \d+ multimedia content$/i.test(subtask.title)) ? moduleSubtaskLabel(subtask) : subtask.title}
                                       </label>
+                                      {activeCourse.scheduleVersion===1 && (/^(develop|review|quickbase|multimedia)-module-/.test(subtask.id)||!!subtask.templateDueDate) && <span className="flex basis-full flex-wrap gap-2 pl-6"><label>Start override <input aria-label={`${subtask.title} start override`} type="date" value={subtask.manualStartDate||''} onChange={e=>onUpdateCourse({...activeCourse,tasks:activeCourse.tasks.map(t=>t.id===task.id?{...t,subtasks:t.subtasks?.map(s=>s.id===subtask.id?{...s,manualStartDate:e.target.value||null}:s)}:t)})} className="rounded border p-1"/></label><label>Due override <input aria-label={`${subtask.title} due override`} type="date" value={subtask.manualDueDate||''} onChange={e=>onUpdateCourse({...activeCourse,tasks:activeCourse.tasks.map(t=>t.id===task.id?{...t,subtasks:t.subtasks?.map(s=>s.id===subtask.id?{...s,manualDueDate:e.target.value||null}:s)}:t)})} className="rounded border p-1"/></label></span>}
                                       {subtask.title === 'Schedule final meeting' && (
                                         <span className="basis-full pl-6 text-[11px] text-slate-500">
                                           Schedule meeting the week of {formatDisplayDateShortSafe(
@@ -4076,7 +4070,7 @@ NOTES
                                       {subtask.title === 'Submit proofreading request' && (
                                         <div className="basis-full space-y-1 pl-6">
                                           <p className="text-[11px] text-slate-500">
-                                            {subtask.sourceTask?.assignedTo || 'Instructional Designer'} · Start {formatDisplayDateShortSafe(subtask.sourceTask?.startDate)} · Due {formatDisplayDateShortSafe(subtask.sourceTask?.dueDate)}
+                                            {subtask.sourceTask?.assignedTo || 'Instructional Designer'} · Start {formatDisplayDateShortSafe(subtask.startDate || subtask.sourceTask?.startDate)} · Due {formatDisplayDateShortSafe(subtask.dueDate || subtask.sourceTask?.dueDate)}
                                           </p>
                                           <textarea
                                             rows={2}
@@ -4342,10 +4336,11 @@ NOTES
               <h3 className="text-md font-semibold text-slate-900 uppercase tracking-widest flex items-center gap-1.5">
                 <Sparkles className="w-5 h-5 text-[#33B1C8]" /> Course Development Information
               </h3>
-              <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-slate-600 font-semibold cursor-pointer select-none">✕</button>
+              <button onClick={() => {setShowAddModal(false);onPlanningCancel?.();}} className="text-slate-400 hover:text-slate-600 font-semibold cursor-pointer select-none">✕</button>
             </div>
 
             <form onSubmit={handleFormSubmit} className="flex flex-col gap-3 font-semibold text-xs text-slate-800">
+              <label>Project start date<input type="date" required value={projectStartDate} onChange={e=>setProjectStartDate(e.target.value)} className="ml-2 rounded border p-2"/></label>
               <CourseMaterialsFields values={formData} namePrefix="new-course"
                 onChange={(values) => setFormData((previous) => ({ ...previous, ...values }))} />
               
@@ -4434,7 +4429,7 @@ NOTES
                     className="w-full px-3 py-1.5 border border-slate-350 bg-white text-xs font-mono animate-fade-in"
                   />
                   <p className="mt-1 text-[10px] font-semibold text-slate-500">
-                    Projected Course Completion: {formatDisplayDateShort(calculateProjectedCompletionDate(formData.termDeadline))}
+                    Projected Course Completion: {projectStartDate ? formatDisplayDateShort(forwardSchedule({start:projectStartDate,onboarding:formData.onboarding,settings:termPlanning,customBlocked}).completion) : 'Select a project start'}
                   </p>
                 </div>
               </div>
@@ -4600,7 +4595,7 @@ NOTES
               <div className="flex justify-end gap-2 mt-3">
                 <button
                   type="button"
-                  onClick={() => setShowAddModal(false)}
+                  onClick={() => {setShowAddModal(false);onPlanningCancel?.();}}
                   className="px-4 py-2 border border-slate-350 text-slate-700 bg-white text-2xs font-semibold uppercase hover:bg-slate-50 cursor-pointer"
                 >
                   Cancel

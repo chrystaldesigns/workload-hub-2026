@@ -248,6 +248,32 @@ async function startServer() {
       const termError = validateCourseTargetTerm(payload);
       if (termError) return res.status(400).json({ error: termError });
 
+      if (payload.proposalId) {
+        const id = `proposal-${payload.proposalId}`;
+        if (typeof payload.proposalId !== 'string' || !/^[a-zA-Z0-9-]{1,100}$/.test(payload.proposalId)) return res.status(400).json({error:'Invalid proposal identifier.'});
+        if (!firestoreReady || !db) {
+          if (!requireFirestoreInProduction(res)) return;
+          const existing = inMemoryCourseDevelopments.find(c=>c.id===id);
+          if(existing)return res.json(existing);
+          const proposal=inMemoryCalendarSettings.termPlanning?.proposals?.find((p:any)=>p.id===payload.proposalId);
+          if(!proposal)return res.status(409).json({error:'Proposal no longer exists. Refresh planning.'});
+          const record={...payload,id,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
+          inMemoryCourseDevelopments.push(record);proposal.convertedProjectId=id;return res.json(record);
+        }
+        const database=db;
+        const record=await database.runTransaction(async transaction=>{
+          const courseRef=database.collection('course-developments').doc(id),settingsRef=database.collection('calendar-settings').doc('settings');
+          const [courseDoc,settingsDoc]=await Promise.all([transaction.get(courseRef),transaction.get(settingsRef)]);
+          if(courseDoc.exists)return courseDoc.data();
+          const config=settingsDoc.data()?.termPlanning;
+          if(!config?.proposals?.some((p:any)=>p.id===payload.proposalId&&!p.convertedProjectId))throw new Error('Proposal no longer available. Refresh planning.');
+          const record={...payload,id,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
+          transaction.create(courseRef,record);
+          transaction.set(settingsRef,{termPlanning:{...config,proposals:config.proposals.map((p:any)=>p.id===payload.proposalId?{...p,convertedProjectId:id}:p)}},{merge:true});
+          return record;
+        });
+        return res.json(record);
+      }
       const record = await createRecord(
         "course-developments",
         {

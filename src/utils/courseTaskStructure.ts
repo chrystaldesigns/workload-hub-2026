@@ -7,9 +7,9 @@ export const COMPLETE_PROOFREADING = 'Complete proofreading';
 const taskName = (name: string) => name.replace(/\s*\[[^\]]*\]\s*$/, '').trim().replace(/, then Send recap$/i, '');
 
 export function getProofreadingRequest(tasks: CourseDevelopmentTask[]): CourseDevelopmentTask | undefined {
-  return tasks.find((task) => taskName(task.name) === PROOFREADING_REQUEST)
-    || tasks.find((task) => taskName(task.name) === COMPLETE_PROOFREADING)
-      ?.subtasks?.find((subtask) => subtask.title === PROOFREADING_REQUEST)?.sourceTask;
+  const standalone = tasks.find((task) => taskName(task.name) === PROOFREADING_REQUEST);
+  const child = tasks.find((task) => taskName(task.name) === COMPLETE_PROOFREADING)?.subtasks?.find((subtask) => subtask.title === PROOFREADING_REQUEST);
+  return standalone || (child?.sourceTask && child.autoStartDate ? {...child.sourceTask,startDate:child.startDate,dueDate:child.dueDate} : child?.sourceTask);
 }
 
 // IDs remain unchanged so saved edits, dependencies, and dashboard links retain

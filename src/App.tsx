@@ -1,3 +1,5 @@
+import { recalculateCourse } from './utils/forwardSchedule';
+import type { ProposedCourse } from './utils/termPlanning';
 import React, { useEffect, useRef, useState } from "react";
 import {
   CourseDevelopment,
@@ -17,10 +19,10 @@ import { AlertCircle, RefreshCw } from "lucide-react";
 import { FSCJ_HOLIDAYS } from "./utils/calendarEngine";
 import { apiFetch } from "./api";
 import { TermPlanningSettings } from "./utils/termPlanning";
-import { migrateCourseTaskStructure } from "./utils/courseTaskStructure";
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>("dashboard");
+  const [planningProposal, setPlanningProposal] = useState<ProposedCourse | null>(null);
   const [navigationTarget, setNavigationTarget] = useState<DashboardNavigationTarget | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [errorMsg, setErrorMsg] = useState<string>("");
@@ -216,7 +218,7 @@ export default function App() {
 
       const safeCourses = Array.isArray(cdData) ? cdData.map((course: CourseDevelopment) => ({
         ...course,
-        tasks: migrateCourseTaskStructure(Array.isArray(course.tasks) ? course.tasks : [], Array.isArray(calData?.customBlocked) ? calData.customBlocked : []),
+        tasks: Array.isArray(course.tasks) ? course.tasks : [],
       })) : [];
       const safeProjects = Array.isArray(lssData) ? lssData : [];
       const safeTasks = Array.isArray(taskData) ? taskData : [];
@@ -298,7 +300,7 @@ export default function App() {
       const payload: CourseDevelopment = {
         ...newCourse,
         itemType: "courseDevelopment" as any,
-        tasks: migrateCourseTaskStructure(Array.isArray(newCourse.tasks) ? newCourse.tasks : [], calendarSettings.customBlocked),
+        tasks: Array.isArray(newCourse.tasks) ? newCourse.tasks : [],
       };
 
       const res = await apiFetch("/api/course-developments", {
@@ -312,11 +314,13 @@ export default function App() {
         throw new Error(error.error || "Course Development could not be saved.");
       }
 
+      setPlanningProposal(null);
       await loadDashboardData();
       setActiveTab("category1");
     } catch (err) {
       console.error("Create Course Development failed:", err);
       alert("Course Development could not be saved.");
+      throw err;
     }
   };
 
@@ -328,9 +332,8 @@ export default function App() {
 
     try {
       const payload: CourseDevelopment = {
-        ...updatedCourse,
+        ...(updatedCourse.scheduleVersion===1 ? recalculateCourse(updatedCourse,calendarSettings.termPlanning,calendarSettings.customBlocked) : updatedCourse),
         itemType: "courseDevelopment" as any,
-        tasks: migrateCourseTaskStructure(Array.isArray(updatedCourse.tasks) ? updatedCourse.tasks : [], calendarSettings.customBlocked),
       };
 
       const res = await apiFetch(`/api/course-developments/${updatedCourse.id}`, {
@@ -348,6 +351,7 @@ export default function App() {
     } catch (err) {
       console.error("Update Course Development failed:", err);
       alert("Course Development could not be updated.");
+      throw err;
     }
   };
 
@@ -651,6 +655,9 @@ export default function App() {
       case "dashboard":
         return (
           <Dashboard
+            customBlocked={calendarSettings.customBlocked}
+            onCreateProject={(proposal) => { setPlanningProposal(proposal); setActiveTab("category1"); }}
+            onSelectStart={async (course,date) => { await handleUpdateCourse(recalculateCourse({...course,projectStartDate:date},calendarSettings.termPlanning,calendarSettings.customBlocked)); }}
             termPlanning={calendarSettings.termPlanning}
             onSaveTermPlanning={handleUpdateTermPlanning}
             courseDevelopments={courseDevelopments}
@@ -664,6 +671,8 @@ export default function App() {
       case "category1":
         return (
           <Category1CourseDev
+            planningProposal={planningProposal}
+            onPlanningCancel={() => setPlanningProposal(null)}
             termPlanning={calendarSettings.termPlanning}
             courseDevelopments={courseDevelopments}
             customBlocked={calendarSettings.customBlocked || []}
@@ -717,6 +726,9 @@ export default function App() {
       default:
         return (
           <Dashboard
+            customBlocked={calendarSettings.customBlocked}
+            onCreateProject={(proposal) => { setPlanningProposal(proposal); setActiveTab("category1"); }}
+            onSelectStart={async (course,date) => { await handleUpdateCourse(recalculateCourse({...course,projectStartDate:date},calendarSettings.termPlanning,calendarSettings.customBlocked)); }}
             termPlanning={calendarSettings.termPlanning}
             onSaveTermPlanning={handleUpdateTermPlanning}
             courseDevelopments={courseDevelopments}

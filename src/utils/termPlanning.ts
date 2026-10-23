@@ -1,5 +1,7 @@
 import type { CourseDevelopment, TermRelease } from '../types';
-import { parseDate, formatDate } from './calendarEngine';
+const parseDate = (date:string) => { const [y,m,d]=date.split('-').map(Number); return new Date(y,m-1,d,12); };
+const formatDate = (date:Date) => `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+import { offsetWorkdays, calendarCovered, type WorkCalendar } from './fscjCalendar';
 
 export const TARGET_TERMS = ['Spring Term', 'Summer Term', 'Fall Term'] as const;
 export type TargetTerm = typeof TARGET_TERMS[number];
@@ -27,8 +29,16 @@ export interface OperatingCalendarRecord {
   lastVerifiedDate?: string;
 }
 export interface TermPlanningSettings {
+  planningWindowWorkdays?: number;
+  multimediaWorkdays?: number;
+  proposals?: ProposedCourse[];
   terms: TermCalendarRecord[];
   operatingCalendars: OperatingCalendarRecord[];
+}
+export interface ProposedCourse { id: string; courseNumber: string; termRelease: TargetTerm; targetTermYear: number; onboarding: boolean; projectStartDate?: string; convertedProjectId?: string; }
+export function fscjCalendar(settings?: TermPlanningSettings, customBlocked: string[] = []): WorkCalendar {
+ const calendars = getTermPlanningSettings(settings).operatingCalendars;
+ return { closedDates: [...new Set([...calendars.flatMap(c=>c.closedDates), ...customBlocked])], coverage: calendars.map(c=>({start:c.coverageStart,end:c.coverageEnd,verified:c.verificationStatus==='verified'})) };
 }
 export const TERM_SOURCE = 'https://catalog.fscj.edu/academics/academic-calendar';
 export const OPERATING_SOURCE = 'https://www.fscj.edu/docs/default-source/hr/2026-2027-operating-calendar.pdf?sfvrsn=51df2221_3';
@@ -74,7 +84,7 @@ export function getTermPlanningSettings(saved?: TermPlanningSettings): TermPlann
     if (confirmed?.verificationStatus === 'verified' && confirmed.sessionAStartDate && !validISODate(term.sessionAStartDate)) continue;
     terms.set(term.id, term);
   }
-  return { terms: [...terms.values()], operatingCalendars: merge(OFFICIAL_TERM_PLANNING.operatingCalendars, saved?.operatingCalendars) };
+  return { ...saved, terms: [...terms.values()], operatingCalendars: merge(OFFICIAL_TERM_PLANNING.operatingCalendars, saved?.operatingCalendars) };
 }
 export function normalizeTermRelease(value?: string): TargetTerm | undefined {
   const match = /^(Spring|Summer|Fall)(?:\s+(?:Term|[ABC]))?(?:\s+\d{4})?$/i.exec((value || '').trim());
@@ -110,20 +120,12 @@ export function getCourseTerm(course: Partial<CourseDevelopment>, settings?: Ter
   const term = normalizeTermRelease(course.termRelease), year = courseTargetYear(course);
   return term && year ? getTermPlanningSettings(settings).terms.find((record) => record.term === term && record.year === year) : undefined;
 }
-export function planningDeadline(term: TermCalendarRecord | undefined, settings?: TermPlanningSettings) {
+export function planningDeadline(term: TermCalendarRecord | undefined, settings?: TermPlanningSettings, customBlocked: string[] = []) {
   if (!term || !validISODate(term.sessionAStartDate)) return { date: '', confirmed: false, message: 'Session A start date requires confirmation.' };
-  const calendar = getTermPlanningSettings(settings).operatingCalendars.find((item) => item.id === term.operatingCalendarId);
-  const closed = new Set(calendar?.closedDates || []);
-  const date = parseDate(term.sessionAStartDate);
-  let remaining = 30, covered = !!calendar;
-  while (remaining) {
-    date.setDate(date.getDate() - 1);
-    const iso = formatDate(date);
-    if (!calendar || iso < calendar.coverageStart || iso > calendar.coverageEnd) covered = false;
-    if (date.getDay() !== 0 && date.getDay() !== 6 && !closed.has(iso)) remaining--;
-  }
-  const confirmed = covered && calendar?.verificationStatus === 'verified' && term.verificationStatus === 'verified';
-  return { date: formatDate(date), confirmed, message: confirmed ? 'Confirmed' : 'Provisional — term date or operating calendar requires verification.' };
+  const calendar = fscjCalendar(settings,customBlocked);
+  const date = offsetWorkdays(term.sessionAStartDate, -30, calendar);
+  const confirmed = calendarCovered(date, term.sessionAStartDate, calendar) && term.verificationStatus === 'verified';
+  return { date, confirmed, message: confirmed ? 'Confirmed' : 'Provisional — term date or operating calendar requires verification.' };
 }
 export function upcomingTerms(today: string, settings?: TermPlanningSettings): TermCalendarRecord[] {
   const config = getTermPlanningSettings(settings), year = Number(today.slice(0, 4)), month = Number(today.slice(5, 7));
@@ -143,6 +145,9 @@ const officialUrl = (value: unknown) => { try { const url = new URL(String(value
 export function validateTermPlanningSettings(value: unknown): string {
   const config = value as TermPlanningSettings;
   if (!config || !Array.isArray(config.terms) || !Array.isArray(config.operatingCalendars)) return 'Term dates and operating calendars are required.';
+  if (config.planningWindowWorkdays !== undefined && (!Number.isInteger(config.planningWindowWorkdays) || config.planningWindowWorkdays < 1 || config.planningWindowWorkdays > 260)) return 'Planning window must be 1–260 workdays.';
+  if (config.multimediaWorkdays !== undefined && (!Number.isInteger(config.multimediaWorkdays) || config.multimediaWorkdays < 1 || config.multimediaWorkdays > 260)) return 'Multimedia estimate must be 1–260 workdays.';
+  if (config.proposals !== undefined && (!Array.isArray(config.proposals) || config.proposals.some(p => !p.id || !/^[A-Z]{3}\d{4}$/.test(p.courseNumber) || !TARGET_TERMS.includes(p.termRelease) || !Number.isInteger(p.targetTermYear) || p.targetTermYear < 1900 || p.targetTermYear > 9999 || typeof p.onboarding !== 'boolean' || (p.projectStartDate && !validISODate(p.projectStartDate))) || new Set(config.proposals.map(p=>p.id)).size !== config.proposals.length)) return 'Invalid or duplicate proposed course.';
   for (const term of config.terms) {
     if (!term || typeof term !== 'object') return 'Invalid term record.';
     if (!TARGET_TERMS.includes(term.term) || !Number.isInteger(term.year) || term.year < 1900 || term.year > 9999 || term.id !== termId(term.term, term.year)
