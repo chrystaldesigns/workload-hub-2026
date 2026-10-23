@@ -242,6 +242,10 @@ export interface InitialMeetingFormData {
 }
 
 export interface CourseDevelopment {
+  // Unanswered legacy records must remain unknown rather than defaulting to No.
+  usesThirdPartyPlatform?: boolean;
+  thirdPartyPlatformNames?: string;
+  instructionalMaterials?: "ZTC" | "Textbook" | "OER";
   id?: string;
   itemType?: "courseDevelopment";
   archived?: boolean;

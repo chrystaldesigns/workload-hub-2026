@@ -1,4 +1,5 @@
 import express from "express";
+import { validateSavedCourseMaterials } from "./src/utils/courseMaterials";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import dotenv from "dotenv";
@@ -241,6 +242,9 @@ async function startServer() {
         });
       }
 
+      const materialsError = validateSavedCourseMaterials(payload, true);
+      if (materialsError) return res.status(400).json({ error: materialsError });
+
       const record = await createRecord(
         "course-developments",
         {
@@ -263,6 +267,9 @@ async function startServer() {
 
   app.put("/api/course-developments/:id", async (req, res) => {
     try {
+      const materialsError = validateSavedCourseMaterials(req.body);
+      if (materialsError) return res.status(400).json({ error: materialsError });
+
       const record = await updateRecord(
         "course-developments",
         req.params.id,

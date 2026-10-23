@@ -1,6 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { CourseDevelopment, CourseDevelopmentTask, InitialMeetingFormData, WorkStatus } from '../types';
 import { DashboardNavigationTarget } from './Dashboard';
+import { CourseMaterialsFields } from './CourseMaterialsFields';
+import { courseMaterialsFormValues, courseMaterialsValidation, courseMaterialsFields } from '../utils/courseMaterials';
+import { buildProjectCompletionNotification, buildVersionInformation } from '../utils/projectNotifications';
+import { openCommunicationToolWindow } from '../utils/communicationToolWindow';
 import { InitialMeetingFormModal } from './InitialMeetingFormModal';
 import { SmeReviewEmailDialog } from './SmeReviewEmailDialog';
 import { generateInitialMeetingReport } from '../utils/initialMeetingReport';
@@ -533,6 +537,7 @@ export function Category1CourseDev({
 
   // Form states for new Course
   const [formData, setFormData] = useState({
+    ...courseMaterialsFormValues(),
     program: '',
     courseNumber: '',
     courseTitle: '',
@@ -716,6 +721,7 @@ const visibleCourses = showArchived ? archivedCourses : activeCourses;
 
   const startEditingCourse = (course: CourseDevelopment) => {
     setEditingCourse({
+      ...courseMaterialsFormValues(course),
       program: course.program || '',
       courseNumber: course.courseNumber || '',
       courseTitle: course.courseTitle || '',
@@ -762,8 +768,12 @@ const visibleCourses = showArchived ? archivedCourses : activeCourses;
       return;
     }
 
+    const materialsError = courseMaterialsValidation(editingCourse, false);
+    if (materialsError) { alert(materialsError); return; }
+
     await onUpdateCourse({
       ...activeCourse,
+      ...courseMaterialsFields(editingCourse),
       program: editingCourse.program.trim(),
       courseNumber: editingCourse.courseNumber.trim().toUpperCase(),
       courseTitle: editingCourse.courseTitle.trim(),
@@ -959,12 +969,15 @@ const visibleCourses = showArchived ? archivedCourses : activeCourses;
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const materialsError = courseMaterialsValidation(formData);
+    if (materialsError) { alert(materialsError); return; }
     // Start of Term is the static anchor. Projected Course Completion is 30 working days before it.
     const startOfTerm = formData.termDeadline;
     const projectedCompletionDate = calculateProjectedCompletionDate(startOfTerm);
     const generatedTasks = buildCourseDevelopmentTimeline(projectedCompletionDate, formData.onboarding, customBlocked);
     
     const newCourse: CourseDevelopment = {
+      ...courseMaterialsFields(formData),
       program: formData.program,
       courseNumber: formData.courseNumber.toUpperCase(),
       courseTitle: formData.courseTitle,
@@ -1003,6 +1016,7 @@ const visibleCourses = showArchived ? archivedCourses : activeCourses;
     
     // Clear state
     setFormData({
+      ...courseMaterialsFormValues(),
       program: '',
       courseNumber: '',
       courseTitle: '',
@@ -1612,13 +1626,6 @@ ${body}`;
     }
   };
 
-  const escapeHtml = (value: string) => {
-    return value
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;");
-  };
-
   const formatMeetingTime = (timeStr?: string) => {
     if (!timeStr) return "TBD";
     const parsed = new Date(`2000-01-01T${timeStr}`);
@@ -1629,39 +1636,6 @@ ${body}`;
     });
   };
 
-  const openCommunicationToolWindow = (
-    popupTitle: string,
-    clipboardMessage: string,
-    content: string
-  ) => {
-    navigator.clipboard?.writeText(content).catch(() => undefined);
-
-    const popupWindow = window.open("", "_blank", "width=800,height=700,scrollbars=yes,resizable=yes");
-
-    if (popupWindow) {
-      popupWindow.document.write(`
-        <html>
-          <head>
-            <title>${escapeHtml(popupTitle)}</title>
-            <style>
-              body { font-family: Open Sans, Source Sans Pro, sans-serif; padding: 24px; background: #f8fafc; color: #0f172a; }
-              textarea { width: 100%; height: 560px; padding: 16px; font-family: Open Sans, Source Sans Pro, sans-serif; font-size: 14px; line-height: 1.5; border: 1px solid #cbd5e1; border-radius: 8px; }
-              h1 { font-size: 20px; margin-bottom: 8px; }
-              p { color: #475569; }
-            </style>
-          </head>
-          <body>
-            <h1>${escapeHtml(popupTitle)}</h1>
-            <p>${escapeHtml(clipboardMessage)}</p>
-            <textarea>${escapeHtml(content)}</textarea>
-          </body>
-        </html>
-      `);
-      popupWindow.document.close();
-    } else {
-      alert(clipboardMessage.replace("You may also copy/edit from the text box below.", "Pop-up was blocked by the browser."));
-    }
-  };
 
   const handleOnboardingIntroduction = (course: CourseDevelopment) => {
     const hour = new Date().getHours();
@@ -2867,93 +2841,22 @@ The next email will provide details on course completion, including finalized mo
     openCommunicationToolWindow(popupTitle, clipboardMessage, content);
   };
 
+  const handleVersionInformation = (course: CourseDevelopment) => {
+    openCommunicationToolWindow('Version Information',
+      'Version information copied to clipboard. You may also copy/edit from the text box below.',
+      buildVersionInformation(course), true);
+  };
+
   const handleSendProjectCompletionNotification = (course: CourseDevelopment) => {
-    const now = new Date();
-    const hour = now.getHours();
-    const greetingTime = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
-    const currentMonthYear = now.toLocaleDateString("en-US", {
-      month: "long",
-      year: "numeric",
-    });
-    const smeName = (course.deptTeam.smeName || "").trim() || "SME";
-    const smeNameParts = smeName.split(/\s+/).filter(Boolean);
-    const smeLastName = smeNameParts[smeNameParts.length - 1] || "SME";
-    const canvasVersion = course.canvasVersion || "[canvas version]";
-    const developmentType = course.devType || "[development type]";
-
-    const to = [
-      course.deptTeam.smeEmail,
-      course.deptTeam.deanEmail,
-      course.deptTeam.associateDeanEmail,
-      "Ansa.Reams.Johnson@fscj.edu",
-      "martha.mcnulty@fscj.edu",
-    ].filter(Boolean).join("; ");
-
-    const cc = [
-      "kris.kristen@fscj.edu",
-      "bob.dee@fscj.edu",
-      "Golf.K@fscj.edu",
-      "christina.perrin@fscj.edu",
-    ].join("; ");
-
-    const popupTitle = `${course.courseNumber} Course Completion & Next Steps`;
-    const clipboardMessage =
-      "Project completion notification copied to clipboard. You may also copy/edit from the text box below.";
-
-    const content = `TO: ${to}
-Cc: ${cc}
-SUBJECT: ${course.courseNumber} Course Completion & Next Steps
-
-LINK TO: Learning Plan (https://cel.quickbase.com/nav/app/bs3dcdkm5/table/bs3dcdktv/action/q?qid=155&NavFrom=Recents&navfrom=Recents&skip=230)
-ATTACHMENT: Outcomes Map
-
-Good ${greetingTime},
-
-FSCJ ONLINE
-
-- The course [development is / modifications re] complete.
-- The code check and archiving processes are complete.
-- The course is the ‘Staging’ account and is ready for Anšá to move to ‘Production.’
-
-SUBJECT MATTER EXPERT
-
-Professor ${smeLastName},
-
-Class Number
-
-Please contact our Director of E-Admin & Support Services, Dr. Anšá Reams-Johnson, and provide your class number so we can load the course content. FSCJ Online Support Services will load the course content into your class so you can begin personalizing your course.
-
-Errors and Modifications
-
-If you see any errors that need immediate attention, please contact us via CeL@fscj.edu. You can start a note for any course modifications you make and share it with us at the end of the term. That process will allow us to update our course before loading the content for your next class. Please send any requests you have to CeL@fscj.edu.
-
-Future Classes Beyond This Term
-
-Important Note: For each new term, it is highly recommended that you contact our Director of E-Admin & Support Services, Dr. Anšá Reams-Johnson, to load your classes. This ensures that any changes to Canvas or the CeL-developed course are incorporated. From there, you should be able to transfer your course customization from a previous class, such as adding readings or the like.
-
-Stipend Inquiries
-
-If you have any questions regarding your stipend, please don’t hesitate to contact Kris Kristen directly.
-
-DIRECTOR, E-ADMIN & SUPPORT SERVICES
-
-Anšá,
-
-Please load the content for Professor ${smeLastName}’s class when you have a moment.
-
-- This course [does/does not] use a 3rd-party platform.
-- This course [is ZTC / uses a textbook].
-- The Learning Grading Plan is linked
-- The Outcomes Map is attached for your convenience.
-
-VERSION INFORMATION
-
-Date: ${currentMonthYear}
-Version Number: ${canvasVersion}
-Action: ${developmentType}
-Details: This course was designed and developed by the Subject Matter Expert, ${smeName}, and Instructional Designer, Chrystal Wickline`;
-
-    openCommunicationToolWindow(popupTitle, clipboardMessage, content);
+    const materialsError = courseMaterialsValidation(courseMaterialsFormValues(course));
+    if (materialsError) {
+      alert(`${materialsError} Complete these fields in Edit Course Development before generating the notification.`);
+      startEditingCourse(course);
+      return;
+    }
+    openCommunicationToolWindow(`${course.courseNumber} Course Completion & Next Steps`,
+      'Project completion notification copied to clipboard. You may also copy/edit from the text box below.',
+      buildProjectCompletionNotification(course));
   };
 
   const handleCourseCompletionRequest = (course: CourseDevelopment) => {
@@ -3636,6 +3539,8 @@ NOTES
                       <input type="email" name="associateDeanEmail" value={editingCourse.associateDeanEmail} onChange={handleEditingChange} className="px-3 py-2 border border-slate-300 bg-white" />
                     </label>
 
+                    <CourseMaterialsFields values={editingCourse} namePrefix="edit-course" required={false}
+                      onChange={(values) => setEditingCourse((previous) => previous ? { ...previous, ...values } : previous)} />
                     <label className="md:col-span-2 flex flex-col gap-1">
                       <span className="text-[10px] uppercase text-slate-500 font-semibold">Course Notes</span>
                       <textarea name="courseNotes" value={editingCourse.courseNotes} onChange={handleEditingChange} rows={3} className="px-3 py-2 border border-slate-300 bg-white" />
@@ -3944,6 +3849,13 @@ NOTES
                                     className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors"
                                   >
                                     <Clipboard className="h-3.5 w-3.5" /> Submit Proofreading Request
+                                  </button>
+                                )}
+                                {task.name === 'Complete QA review' && (
+                                  <button type="button" onClick={() => handleVersionInformation(activeCourse)}
+                                    aria-label="Version Information" title="Version Information"
+                                    className="inline-flex items-center gap-1 rounded-md border border-[#006282]/30 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#006282] hover:bg-[#006282] hover:text-white transition-colors">
+                                    <Clipboard className="h-3.5 w-3.5" /> Version Information
                                   </button>
                                 )}
                                 {task.name === 'Complete pre-QA checklist' && (
@@ -4435,6 +4347,8 @@ NOTES
             </div>
 
             <form onSubmit={handleFormSubmit} className="flex flex-col gap-3 font-semibold text-xs text-slate-800">
+              <CourseMaterialsFields values={formData} namePrefix="new-course"
+                onChange={(values) => setFormData((previous) => ({ ...previous, ...values }))} />
               
               <div className="grid grid-cols-2 gap-3">
                 <div>
