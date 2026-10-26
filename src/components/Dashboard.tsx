@@ -21,7 +21,7 @@ type WeeklyTask = DashboardNavigationTarget & {
   sourceLabel?: string;
 };
 
-interface DashboardProps extends Pick<CoursePlanningProps, 'onCreateProject'|'onSelectStart'|'customBlocked'> {
+interface DashboardProps extends Pick<CoursePlanningProps, 'onCreateProject'|'customBlocked'> {
   termPlanning?: TermPlanningSettings;
   onSaveTermPlanning?: (settings: TermPlanningSettings) => Promise<void>;
   courseDevelopments: CourseDevelopment[];
@@ -67,7 +67,7 @@ const overlapsWeek = (task: WeeklyTask, weekStart: string, weekEnd: string) => {
   return Boolean(existingDate && existingDate >= weekStart && existingDate <= weekEnd);
 };
 
-export function Dashboard({ courseDevelopments, lssProjects, standaloneTasks, onNavigate, termPlanning, onSaveTermPlanning, onCreateProject, onSelectStart, customBlocked }: DashboardProps) {
+export function Dashboard({ courseDevelopments, lssProjects, standaloneTasks, onNavigate, termPlanning, onSaveTermPlanning, onCreateProject, customBlocked }: DashboardProps) {
   const today = dateFromLocal(new Date());
   const [weekStart, setWeekStart] = useState(startOfWeek(today));
   const weekEnd = addDays(weekStart, 6);
@@ -158,7 +158,7 @@ export function Dashboard({ courseDevelopments, lssProjects, standaloneTasks, on
           </div>
         )}
       </div>
-      <TermPlanningSection settings={termPlanning} onSave={onSaveTermPlanning} courses={courseDevelopments} customBlocked={customBlocked} onCreateProject={onCreateProject} onSelectStart={onSelectStart} />
+      <TermPlanningSection settings={termPlanning} onSave={onSaveTermPlanning} courses={courseDevelopments} customBlocked={customBlocked} onCreateProject={onCreateProject} />
     </section>
   );
 }

@@ -568,6 +568,8 @@ export default function App() {
       const error = await res.json().catch(() => ({}));
       throw new Error(error.error || 'Term calendar could not be saved.');
     }
+    const saved = await res.json();
+    setCalendarSettings(previous => ({ ...previous, termPlanning: saved.termPlanning || termPlanning }));
     await loadDashboardData();
   };
 
@@ -657,7 +659,6 @@ export default function App() {
           <Dashboard
             customBlocked={calendarSettings.customBlocked}
             onCreateProject={(proposal) => { setPlanningProposal(proposal); setActiveTab("category1"); }}
-            onSelectStart={async (course,date) => { await handleUpdateCourse(recalculateCourse({...course,projectStartDate:date},calendarSettings.termPlanning,calendarSettings.customBlocked)); }}
             termPlanning={calendarSettings.termPlanning}
             onSaveTermPlanning={handleUpdateTermPlanning}
             courseDevelopments={courseDevelopments}
@@ -728,7 +729,6 @@ export default function App() {
           <Dashboard
             customBlocked={calendarSettings.customBlocked}
             onCreateProject={(proposal) => { setPlanningProposal(proposal); setActiveTab("category1"); }}
-            onSelectStart={async (course,date) => { await handleUpdateCourse(recalculateCourse({...course,projectStartDate:date},calendarSettings.termPlanning,calendarSettings.customBlocked)); }}
             termPlanning={calendarSettings.termPlanning}
             onSaveTermPlanning={handleUpdateTermPlanning}
             courseDevelopments={courseDevelopments}

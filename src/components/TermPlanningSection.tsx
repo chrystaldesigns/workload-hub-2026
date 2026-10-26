@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { TermPlanningSettings, TermCalendarRecord, TARGET_TERMS, TargetTerm, TERM_SOURCE, OPERATING_SOURCE, FLEX_SCHEDULE_SOURCE,
   getTermPlanningSettings, upcomingTerms, planningDeadline, planningDateLabel, termId, termAcademicYear, validateTermPlanningSettings } from '../utils/termPlanning';
 
-export function TermPlanningSection({ settings, onSave, courses, customBlocked, onCreateProject, onSelectStart, today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' }) }: {
+export function TermPlanningSection({ settings, onSave, courses, customBlocked, onCreateProject, today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' }) }: {
   settings?: TermPlanningSettings; onSave?: (settings: TermPlanningSettings) => Promise<void>; today?: string;
 } & CoursePlanningProps & {
 }) {
@@ -70,7 +70,7 @@ export function TermPlanningSection({ settings, onSave, courses, customBlocked, 
       })}
     </div>
     <p className="mt-3 text-xs text-slate-500">The completion deadline covers all course development work. The following 30 workdays are reserved for administrative copying. <a href={FLEX_SCHEDULE_SOURCE} target="_blank" rel="noreferrer" className="underline">FSCJ flexible workweek policy</a>.</p>
-    <CoursePlanningViews courses={courses} settings={config} customBlocked={customBlocked} onSave={onSave} onCreateProject={onCreateProject} onSelectStart={onSelectStart}/>
+    <CoursePlanningViews courses={courses} settings={config} customBlocked={customBlocked} onSave={onSave} onCreateProject={onCreateProject}/>
     {onSave && <div className="mt-4 flex flex-wrap gap-3 text-sm"><label>Recommended window (workdays)<input type="number" min="1" max="260" defaultValue={config.planningWindowWorkdays||15} onBlur={e=>{const value=Number(e.target.value);if(Number.isInteger(value)&&value>0&&value<=260)void onSave({...config,planningWindowWorkdays:value}).catch(e=>setError(String(e)));}} className="ml-2 w-20 rounded border p-1"/></label><label>Multimedia estimate per module (workdays; requires confirmation)<input type="number" min="1" max="260" defaultValue={config.multimediaWorkdays||''} placeholder="Confirm" onBlur={e=>{const value=Number(e.target.value);if(Number.isInteger(value)&&value>0&&value<=260)void onSave({...config,multimediaWorkdays:value}).catch(e=>setError(String(e)));}} className="ml-2 w-20 rounded border p-1"/></label></div>}
     {editing && <form onSubmit={save} className="mt-5 space-y-3 border-t border-slate-200 pt-4">
       <h3 className="font-semibold text-[#003E52]">Maintain official term dates and closures</h3>

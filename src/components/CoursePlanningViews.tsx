@@ -1,45 +1,106 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import type { CourseDevelopment } from '../types';
-import { TARGET_TERMS, type TermPlanningSettings, type ProposedCourse, type TargetTerm } from '../utils/termPlanning';
-import { planningRows } from '../utils/planningRows';
-import { dayNumber } from '../utils/fscjCalendar';
+import { TARGET_TERMS, validISODate, type TermPlanningSettings, type ProposedCourse, type TargetTerm } from '../utils/termPlanning';
+import { proposedPlanningRows, selectProposalStart } from '../utils/proposedPlanning';
+
 export interface CoursePlanningProps {
-    courses?: CourseDevelopment[];
-    settings?: TermPlanningSettings;
-    customBlocked?: string[];
-    onSave?: (settings: TermPlanningSettings) => Promise<void>;
-    onCreateProject?: (proposal: ProposedCourse) => void;
-    onSelectStart?: (course: CourseDevelopment, date: string) => Promise<void>;
-    initialView?: 'Table' | 'Timeline';
+  courses?: CourseDevelopment[];
+  settings?: TermPlanningSettings;
+  customBlocked?: string[];
+  onSave?: (settings: TermPlanningSettings) => Promise<void>;
+  onCreateProject?: (proposal: ProposedCourse) => void;
 }
-export function CoursePlanningViews({ courses = [], settings, customBlocked = [], onSave, onCreateProject, onSelectStart, initialView = 'Table' }: CoursePlanningProps) {
-    const rows = useMemo(() => planningRows(courses, settings, customBlocked), [courses, settings, customBlocked]);
-    const [view, setView] = useState<'Table' | 'Timeline'>(initialView), [term, setTerm] = useState(''), [error, setError] = useState(''), [busy, setBusy] = useState(false);
-    const [draft, setDraft] = useState({ courseNumber: '', termRelease: 'Spring Term' as TargetTerm, targetTermYear: 2027, onboarding: true });
-    const filtered = rows.filter(r => !term || r.term === term);
-    const dates = filtered.flatMap(r => [r.selected || r.suggested, r.completion, r.deadline, r.session, r.period.start, r.period.end, ...r.meetings.map(m => m.date)]).filter(Boolean).sort();
-    const first = dates[0], last = dates.at(-1);
-    const span = first && last ? Math.max(1, dayNumber(last) - dayNumber(first)) : 1;
-    const position = (date: string) => 100 * (dayNumber(date) - dayNumber(first)) / span;
-    const save = async (action: () => Promise<void>) => { setBusy(true); setError(''); try {
-        await action();
+
+export function CoursePlanningViews({ courses = [], settings, customBlocked = [], onSave, onCreateProject }: CoursePlanningProps) {
+  // Keep accepted dates visible while persistence and the parent data reload finish.
+  const [selection, setSelection] = useState<{ id: string; date: string } | null>(null);
+  const [term, setTerm] = useState('');
+  const [error, setError] = useState('');
+  const [feedback, setFeedback] = useState('');
+  const [busy, setBusy] = useState(false);
+  const savingRef = useRef(false);
+  const [draft, setDraft] = useState({ courseNumber: '', termRelease: 'Spring Term' as TargetTerm, targetTermYear: 2027, onboarding: true });
+  const effectiveSettings = useMemo(() => {
+    if (!settings || !selection) return settings;
+    return { ...settings, proposals: settings.proposals?.map(p => p.id === selection.id ? { ...p, projectStartDate: selection.date } : p) };
+  }, [settings, selection]);
+  const rows = useMemo(() => proposedPlanningRows(courses, effectiveSettings, customBlocked), [courses, effectiveSettings, customBlocked]);
+  const filtered = rows.filter(row => !term || row.term === term);
+
+  const save = async (action: () => Promise<void>) => {
+    if (savingRef.current) return;
+    savingRef.current = true;
+    setBusy(true);
+    setError('');
+    setFeedback('');
+    try { await action(); }
+    catch (failure) { setError(failure instanceof Error ? failure.message : 'Could not save planning changes. Please try again.'); }
+    finally { savingRef.current = false; setBusy(false); }
+  };
+
+  const choose = (id: string, date: string) => save(async () => {
+    if (!onSave || !settings) throw new Error('Planning changes cannot be saved right now. Please reload and try again.');
+    const next = selectProposalStart(settings, id, date);
+    const courseNumber = next.proposals!.find(p => p.id === id)!.courseNumber;
+    setSelection({ id, date });
+    try {
+      await onSave(next);
+      setFeedback(`${courseNumber}: selected start saved as ${date}.`);
+    } finally {
+      // Success now comes from persisted parent settings; failure restores saved dates.
+      setSelection(null);
     }
-    catch (e) {
-        setError(e instanceof Error ? e.message : 'Could not save planning changes.');
-    }
-    finally {
-        setBusy(false);
-    } };
-    const choose = (id: string, date: string) => save(async () => { const row = rows.find(r => r.id === id)!; if (row.status === 'Proposed' && onSave && settings)
-        await onSave({ ...settings, proposals: (settings.proposals || []).map(p => p.id === id ? { ...p, projectStartDate: date } : p) });
-    else if (onSelectStart)
-        await onSelectStart(row.course as CourseDevelopment, date); });
-    return <div className="mt-5 space-y-4 border-t border-slate-200 pt-4">
- <div className="flex flex-wrap items-center gap-3"><div role="group" aria-label="Planning view" className="flex rounded border border-[#006282]">{(['Table', 'Timeline'] as const).map(v => <button type="button" key={v} onClick={() => setView(v)} aria-pressed={view === v} className={`px-3 py-2 text-sm ${view === v ? 'bg-[#006282] text-white' : ''}`}>{v}</button>)}</div><label className="text-sm">Compare term <select value={term} onChange={e => setTerm(e.target.value)} className="rounded border p-2"><option value="">All terms</option>{[...new Set(rows.map(r => r.term))].map(t => <option key={t}>{t}</option>)}</select></label></div>
- {onSave && settings && <form className="flex flex-wrap items-end gap-3 rounded-lg bg-slate-50 p-3 text-sm" onSubmit={e => { e.preventDefault(); void save(async () => { await onSave({ ...settings, proposals: [...(settings.proposals || []), { ...draft, id: crypto.randomUUID(), courseNumber: draft.courseNumber.toUpperCase() }] }); setDraft({ ...draft, courseNumber: '' }); }); }}><label>Proposed course<input aria-label="Proposed course number" required pattern="[A-Za-z]{3}[0-9]{4}" placeholder="ABC1234" value={draft.courseNumber} onChange={e => setDraft({ ...draft, courseNumber: e.target.value })} className="block rounded border p-2"/></label><label>Target term<select value={draft.termRelease} onChange={e => setDraft({ ...draft, termRelease: e.target.value as TargetTerm })} className="block rounded border p-2">{TARGET_TERMS.map(t => <option key={t}>{t}</option>)}</select></label><label>Year<input required type="number" min="1900" max="9999" value={draft.targetTermYear} onChange={e => setDraft({ ...draft, targetTermYear: Number(e.target.value) })} className="block w-24 rounded border p-2"/></label><label>Onboarding<select value={String(draft.onboarding)} onChange={e => setDraft({ ...draft, onboarding: e.target.value === 'true' })} className="block rounded border p-2"><option value="true">Yes</option><option value="false">No</option></select></label><button disabled={busy} className="rounded bg-[#006282] px-3 py-2 text-white">Add proposed course</button></form>}
- {error && <p role="alert" className="text-red-700">{error}</p>}
- {!rows.length && <p className="text-sm text-slate-500">Add proposed courses to compare schedules and template workload.</p>}
- {view === 'Table' ? <div className="overflow-x-auto"><table className="w-full text-left text-xs"><thead><tr>{['Course / status', 'Target term', 'Onboarding', 'Recommended start window', 'Suggested staggered start', 'Selected start', 'Template preparation', 'Projected completion', 'Administrative deadline', 'Schedule status / warnings', 'Actions'].map(h => <th key={h} className="border-b p-2">{h}</th>)}</tr></thead><tbody>{filtered.map(r => <tr key={r.id} className="align-top"><td className="border-b p-2 font-semibold">{r.name}<br />{r.status}</td><td className="border-b p-2">{r.term}</td><td className="border-b p-2">{r.course.onboarding ? 'Yes' : 'No'}</td><td className="border-b p-2">{r.window ? `${r.window.earliest} – ${r.window.latest}` : 'Requires term date'}</td><td className="border-b p-2">{r.suggested || 'No feasible suggestion'}{r.suggested && <button disabled={busy || r.legacy} onClick={() => choose(r.id, r.suggested)} className="mt-1 block text-[#006282] underline">Accept suggestion</button>}</td><td className="border-b p-2"><input aria-label={`${r.name} selected start`} type="date" value={r.selected} disabled={busy || r.legacy} onChange={e => e.target.value && choose(r.id, e.target.value)} className="w-32 rounded border p-1"/>{r.legacy && <span>Adopt forward scheduling in project first.</span>}</td><td className="border-b p-2">{r.period.start} – {r.period.end}</td><td className="border-b p-2">{r.completion || 'Select a start'}</td><td className="border-b p-2">{r.deadline || 'Requires confirmation'}</td><td className="max-w-xs border-b p-2">{r.warnings.length ? <details><summary className="cursor-pointer text-amber-800">Review {r.warnings.length} warning(s)</summary>{r.warnings.map((w, i) => <p key={i} className="mt-1">{w}</p>)}</details> : 'On schedule'}</td><td className="border-b p-2">{r.status === 'Proposed' && <><button disabled={busy || !r.selected} title="Select or accept a start date first" onClick={() => onCreateProject?.(r.course as ProposedCourse)} className="whitespace-nowrap text-[#006282] underline">Create Project</button><button disabled={busy} onClick={() => save(async () => { if (onSave && settings)
-        await onSave({ ...settings, proposals: settings.proposals?.filter(p => p.id !== r.id) }); })} className="mt-2 block text-red-700">Remove proposal</button></>}</td></tr>)}</tbody></table></div> : <div className="overflow-x-auto"><div className="min-w-[850px] space-y-5 p-3"><p className="text-xs">{first} — {last} · <span className="text-[#006282]">Development</span> · <span className="text-amber-800">Template preparation</span> · ● Meetings · ◆ Completion · │ Deadline · ║ Session A</p>{filtered.map(r => <article key={r.id} className="rounded border p-3"><p className="mb-2 text-sm font-semibold">{r.name} · {r.status} · {r.term} {r.warnings.length ? '⚠ Review warnings' : ''}</p><div className="relative h-24 bg-slate-50">{(r.selected || r.suggested) && r.completion && <div title={`Project ${r.selected || r.suggested} – ${r.completion}`} className="absolute top-4 h-5 rounded bg-cyan-200" style={{ left: `${position(r.selected || r.suggested)}%`, width: `${Math.max(.5, position(r.completion) - position(r.selected || r.suggested))}%` }}/>}{r.period.start && r.period.end && <div title={`Templates ${r.period.start} – ${r.period.end}`} className="absolute top-4 h-5 rounded bg-amber-400" style={{ left: `${position(r.period.start)}%`, width: `${Math.max(.5, position(r.period.end) - position(r.period.start))}%` }}/>}{r.meetings.filter(m => m.date).map((m, i) => <span key={i} title={`${m.name}: ${m.date}`} style={{ left: `${position(m.date)}%`, top: i % 2 ? 45 : 25 }} className="absolute text-xs">●<span className="sr-only">{m.name} {m.date}</span></span>)}{[[r.completion, '◆', 'Completion'], [r.deadline, '│', 'Administrative deadline'], [r.session, '║', 'Session A']].filter(([date]) => date).map(([date, symbol, label]) => <span key={label} title={`${label}: ${date}`} className="absolute top-0 text-xs" style={{ left: `${position(date)}%` }}>{symbol}<span className="sr-only">{label} {date}</span></span>)}</div><p className="text-xs">Start {r.selected || r.suggested || 'unselected'} · Templates {r.period.start}–{r.period.end} · Completion {r.completion} · Deadline {r.deadline} · Session A {r.session}</p>{r.warnings.length > 0 && <details className="mt-2 text-xs text-amber-800"><summary>Scheduling warnings</summary>{r.warnings.map((w, i) => <p key={i}>{w}</p>)}</details>}</article>)}</div></div>}
- </div>;
+  });
+
+  return <div className="mt-5 space-y-4 border-t border-slate-200 pt-4" aria-busy={busy}>
+    <label className="block text-sm">Compare term <select value={term} onChange={event => setTerm(event.target.value)} className="rounded border p-2">
+      <option value="">All terms</option>
+      {[...new Set(rows.map(row => row.term))].map(value => <option key={value}>{value}</option>)}
+    </select></label>
+
+    {onSave && settings && <form className="flex flex-wrap items-end gap-3 rounded-lg bg-slate-50 p-3 text-sm" onSubmit={event => {
+      event.preventDefault();
+      void save(async () => {
+        await onSave({ ...settings, proposals: [...(settings.proposals || []), { ...draft, id: crypto.randomUUID(), courseNumber: draft.courseNumber.toUpperCase() }] });
+        setDraft({ ...draft, courseNumber: '' });
+        setFeedback('Proposed course added.');
+      });
+    }}>
+      <label>Proposed course<input aria-label="Proposed course number" required pattern="[A-Za-z]{3}[0-9]{4}" placeholder="ABC1234" value={draft.courseNumber} onChange={event => setDraft({ ...draft, courseNumber: event.target.value })} className="block rounded border p-2" /></label>
+      <label>Target term<select value={draft.termRelease} onChange={event => setDraft({ ...draft, termRelease: event.target.value as TargetTerm })} className="block rounded border p-2">{TARGET_TERMS.map(value => <option key={value}>{value}</option>)}</select></label>
+      <label>Year<input required type="number" min="1900" max="9999" value={draft.targetTermYear} onChange={event => setDraft({ ...draft, targetTermYear: Number(event.target.value) })} className="block w-24 rounded border p-2" /></label>
+      <label>Onboarding<select value={String(draft.onboarding)} onChange={event => setDraft({ ...draft, onboarding: event.target.value === 'true' })} className="block rounded border p-2"><option value="true">Yes</option><option value="false">No</option></select></label>
+      <button type="submit" disabled={busy} className="rounded bg-[#006282] px-3 py-2 text-white disabled:opacity-50">Add proposed course</button>
+    </form>}
+
+    {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+    <p role="status" aria-live="polite" className="text-sm text-[#006282]">{busy ? 'Saving planning changes…' : feedback}</p>
+    {!rows.length && <p className="text-sm text-slate-500">No proposed courses yet. Add a proposed course above to calculate its recommended development start window.</p>}
+    {!!rows.length && !filtered.length && <p className="text-sm text-slate-500">No proposed courses for the selected term. Choose another term or All terms.</p>}
+
+    <div className="overflow-x-auto"><table className="w-full text-left text-xs">
+      <caption className="sr-only">Proposed course development planning</caption>
+      <thead><tr>{['Course / status', 'Target term', 'Onboarding', 'Recommended start window', 'Suggested staggered start', 'Selected start', 'Template preparation', 'Projected completion', 'Administrative deadline', 'Schedule status / warnings', 'Actions'].map(heading => <th key={heading} scope="col" className="border-b p-2">{heading}</th>)}</tr></thead>
+      <tbody>{filtered.map(row => {
+        const applied = !!row.suggested && row.selected === row.suggested;
+        return <tr key={row.id} className="align-top">
+          <td className="border-b p-2 font-semibold">{row.name}<br />Proposed</td>
+          <td className="border-b p-2">{row.term}</td>
+          <td className="border-b p-2">{row.course.onboarding ? 'Yes' : 'No'}</td>
+          <td className="border-b p-2">{row.window ? `${row.window.earliest} – ${row.window.latest}` : 'Requires term date'}</td>
+          <td className="border-b p-2">{row.suggested || 'No feasible suggestion'}<button type="button" disabled={busy || !onSave || !validISODate(row.suggested) || applied} onClick={() => void choose(row.id, row.suggested)} aria-label={`${applied ? 'Suggestion Applied' : 'Accept Suggestion'} for ${row.name}`} className="mt-2 block min-h-9 rounded-md border border-[#006282] bg-sky-50 px-3 py-2 font-semibold text-[#006282] hover:bg-sky-100 disabled:cursor-default disabled:border-slate-300 disabled:bg-slate-100 disabled:text-slate-500">{applied ? 'Suggestion Applied' : 'Accept Suggestion'}</button></td>
+          <td className="border-b p-2"><input aria-label={`${row.name} selected start`} type="date" value={row.selected} disabled={busy || !onSave} onChange={event => { if (event.target.value) void choose(row.id, event.target.value); }} className="w-32 rounded border p-1" /></td>
+          <td className="border-b p-2">{row.period.start} – {row.period.end}</td>
+          <td className="border-b p-2">{row.completion || 'Select a start'}</td>
+          <td className="border-b p-2">{row.deadline || 'Requires confirmation'}</td>
+          <td className="max-w-xs border-b p-2">{row.warnings.length ? <details><summary className="cursor-pointer text-amber-800">Review {row.warnings.length} warning(s)</summary>{row.warnings.map((warning, index) => <p key={index} className="mt-1">{warning}</p>)}</details> : 'On schedule'}</td>
+          <td className="border-b p-2"><button type="button" disabled={busy || !row.selected || !onCreateProject} title="Select or accept a start date first" onClick={() => onCreateProject?.(row.course as ProposedCourse)} className="whitespace-nowrap text-[#006282] underline disabled:text-slate-500">Create Project</button><button type="button" disabled={busy || !onSave} onClick={() => void save(async () => {
+            if (!onSave || !settings) throw new Error('Planning changes cannot be saved right now.');
+            await onSave({ ...settings, proposals: settings.proposals?.filter(proposal => proposal.id !== row.id) });
+            setFeedback(`${row.name}: proposal removed.`);
+          })} className="mt-2 block text-red-700 disabled:text-slate-500">Remove proposal</button></td>
+        </tr>;
+      })}</tbody>
+    </table></div>
+  </div>;
 }
