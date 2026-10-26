@@ -109,7 +109,7 @@ export function forwardSchedule(input: {
         if (!confirmed)
             nodes.at(-1)!.duration = 1;
         if (!confirmed)
-            warnings.push({ kind: 'estimate', task: `${mm}/multimedia-module-${m}`, message: `Module ${m} multimedia uses a provisional one-workday placeholder. Confirm the multimedia estimate before relying on completion dates.` });
+            warnings.push({ kind: 'estimate', task: `${mm}/multimedia-module-${m}`, message: `Module ${m} multimedia uses a provisional one-workday placeholder. Review the shared planning configuration or actual multimedia completion dates before relying on completion dates.` });
         prior = development;
     }
     main(21, Array.from({length:4},(_,i)=>dep(`14/review-module-${i+1}`,5)), 1, true);
@@ -227,8 +227,11 @@ export function forwardSchedule(input: {
 export function recalculateCourse(course: CourseDevelopment, settings?: TermPlanningSettings, customBlocked: string[] = []) {
     if (!course.projectStartDate)
         throw new Error('Select a project start date before recalculating.');
-    const result = forwardSchedule({ start: course.projectStartDate, onboarding: course.onboarding, tasks: course.tasks, settings, customBlocked, multimediaWorkdays: course.multimediaWorkdays, courseNumber: course.courseNumber, deadline: planningDeadline(getCourseTerm(course, settings), settings, customBlocked).date });
-    return { ...course, scheduleVersion: 1 as const, tasks: result.tasks, calculatedDeadline: result.completion, schedulingWarnings: result.warnings.map(w => `[${w.kind}] ${w.message}`) };
+    const deadline = planningDeadline(getCourseTerm(course,settings),settings,customBlocked);
+    const result = forwardSchedule({ start: course.projectStartDate, onboarding: course.onboarding, tasks: course.tasks, settings, customBlocked, multimediaWorkdays: course.multimediaWorkdays, courseNumber: course.courseNumber, deadline: deadline.date });
+    const warnings = result.warnings.map(w => `[${w.kind}] ${w.message}`);
+    if (!deadline.confirmed) warnings.push(`[deadline] ${course.courseNumber}: ${deadline.message}`);
+    return { ...course, scheduleVersion: 1 as const, tasks: result.tasks, calculatedDeadline: result.completion, schedulingWarnings: warnings };
 }
 export function recommendedWindow(onboarding: boolean, deadline: string, settings?: TermPlanningSettings, customBlocked: string[] = [], multimediaWorkdays?: number, tasks?: CourseDevelopmentTask[]) {
     if (!deadline)

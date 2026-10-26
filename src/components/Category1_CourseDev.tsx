@@ -1,3 +1,4 @@
+import { CourseManagementControls } from './CourseManagementControls';
 import { forwardSchedule, recalculateCourse } from '../utils/forwardSchedule';
 import { proposalProjectId } from '../utils/planningRows';
 import { getCourseTerm, planningDeadline, type ProposedCourse } from '../utils/termPlanning';
@@ -24,7 +25,7 @@ import {
   FileText, Calendar, Plus, Mail, CheckCircle2, AlertTriangle, 
   Trash2, Sliders, ChevronRight, Share2, Clipboard, ShieldAlert,
   SlidersHorizontal, Sparkles, Pencil, Save, X, Archive, ListTree,
-  Users, ClipboardList, CalendarRange, CircleDollarSign, RefreshCw, Eye
+  Users, ClipboardList, CalendarRange, CircleDollarSign
 } from 'lucide-react';
 import { 
   countWorkingDaysBetween, 
@@ -841,8 +842,8 @@ const visibleCourses = showArchived ? archivedCourses : activeCourses;
         return {
           ...item,
           [field]: value,
-          ...(activeCourse.scheduleVersion===1 && field==='startDate' ? {manualStartDate:value||null, ...([4,6,11,21,37].includes(Number(item.id))?{manualDueDate:value||null}:{})}:{}),
-          ...(activeCourse.scheduleVersion===1 && field==='dueDate' ? {manualDueDate:value||null, ...([4,6,11,21,37].includes(Number(item.id))?{manualStartDate:value||null}:{})}:{}),
+          ...(activeCourse.scheduleVersion===1 && field==='startDate' ? {isManualOverride:true, manualStartDate:value||null, ...([4,6,11,21,37].includes(Number(item.id))?{manualDueDate:value||null}:{})}:{}),
+          ...(activeCourse.scheduleVersion===1 && field==='dueDate' ? {isManualOverride:true, manualDueDate:value||null, ...([4,6,11,21,37].includes(Number(item.id))?{manualStartDate:value||null}:{})}:{}),
         };
       }
 
@@ -1131,14 +1132,6 @@ const visibleCourses = showArchived ? archivedCourses : activeCourses;
     };
 
     await onUpdateCourse(updatedCourse);
-  };
-
-  const handleRecalculateCurrentTimeline = async () => {
-    if (!activeCourse) return;
-    const chosenStart = window.prompt('Project start date (YYYY-MM-DD). Adopting forward scheduling preserves a snapshot and treats existing dates as manual overrides. Clear individual overrides to use the dependency defaults.', activeCourse.projectStartDate || activeCourse.tasks.find(t=>Number(t.id)===(activeCourse.onboarding?2:5))?.startDate || projectStartDate);
-    if(!chosenStart)return;
-    try { const legacy = activeCourse.scheduleVersion!==1; await onUpdateCourse(recalculateCourse({...activeCourse,projectStartDate:chosenStart,...(legacy?{legacyScheduleSnapshot:structuredClone(activeCourse.tasks),tasks:activeCourse.tasks.map(t=>({...t,manualStartDate:t.startDate||null,manualDueDate:t.dueDate||null,subtasks:t.subtasks?.map(s=>({...s,manualStartDate:s.startDate||null,manualDueDate:s.dueDate||null}))}))}:{})},termPlanning,customBlocked)); } catch(e) {alert(String(e));}
-
   };
 
   const handleToggleOnboarding = async () => {
@@ -3253,21 +3246,12 @@ NOTES
                   <button type="button" onClick={() => triggerCompensationDraft(activeCourse)} className={COURSE_TOOL_BUTTON_CLASS}>
                     <CircleDollarSign className={COURSE_TOOL_ICON_CLASS} aria-hidden="true" /> SME Compensation
                   </button></div></div>
-                  <div><div className="mb-2 text-[9px] font-bold uppercase tracking-widest text-slate-500">Course Management</div><div className="flex flex-wrap gap-2">
-                  <button type="button" onClick={() => startEditingCourse(activeCourse)} className={COURSE_TOOL_BUTTON_CLASS}>
-                    <Pencil className={COURSE_TOOL_ICON_CLASS} aria-hidden="true" /> Edit
-                  </button>
-                  {activeCourse.scheduleVersion===1 && <div className="space-y-2 text-xs"><label>Project start <input type="date" value={activeCourse.projectStartDate||''} onChange={e=>{if(e.target.value)void onUpdateCourse(recalculateCourse({...activeCourse,projectStartDate:e.target.value},termPlanning,customBlocked));}} className="rounded border p-1"/></label><label>Multimedia estimate (workdays per module)<input type="number" min="1" max="260" value={activeCourse.multimediaWorkdays||''} placeholder="Confirm" onChange={e=>{const n=Number(e.target.value);if(Number.isInteger(n)&&n>0&&n<=260)void onUpdateCourse(recalculateCourse({...activeCourse,multimediaWorkdays:n},termPlanning,customBlocked));}} className="ml-2 w-20 rounded border p-1"/></label><details><summary>Schedule warnings ({activeCourse.schedulingWarnings?.length||0})</summary>{activeCourse.schedulingWarnings?.map((w,i)=><p key={i} className="text-amber-800">{w}</p>)}</details></div>}
-                  <button type="button" onClick={handleRecalculateCurrentTimeline} className={COURSE_TOOL_BUTTON_CLASS}>
-                    <RefreshCw className={COURSE_TOOL_ICON_CLASS} aria-hidden="true" /> {activeCourse.scheduleVersion===1 ? 'Recalculate Forward Schedule' : 'Adopt Forward Schedule'}
-                  </button>
-                  <button type="button" onClick={() => { setShowArchived((current) => !current); setSelectedId(''); }} className={COURSE_TOOL_BUTTON_CLASS}>
-                    <Eye className={COURSE_TOOL_ICON_CLASS} aria-hidden="true" /> {showArchived ? `Show Active (${activeCourses.length})` : `Show Archived (${archivedCourses.length})`}
-                  </button>
-                  <button type="button" onClick={() => (activeCourse as any).archived ? handleRestoreCourse(activeCourse) : handleArchiveCourse(activeCourse)} className={COURSE_TOOL_BUTTON_CLASS}>
-                    <Archive className={COURSE_TOOL_ICON_CLASS} aria-hidden="true" /> {(activeCourse as any).archived ? 'Restore' : 'Archive'}
-                  </button>
-                  </div></div>
+                  <div key={activeCourse.id}><CourseManagementControls course={activeCourse} settings={termPlanning} customBlocked={customBlocked}
+                    onSave={onUpdateCourse} onEdit={() => startEditingCourse(activeCourse)}
+                    onToggleArchived={() => {setShowArchived(current=>!current);setSelectedId('');}}
+                    onArchive={() => {if(activeCourse.archived)void handleRestoreCourse(activeCourse);else void handleArchiveCourse(activeCourse);}}
+                    showArchived={showArchived} activeCount={activeCourses.length} archivedCount={archivedCourses.length}/></div>
+
                 </div>
               </section>
 
@@ -3994,7 +3978,7 @@ NOTES
 
                             </div>
 
-                            {activeCourse.scheduleVersion===1 && (task.manualStartDate||task.manualDueDate) && <button type="button" className="mx-3 mt-2 text-xs text-[#006282] underline" onClick={()=>onUpdateCourse(recalculateCourse({...activeCourse,tasks:activeCourse.tasks.map(t=>t.id===task.id?{...t,manualStartDate:null,manualDueDate:null}:t)},termPlanning,customBlocked))}>Use calculated dates</button>}
+                            {activeCourse.scheduleVersion===1 && (task.manualStartDate||task.manualDueDate) && <button type="button" className="mx-3 mt-2 text-xs text-[#006282] underline" onClick={()=>onUpdateCourse(recalculateCourse({...activeCourse,tasks:activeCourse.tasks.map(t=>t.id===task.id?{...t,manualStartDate:null,manualDueDate:null,isManualOverride:false}:t)},termPlanning,customBlocked))}>Use calculated dates</button>}
                             {showMeetingTime && (
                               <div className="px-3 pt-3 text-xs">
                                 <label className="flex max-w-44 flex-col gap-0.5">
@@ -4035,7 +4019,7 @@ NOTES
                                       >
                                         {subtask.templateDueDate ? `${subtask.title}: Template Due ${subtask.templateDueDate} — Scheduled Email ${subtask.scheduledEmailDate}` : (subtask.startDate !== undefined || /^Develop Module \d+ multimedia content$/i.test(subtask.title)) ? moduleSubtaskLabel(subtask) : subtask.title}
                                       </label>
-                                      {activeCourse.scheduleVersion===1 && (/^(develop|review|quickbase|multimedia)-module-/.test(subtask.id)||!!subtask.templateDueDate) && <span className="flex basis-full flex-wrap gap-2 pl-6"><label>Start override <input aria-label={`${subtask.title} start override`} type="date" value={subtask.manualStartDate||''} onChange={e=>onUpdateCourse({...activeCourse,tasks:activeCourse.tasks.map(t=>t.id===task.id?{...t,subtasks:t.subtasks?.map(s=>s.id===subtask.id?{...s,manualStartDate:e.target.value||null}:s)}:t)})} className="rounded border p-1"/></label><label>Due override <input aria-label={`${subtask.title} due override`} type="date" value={subtask.manualDueDate||''} onChange={e=>onUpdateCourse({...activeCourse,tasks:activeCourse.tasks.map(t=>t.id===task.id?{...t,subtasks:t.subtasks?.map(s=>s.id===subtask.id?{...s,manualDueDate:e.target.value||null}:s)}:t)})} className="rounded border p-1"/></label></span>}
+                                      {activeCourse.scheduleVersion===1 && (/^(develop|review|quickbase|multimedia)-module-/.test(subtask.id)||!!subtask.templateDueDate) && <span className="flex basis-full flex-wrap gap-2 pl-6"><label>Start override <input aria-label={`${subtask.title} start override`} type="date" value={subtask.manualStartDate||''} onChange={e=>onUpdateCourse({...activeCourse,tasks:activeCourse.tasks.map(t=>t.id===task.id?{...t,subtasks:t.subtasks?.map(s=>s.id===subtask.id?{...s,manualStartDate:e.target.value||null,isManualOverride:!!(e.target.value||s.manualDueDate)}:s)}:t)})} className="rounded border p-1"/></label><label>Due override <input aria-label={`${subtask.title} due override`} type="date" value={subtask.manualDueDate||''} onChange={e=>onUpdateCourse({...activeCourse,tasks:activeCourse.tasks.map(t=>t.id===task.id?{...t,subtasks:t.subtasks?.map(s=>s.id===subtask.id?{...s,manualDueDate:e.target.value||null,isManualOverride:!!(e.target.value||s.manualStartDate)}:s)}:t)})} className="rounded border p-1"/></label></span>}
                                       {subtask.title === 'Schedule final meeting' && (
                                         <span className="basis-full pl-6 text-[11px] text-slate-500">
                                           Schedule meeting the week of {formatDisplayDateShortSafe(

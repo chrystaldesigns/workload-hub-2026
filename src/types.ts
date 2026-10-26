@@ -161,6 +161,7 @@ export interface CourseDevelopmentTask {
 }
 
 export interface CourseDevelopmentSubtask {
+  isManualOverride?: boolean;
   autoStartDate?: string; autoDueDate?: string; manualStartDate?: string | null; manualDueDate?: string | null;
   templateDueDate?: string; scheduledEmailDate?: string; dependencyType?: string; schedulingWarnings?: string[];
   predecessorIds?: Array<number | string>;
@@ -250,6 +251,7 @@ export interface InitialMeetingFormData {
 }
 
 export interface CourseDevelopment {
+  scheduleOverrideVersion?: 1;
   scheduleVersion?: 1; projectStartDate?: string; multimediaWorkdays?: number; proposalId?: string;
   schedulingWarnings?: string[]; legacyScheduleSnapshot?: CourseDevelopmentTask[];
   // Unanswered legacy records must remain unknown rather than defaulting to No.

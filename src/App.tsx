@@ -326,8 +326,7 @@ export default function App() {
 
   const handleUpdateCourse = async (updatedCourse: CourseDevelopment) => {
     if (!updatedCourse.id) {
-      alert("Course Development is missing an ID and cannot be updated.");
-      return;
+      throw new Error("Course Development is missing an ID and cannot be updated.");
     }
 
     try {
@@ -347,6 +346,9 @@ export default function App() {
         throw new Error(error.error || "Course Development could not be updated.");
       }
 
+      const saved = await res.json();
+      if(saved.id !== updatedCourse.id) throw new Error('The server returned a different course. Reload and try again.');
+      setCourseDevelopments(previous => previous.map(course => course.id === saved.id ? {...payload,...saved} : course));
       await loadDashboardData();
     } catch (err) {
       console.error("Update Course Development failed:", err);
