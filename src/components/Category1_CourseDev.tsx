@@ -1,3 +1,4 @@
+import { generateWeeklyStatusReport, reportToday } from '../utils/weeklyStatusReport';
 import { CourseManagementControls } from './CourseManagementControls';
 import { forwardSchedule, recalculateCourse } from '../utils/forwardSchedule';
 import { proposalProjectId } from '../utils/planningRows';
@@ -18,7 +19,7 @@ import {
   DEVELOPMENT_LATE, MULTIMEDIA_EARLY, MULTIMEDIA_LATE,
   isDevelopmentGroup, isReviewGroup, isModuleGroup,
   MIDPOINT_SCHEDULING_ID, expandModuleReportTasks, moduleSubtaskLabel,
-  shortModuleDate, courseTaskNavigationId, formatModuleStatusEntry,
+  shortModuleDate, courseTaskNavigationId,
 } from '../utils/moduleTaskStructure';
 import { getKickoffSchedulingWeek, KICKOFF_SCHEDULING_ID, getProofreadingRequest, migrateCourseTaskStructure } from '../utils/courseTaskStructure';
 import { 
@@ -50,6 +51,7 @@ interface Category1Props {
 
 
 type TimelineSubtask = {
+  completionDate?: string;
   templateDueDate?: string; scheduledEmailDate?: string; manualStartDate?: string|null; manualDueDate?: string|null;
   id: string;
   title: string;
@@ -842,6 +844,7 @@ const visibleCourses = showArchived ? archivedCourses : activeCourses;
         return {
           ...item,
           [field]: value,
+          ...(field === 'status' ? { completionDate: value === 'Complete' ? (item.status === 'Complete' ? item.completionDate || '' : reportToday()) : '' } : {}),
           ...(activeCourse.scheduleVersion===1 && field==='startDate' ? {isManualOverride:true, manualStartDate:value||null, ...([4,6,11,21,37].includes(Number(item.id))?{manualDueDate:value||null}:{})}:{}),
           ...(activeCourse.scheduleVersion===1 && field==='dueDate' ? {isManualOverride:true, manualDueDate:value||null, ...([4,6,11,21,37].includes(Number(item.id))?{manualStartDate:value||null}:{})}:{}),
         };
@@ -1053,6 +1056,7 @@ const visibleCourses = showArchived ? archivedCourses : activeCourses;
     const task = updatedTasks[taskIdx];
     
     task.status = task.status === 'Complete' ? 'Not Started' : 'Complete';
+    task.completionDate = task.status === 'Complete' ? reportToday() : '';
     
     const updatedCourse = {
       ...activeCourse,
@@ -1074,6 +1078,7 @@ const visibleCourses = showArchived ? archivedCourses : activeCourses;
         return {
           ...subtask,
           complete: !subtask.complete,
+          completionDate: !subtask.complete ? reportToday() : '',
         };
       });
 
@@ -1379,28 +1384,6 @@ Instructional Designer, FSCJ Online`;
     return owner.includes("qa") || owner.includes("quality") || owner.includes("assurance");
   };
 
-  const getRoleActiveTasks = (
-    course: CourseDevelopment,
-    role: "SME" | "ID" | "MULTIMEDIA" | "QA"
-  ) => {
-    return expandModuleReportTasks(course.tasks || [])
-      .filter((task) => {
-        const status = task.status || "Not Started";
-
-        return (
-          roleMatches(task.assignedTo, role) &&
-          status !== "Complete" &&
-          status !== "Not Applicable"
-        );
-      })
-      .sort((a, b) => {
-        const firstDate = a.dueDate || a.startDate || "9999-12-31";
-        const secondDate = b.dueDate || b.startDate || "9999-12-31";
-
-        return firstDate.localeCompare(secondDate);
-      });
-  };
-
   const getRoleOpenTasks = (course: CourseDevelopment, role: "SME" | "ID" | "MULTIMEDIA" | "QA") => {
     return expandModuleReportTasks(course.tasks || []).filter((task) => {
       const status = task.status || "Not Started";
@@ -1410,23 +1393,6 @@ Instructional Designer, FSCJ Online`;
         status !== "Not Applicable"
       );
     });
-  };
-
-    const formatStatusTaskList = (tasks: CourseDevelopmentTask[]) => {
-    if (!tasks.length) return "";
-
-    return tasks
-      .map((task) => {
-        const dueDate = task.dueDate || task.startDate;
-        const dueDateLabel = dueDate
-          ? ` (due ${formatShortDate(dueDate)})`
-          : "";
-
-        return (task as any).reportParentName
-          ? formatModuleStatusEntry(task)
-          : `- ${task.name} — ${task.status || "Not Started"}${dueDateLabel}`;
-      })
-      .join("\n");
   };
 
   const formatBulletedTaskList = (tasks: CourseDevelopmentTask[]) => {
@@ -1486,87 +1452,6 @@ Instructional Designer, FSCJ Online`;
     )}${formattedTime}, ${task.status || "Not Started"}`;
   };
 
-    const generateWeeklyStatusReport = (course: CourseDevelopment) => {
-    const progress = calculateProgress(course);
-
-    const smeTasks = getRoleActiveTasks(course, "SME");
-    const idTasks = getRoleActiveTasks(course, "ID");
-    const multimediaTasks = getRoleActiveTasks(course, "MULTIMEDIA");
-    const qaTasks = getRoleActiveTasks(course, "QA");
-
-    const milestones = [
-      formatMilestoneLine(
-        "ONBOARDING",
-        findTimelineTaskByExactName(course, "Conduct onboarding meeting")
-      ),
-      formatMilestoneLine(
-        "INITIAL MEETING",
-        findTimelineTaskByExactName(course, "Conduct initial meeting")
-      ),
-      formatMilestoneLine(
-        "COURSE DESIGN PLAN DUE",
-        findTimelineTaskByExactName(course, "Complete Course Design Plan")
-      ),
-      formatMilestoneLine(
-        "KICKOFF",
-        findTimelineTaskByExactName(course, "Conduct kickoff meeting")
-      ),
-      formatMilestoneLine(
-        "MIDPOINT REVIEW",
-        findTimelineTaskByExactName(course, "Conduct midpoint review")
-      ),
-      formatMilestoneLine(
-        "FINAL REVIEW",
-        findTimelineTaskByExactName(course, "Conduct final review")
-      ),
-      formatMilestoneLine(
-        "SME DELIVERABLES COMPLETE",
-        findTimelineTaskByExactName(course, "End compensation")
-      ),
-      formatMilestoneLine(
-        "DEVELOPMENT COMPLETION",
-        findTimelineTaskByExactName(course, "Course completion")
-      ),
-    ];
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const futureOffTime = customBlocked
-      .filter((dateStr) => {
-        const date = new Date(`${dateStr.slice(0, 10)}T12:00:00`);
-
-        return !Number.isNaN(date.getTime()) && date > today;
-      })
-      .sort()
-      .map((date) => `- ${formatShortDate(date)}`)
-      .join("\n");
-
-    const offTimeSection = futureOffTime
-      ? `\n\nCollege Closed / Vacation / Out-of-Office Dates:\n${futureOffTime}`
-      : "";
-
-    return `Overall Progress: Course design and development is ${progress}% complete.
-
-SUBJECT MATTER EXPERT:
-${formatStatusTaskList(smeTasks)}
-
-INSTRUCTIONAL DESIGNER:
-${formatStatusTaskList(idTasks)}
-
-MULTIMEDIA:
-${formatStatusTaskList(multimediaTasks)}
-
-CEL QUALITY ASSURANCE:
-${formatStatusTaskList(qaTasks)}
-
-NOTES: ${course.courseNotes || "None at this time."}
-ALERTS: ${course.alertStatus || "No Concerns"}
-
-MILESTONES & OFF-TIME
-${milestones.join("\n")}${offTimeSection}`;
-  };
-
   const handleCopyStatusReport = (course: CourseDevelopment) => {
     const today = new Date().toLocaleDateString("en-US", {
       month: "2-digit",
@@ -1579,7 +1464,7 @@ ${milestones.join("\n")}${offTimeSection}`;
     ].filter(Boolean).join("; ");
     const cc = [course.deptTeam.deanEmail, course.deptTeam.managerEmail, course.deptTeam.associateDeanEmail,].filter(Boolean).join(",");
     const subject = `${course.courseNumber} Course Development Status ${today}`;
-    const statusReport = generateWeeklyStatusReport(course);
+    const statusReport = generateWeeklyStatusReport(course, calculateProgress(course), customBlocked, termPlanning);
 
     const body = `This is a friendly update on the status of the course development. You do not need to take any action or respond to this email. It is for your information only.\n\n${statusReport}`;
 
@@ -3962,6 +3847,16 @@ NOTES
                                 name="startDate"
                                 value={draft.startDate || ''}
                                 onCommit={(value) => autoSaveTaskField(task, 'startDate', value)}
+                                readOnly={hasLinkedMultimediaDates || isReviewGroup(task.name)}
+                                title={hasLinkedMultimediaDates || isReviewGroup(task.name) ? 'Linked to the corresponding module milestone' : undefined}
+                              />
+
+                              <TaskDateField
+                                label="Due"
+                                fieldId={`task-${task.id}-due-date`}
+                                name="dueDate"
+                                value={draft.dueDate || ''}
+                                onCommit={(value) => autoSaveTaskField(task, 'dueDate', value)}
                                 readOnly={hasLinkedMultimediaDates || isReviewGroup(task.name)}
                                 title={hasLinkedMultimediaDates || isReviewGroup(task.name) ? 'Linked to the corresponding module milestone' : undefined}
                               />

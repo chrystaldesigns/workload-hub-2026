@@ -161,6 +161,8 @@ export interface CourseDevelopmentTask {
 }
 
 export interface CourseDevelopmentSubtask {
+  completionDate?: string;
+  status?: WorkStatus;
   isManualOverride?: boolean;
   autoStartDate?: string; autoDueDate?: string; manualStartDate?: string | null; manualDueDate?: string | null;
   templateDueDate?: string; scheduledEmailDate?: string; dependencyType?: string; schedulingWarnings?: string[];
