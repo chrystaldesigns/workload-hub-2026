@@ -1464,7 +1464,7 @@ Instructional Designer, FSCJ Online`;
     ].filter(Boolean).join("; ");
     const cc = [course.deptTeam.deanEmail, course.deptTeam.managerEmail, course.deptTeam.associateDeanEmail,].filter(Boolean).join(",");
     const subject = `${course.courseNumber} Course Development Status ${today}`;
-    const statusReport = generateWeeklyStatusReport(course, calculateProgress(course), customBlocked, termPlanning);
+    const statusReport = generateWeeklyStatusReport(course, calculateProgress(course), customBlocked);
 
     const body = `This is a friendly update on the status of the course development. You do not need to take any action or respond to this email. It is for your information only.\n\n${statusReport}`;
 

@@ -1,74 +1,85 @@
 import type { CourseDevelopment, CourseDevelopmentTask as Task } from '../types';
-import { shortModuleDate } from './moduleTaskStructure';
-import { fscjCalendar, type TermPlanningSettings } from './termPlanning';
-import { dayNumber, isoDay, offsetWorkdays } from './fscjCalendar';
+import { expandModuleReportTasks, shortModuleDate } from './moduleTaskStructure';
 
 export const reportToday = (now = new Date()) => new Intl.DateTimeFormat('en-CA', {
   timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit',
 }).format(now);
-const date = (value?: string | null) => value?.slice(0, 10) || '';
-const due = (task: Task) => date(task.manualDueDate || task.effectiveDueDate || task.dueDate);
-const clean = (name: string) => name.replace(/\s*\[[^\]]*\]\s*$/, '').replace(/, then Send recap$/i, '').trim();
-const milestoneDefinitions = [
-  ['Onboarding', 'Conduct onboarding meeting'],
-  ['Initial Meeting', 'Conduct initial meeting'],
-  ['Course Design Plan Due', 'Complete Course Design Plan'],
-  ['Kickoff Meeting', 'Conduct kickoff meeting'],
-  ['Midpoint Review', 'Conduct midpoint review'],
-  ['Final Review', 'Conduct final review'],
-  ['Course Completion', 'Course completion'],
-];
-const owner = (value: string) => ({ SME: 'Subject Matter Expert', ID: 'Instructional Designer', QA: 'CeL Quality Assurance',
-  'Quality Assurance': 'CeL Quality Assurance' }[value] || value);
 
-/** Read-only email projection: dates never imply progress or completion. */
-export function generateWeeklyStatusReport(course: CourseDevelopment, progress: number, blocked: string[] = [], settings?: TermPlanningSettings, today = reportToday()) {
-  const end = offsetWorkdays(today, 10, fscjCalendar(settings, blocked));
-  // Seven calendar dates before today, excluding today's still-incomplete day.
-  const start = isoDay(dayNumber(today) - 7);
-  const milestones = milestoneDefinitions.filter(([label]) => label !== 'Onboarding' || course.onboarding)
-    .map(([label, name]) => ({ label, task: course.tasks.find(task => clean(task.name).toLowerCase() === name.toLowerCase()) }));
-  const milestoneIds = new Set(milestones.flatMap(({ task }) => task ? [task.id] : []));
-  const entries: Task[] = course.tasks.flatMap(parent => {
-    if (parent.status === 'Not Applicable' || milestoneIds.has(parent.id)) return [];
-    if (!parent.subtasks?.length) return [parent];
-    // Report children instead of their summary parent. Never inherit its completion date/status.
-    return parent.subtasks.map(sub => ({
-      ...sub.sourceTask, id: `${parent.id}/${sub.id}`, name: sub.title, phase: parent.phase,
-      assignedTo: sub.assignedTo || sub.sourceTask?.assignedTo || parent.assignedTo,
-      status: sub.complete ? 'Complete' : sub.status || (sub.sourceTask?.status === 'Complete' ? 'Not Started' : sub.sourceTask?.status) || 'Not Started',
-      dueDate: sub.manualDueDate || sub.dueDate || sub.sourceTask?.dueDate,
-      manualDueDate: sub.manualDueDate,
-      effectiveDueDate: undefined,
-      completionDate: sub.complete ? sub.completionDate || sub.sourceTask?.completionDate : undefined,
-    }));
-  }).sort((a, b) => (due(a) || '9999').localeCompare(due(b) || '9999'));
-  const open = (task: Task) => !['Complete', 'Not Applicable'].includes(task.status);
-  const concern = (task: Task) => {
-    const labels = ['On Hold', 'Overdue', 'Blocked', 'Submission Late (SME)'].includes(task.status) ? [task.status] : [];
-    if (open(task) && due(task) && due(task) < today && !labels.includes('Overdue')) labels.push('Overdue');
-    return labels.length ? ` — ${labels.join(', ')}` : '';
-  };
-  const active = entries.filter(task => open(task) && (['In Progress', 'Developing (Content)', 'Developing (Canvas)'].includes(task.status) || !!concern(task)));
-  const activeIds = new Set(active.map(task => task.id));
-  const upcoming = entries.filter(task => open(task) && !activeIds.has(task.id) && due(task) >= today && due(task) <= end);
-  const completed = entries.filter(task => task.status === 'Complete' && date(task.completionDate) >= start && date(task.completionDate) < today);
-  const line = (task: Task, complete = false) => `- ${clean(task.name)}${complete ? ` — Completed ${shortModuleDate(task.completionDate)}` : due(task) ? ` — Due ${shortModuleDate(due(task))}` : ''}${complete ? '' : concern(task)}`;
-  const grouped = (tasks: Task[]) => [...new Set(tasks.map(task => owner(task.assignedTo)))].map(role =>
-    `${role}:\n${tasks.filter(task => owner(task.assignedTo) === role).map(task => line(task)).join('\n')}`).join('\n\n');
-  const milestoneLines = milestones.map(({ label, task }) => {
-    if (!task) return `- ${label} — Date TBD`;
-    const completed = task.status === 'Complete';
-    const when = completed ? task.completionDate || due(task) || task.startDate : due(task) || task.startDate;
-    const time = task.scheduledMeetingTimeDisplay || task.scheduledMeetingTime24 || (task as Task & { meetingTime?: string }).meetingTime;
-    return `- ${label} — ${completed ? 'Completed ' : ''}${shortModuleDate(when)}${!completed && time ? ` at ${time}` : ''}${completed ? '' : concern(task)}${task.status === 'Not Applicable' ? ' — Not Applicable' : ''}`;
+const formatShortDate = (value?: string) => {
+  if (!value) return 'TBD';
+  const parsed = new Date(`${value}T12:00:00`);
+  return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleDateString('en-US', {
+    month: '2-digit', day: '2-digit', year: '2-digit',
   });
-  const sections = [`Overall Progress\nCourse design and development is ${progress}% complete.`];
-  if (completed.length) sections.push(`Completed This Week\n${completed.map(task => line(task, true)).join('\n')}`);
-  sections.push(`Currently In Progress\n${active.length ? grouped(active) : 'No activities currently in progress.'}`);
-  sections.push(`Upcoming Activities\n${upcoming.length ? grouped(upcoming) : 'No activities due within the next 10 FSCJ workdays.'}`);
-  sections.push(`Key Milestones\n${milestoneLines.join('\n')}`);
-  sections.push(`Alerts\n${course.alertStatus || 'No Concerns'}`);
-  if (course.courseNotes?.trim()) sections.push(`Notes\n${course.courseNotes.trim()}`);
-  return sections.join('\n\n');
+};
+type Role = 'SME' | 'ID' | 'MULTIMEDIA' | 'QA';
+const roleMatches = (assignedTo: string | undefined, role: Role) => {
+  const owner = (assignedTo || '').toLowerCase();
+  if (role === 'SME') return owner.includes('sme') || owner.includes('subject matter') || owner.includes('faculty');
+  if (role === 'ID') return owner.includes('instructional') || owner.includes('designer') || owner.includes('id') || owner.includes('chrystal');
+  if (role === 'MULTIMEDIA') return owner.includes('multimedia') || owner.includes('mmt') || owner.includes('media');
+  return owner.includes('qa') || owner.includes('quality') || owner.includes('assurance');
+};
+
+// Restored from b724d63, before the concise weekly redesign. Preserve historical
+// inclusion, sorting and formatting; only omit parent references from module lines.
+export function generateWeeklyStatusReport(course: CourseDevelopment, progress: number, blocked: string[] = [], now = new Date()) {
+  const roleTasks = (role: Role) => expandModuleReportTasks(course.tasks || [])
+    .filter(task => roleMatches(task.assignedTo, role) && task.status !== 'Complete' && task.status !== 'Not Applicable')
+    .sort((a, b) => (a.dueDate || a.startDate || '9999-12-31').localeCompare(b.dueDate || b.startDate || '9999-12-31'));
+  const taskList = (role: Role) => roleTasks(role).map(task => {
+    if ((task as Task & { reportParentName?: string }).reportParentName) {
+      return `- ${task.name} — ${task.status || 'Not Started'} (start ${shortModuleDate(task.startDate)}, due ${shortModuleDate(task.dueDate)})`;
+    }
+    const due = task.dueDate || task.startDate;
+    return `- ${task.name} — ${task.status || 'Not Started'}${due ? ` (due ${formatShortDate(due)})` : ''}`;
+  }).join('\n');
+  const findTask = (name: string) => (course.tasks || []).find(task =>
+    (task.name || '').trim().toLowerCase() === name.toLowerCase()
+    || (course.scheduleVersion === 1 && name.toLowerCase() === 'end compensation' && Number(task.id) === 37));
+  const milestone = (label: string, name: string) => {
+    const task = findTask(name);
+    if (!task) return `${label}: TBD, Not Started`;
+    const meeting = task as Task & { meetingTime?: string };
+    const showTime = ['ONBOARDING', 'INITIAL MEETING', 'KICKOFF', 'MIDPOINT REVIEW', 'FINAL REVIEW'].includes(label);
+    const time = meeting.meetingTime || task.scheduledMeetingTime24;
+    const formattedTime = showTime && time ? ` at ${new Date(`2000-01-01T${time}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
+      : showTime && task.scheduledMeetingTimeDisplay ? ` at ${task.scheduledMeetingTimeDisplay}` : '';
+    return `${label}: ${formatShortDate(task.dueDate || task.startDate)}${formattedTime}, ${task.status || 'Not Started'}`;
+  };
+  const milestones = [
+    milestone('ONBOARDING', 'Conduct onboarding meeting'),
+    milestone('INITIAL MEETING', 'Conduct initial meeting'),
+    milestone('COURSE DESIGN PLAN', 'Complete Course Design Plan'),
+    milestone('KICKOFF', 'Conduct kickoff meeting'),
+    milestone('MIDPOINT REVIEW', 'Conduct midpoint review'),
+    milestone('FINAL REVIEW', 'Conduct final review'),
+    milestone('SME DELIVERABLES COMPLETE', 'End compensation'),
+    milestone('DEVELOPMENT COMPLETION', 'Course completion'),
+  ];
+  const today = new Date(now);
+  today.setHours(0, 0, 0, 0);
+  const offTime = blocked.filter(value => {
+    const parsed = new Date(`${value.slice(0, 10)}T12:00:00`);
+    return !Number.isNaN(parsed.getTime()) && parsed > today;
+  }).sort().map(value => `- ${formatShortDate(value)}`).join('\n');
+  return `Overall Progress: Course design and development is ${progress}% complete.
+
+SUBJECT MATTER EXPERT:
+${taskList('SME')}
+
+INSTRUCTIONAL DESIGNER:
+${taskList('ID')}
+
+MULTIMEDIA:
+${taskList('MULTIMEDIA')}
+
+CEL QUALITY ASSURANCE:
+${taskList('QA')}
+
+NOTES: ${course.courseNotes || 'None at this time.'}
+ALERTS: ${course.alertStatus || 'No Concerns'}
+
+MILESTONES & OFF-TIME
+${milestones.join('\n')}${offTime ? `\n\nCollege Closed / Vacation / Out-of-Office Dates:\n${offTime}` : ''}`;
 }

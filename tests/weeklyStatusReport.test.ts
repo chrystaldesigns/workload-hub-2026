@@ -4,45 +4,49 @@ import { generateWeeklyStatusReport } from '../src/utils/weeklyStatusReport';
 import type { CourseDevelopment, CourseDevelopmentTask as Task } from '../src/types';
 const task = (id: string, name: string, overrides: Partial<Task> = {}): Task => ({ id, name, phase: '', assignedTo: 'SME', status: 'Not Started', dueDate: '2026-10-28', ...overrides });
 const course = (tasks: Task[] = []): CourseDevelopment => ({ tasks, onboarding: false, alertStatus: 'No Concerns' } as CourseDevelopment);
-const report = (c: CourseDevelopment, progress = 0) => generateWeeklyStatusReport(c, progress, [], undefined, '2026-10-26');
-test('new project stays at zero; omits empty sections, far future work and onboarding', () => {
-  const output = report(course([task('1', 'Future inventory', { dueDate: '2027-04-01' })]));
-  assert.match(output, /0% complete/); assert.match(output, /Alerts\nNo Concerns/);
-  for (const text of ['Completed This Week', 'Notes\n', 'Onboarding', 'Future inventory', 'Not Started', 'Parent:']) assert(!output.includes(text));
+const report = (c: CourseDevelopment, progress = 0) => generateWeeklyStatusReport(c, progress, [], new Date('2026-10-26T12:00:00'));
+const required = ['SUBJECT MATTER EXPERT:', 'INSTRUCTIONAL DESIGNER:', 'MULTIMEDIA:', 'CEL QUALITY ASSURANCE:', 'Overall Progress: Course design and development is', 'NOTES:', 'ALERTS:', 'MILESTONES & OFF-TIME', 'SME DELIVERABLES COMPLETE:', 'DEVELOPMENT COMPLETION:'];
+const forbidden = ['Currently In Progress', 'Upcoming Activities', 'Completed This Week', 'Key Milestones', '(Parent:'];
+function verifyFormat(output: string) {
+  for (const label of required) assert(output.includes(label), label);
+  for (const label of forbidden) assert(!output.includes(label), label);
+}
+test('restores original headings including empty roles, notes, alerts and all eight milestones', () => {
+  const output = report(course()); verifyFormat(output);
+  for (const label of ['ONBOARDING:', 'INITIAL MEETING:', 'COURSE DESIGN PLAN:', 'KICKOFF:', 'MIDPOINT REVIEW:', 'FINAL REVIEW:']) assert(output.includes(label));
+  assert(output.includes('NOTES: None at this time.')); assert(output.includes('ALERTS: No Concerns'));
+  assert(output.startsWith('Overall Progress: Course design and development is 0% complete.'));
 });
-test('active children retain ownership and overrides without duplicating parents or future siblings', () => {
-  const c = course([task('p', 'Parent summary', { status: 'In Progress', subtasks: [
-    { id: 'a', title: 'SME development', complete: false, details: '', assignedTo: 'SME', status: 'Developing (Content)', dueDate: '2026-10-29' },
-    { id: 'b', title: 'ID review', complete: false, details: '', assignedTo: 'ID', dueDate: '2026-12-01', manualDueDate: '2026-10-30' },
-    { id: 'c', title: 'Later work', complete: false, details: '', dueDate: '2027-02-01' },
-  ] })]);
-  const before = JSON.stringify(c), output = report(c, 23);
-  assert.match(output, /23% complete/); assert.match(output, /Subject Matter Expert:\n- SME development — Due 10\/29\/26/);
-  assert.match(output, /Instructional Designer:\n- ID review — Due 10\/30\/26/);
-  assert(!output.includes('Parent')); assert(!output.includes('Later work')); assert.equal(JSON.stringify(c), before);
+test('historical task selection includes all future work, excludes completed and N/A, and groups by responsibility', () => {
+  const c = course([task('future', 'Distant SME task', { dueDate: '2028-04-01' }), task('done', 'Done task', {status:'Complete'}), task('na','Not applicable task',{status:'Not Applicable'}), task('id','ID task',{assignedTo:'Instructional Designer',status:'Blocked'}), task('mm','Media task',{assignedTo:'Multimedia'}), task('qa','Proofreading task',{assignedTo:'Quality Assurance'})]);
+  const before = JSON.stringify(c), output = report(c, 34); verifyFormat(output);
+  assert(output.includes('34% complete.')); assert(output.includes('Distant SME task — Not Started (due 04/01/28)'));
+  assert(!output.includes('Done task')); assert(!output.includes('Not applicable task'));
+  assert(output.includes('INSTRUCTIONAL DESIGNER:\n- ID task — Blocked'));
+  assert(output.includes('MULTIMEDIA:\n- Media task'));
+  assert(output.includes('CEL QUALITY ASSURANCE:\n- Proofreading task'));
+  assert.equal(JSON.stringify(c), before);
 });
-test('completion uses actual dates within previous seven calendar days, never projected dates', () => {
-  const output = report(course([
-    task('1', 'Recent complete', { status: 'Complete', completionDate: '2026-10-19' }),
-    task('2', 'Old complete', { status: 'Complete', completionDate: '2026-10-18' }),
-    task('3', 'Undated complete', { status: 'Complete' }),
-    task('4', 'Parent', { subtasks: [{ id: 'a', title: 'Completed child', complete: true, details: '', completionDate: '2026-10-25' }] }),
-  ]));
-  assert.match(output, /Recent complete — Completed 10\/19\/26/); assert.match(output, /Completed child — Completed 10\/25\/26/);
-  assert(!output.includes('Old complete')); assert(!output.includes('Undated complete'));
+test('original module expansion retains dates, statuses and owners while omitting parent annotations', () => {
+  const output = report(course([task('p','Develop Modules 1–4 content',{subtasks:[
+    {id:'develop-module-1',title:'Develop Module 1 content',complete:false,details:'',startDate:'2026-12-09',dueDate:'2026-12-15'},
+    {id:'develop-module-2',title:'Develop Module 2 content',complete:true,details:''},
+    {id:'quickbase-module-1',title:'Quickbase update',complete:false,details:'',assignedTo:'Instructional Designer'},
+  ]})])); verifyFormat(output);
+  assert(output.includes('- Develop Module 1 content — Not Started (start 12/09/26, due 12/15/26)'));
+  assert(!output.includes('Develop Module 2 content')); assert(!output.includes('Develop Modules 1–4 content'));
+  assert(output.includes('INSTRUCTIONAL DESIGNER:\n- Quickbase update'));
 });
-test('final review and onboarding appear once, concerns and notes survive, overdue work stays visible', () => {
-  const c = course([task('f', 'Conduct final review'), task('o', 'Conduct onboarding meeting'), task('late', 'Late SME work', { dueDate: '2026-10-01' }), task('blocked', 'Blocked work', {status: 'Blocked', dueDate: '2027-01-01'})]);
-  c.onboarding = true; c.alertStatus = 'High Priority Concerns'; c.courseNotes = 'Waiting for approval.';
-  const output = report(c);
-  assert.equal(output.split('Final Review').length - 1, 1); assert.match(output, /Onboarding/);
-  assert.match(output, /Late SME work — Due 10\/01\/26 — Overdue/); assert.match(output, /Blocked work.*Blocked/);
-  assert.match(output, /High Priority Concerns/); assert.match(output, /Notes\nWaiting for approval/);
-});
-test('upcoming window uses ten FSCJ workdays and respects custom closures', () => {
-  const c = course([task('1', 'Boundary', {dueDate: '2026-11-10'})]);
-  assert(!report(c).includes('Boundary'));
-  assert(generateWeeklyStatusReport(c, 0, ['2026-10-27'], undefined, '2026-10-26').includes('Boundary'));
+test('milestones preserve actual dates, statuses, meeting time, notes, concerns and future off-time', () => {
+  const c = course([task('f','Conduct final review',{dueDate:'2026-12-01',status:'Scheduled',scheduledMeetingTime24:'14:30'}),task('end','End compensation',{dueDate:'2026-12-03',status:'Complete'}),task('finish','Course completion',{dueDate:'2026-12-15',status:'In Progress'})]);
+  c.courseNotes='Existing note'; c.alertStatus='Potential Concerns';
+  const output=generateWeeklyStatusReport(c,42,['2026-12-24','2026-01-01'],new Date('2026-10-26T12:00:00')); verifyFormat(output);
+  assert(output.includes('FINAL REVIEW: 12/01/26 at 2:30 PM, Scheduled'));
+  assert(output.includes('SME DELIVERABLES COMPLETE: 12/03/26, Complete'));
+  assert(output.includes('DEVELOPMENT COMPLETION: 12/15/26, In Progress'));
+  assert(output.includes('NOTES: Existing note')); assert(output.includes('ALERTS: Potential Concerns'));
+  assert(output.includes('College Closed / Vacation / Out-of-Office Dates:\n- 12/24/26'));
+  assert(!output.includes('01/01/26'));
 });
 
 test('Status QB popup and clipboard contain identical plain text with preserved email fields', async () => {
@@ -60,20 +64,30 @@ test('Status QB popup and clipboard contain identical plain text with preserved 
   Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', { configurable: true, value: true });
   dom.window.open = (() => ({ document: { write: (text: string) => { popupHTML = text; }, close: () => {} } })) as any;
   Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: dom.window.localStorage });
+  const { readFileSync, writeFileSync } = await import('node:fs');
+  const live = process.env.WEEKLY_STATUS_PREVIEW_DATA ? JSON.parse(readFileSync(process.env.WEEKLY_STATUS_PREVIEW_DATA, 'utf8')) : null;
   const root = createRoot(dom.window.document.getElementById('root')!);
   try {
-    const c = { ...course(), id: 'test', courseNumber: 'TEST1234', courseTitle: 'Test & Course', termRelease: 'Fall A',
+    const fixture = { ...course(), id: 'test', courseNumber: 'TEST1234', courseTitle: 'Test & Course', termRelease: 'Fall A',
       termDeadline: '2027-08-01', devType: 'Modification', versionNumber: 1, celTeam: { golf: '', chrystal: '', admin: '' },
       deptTeam: { smeEmail: 'sme@example.com', deanEmail: 'dean@example.com', managerEmail: 'manager@example.com', associateDeanEmail: 'associate@example.com' } } as CourseDevelopment;
+    const c: CourseDevelopment = live ? live.courses.find((saved: CourseDevelopment) => saved.courseNumber === 'HSC1531') : fixture;
+    assert(c);
     await React.act(async () => root.render(React.createElement(Category1CourseDev, {
-      courseDevelopments: [c], customBlocked: [], onAddCourse: async () => {}, onUpdateCourse: async () => {}, onDeleteCourse: async () => {},
+      courseDevelopments: [c], customBlocked: live?.settings.customBlocked || [], onAddCourse: async () => {}, onUpdateCourse: async () => {}, onDeleteCourse: async () => {},
     })));
     const button = [...dom.window.document.querySelectorAll('button')].find(button => button.textContent?.trim() === 'Status QB');
     assert(button);
     await React.act(async () => button.click());
-    assert(copied.startsWith('TO: sme@example.com\nCC: dean@example.com,manager@example.com,associate@example.com\nSUBJECT: TEST1234 Course Development Status '));
+    const to = [c.deptTeam.smeEmail].filter(Boolean).join('; ');
+    const cc = [c.deptTeam.deanEmail, c.deptTeam.managerEmail, c.deptTeam.associateDeanEmail].filter(Boolean).join(',');
+    assert(copied.startsWith(`TO: ${to}\nCC: ${cc}\nSUBJECT: ${c.courseNumber} Course Development Status `));
     assert(copied.includes('This is a friendly update on the status of the course development. You do not need to take any action or respond to this email. It is for your information only.'));
     assert.equal(new JSDOM(popupHTML).window.document.querySelector('textarea')?.value, copied);
+    verifyFormat(copied);
+    if (live && process.env.WEEKLY_STATUS_PREVIEW_OUTPUT) {
+      writeFileSync(process.env.WEEKLY_STATUS_PREVIEW_OUTPUT, copied.split('\nBODY:\n')[1]);
+    }
     assert(!copied.includes('Parent:')); assert(!copied.includes('<html>'));
   } finally {
     await React.act(async () => root.unmount()); dom.window.close();
