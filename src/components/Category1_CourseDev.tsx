@@ -2726,13 +2726,7 @@ The next email will provide details on course completion, including finalized mo
   };
 
   const handleSendProjectCompletionNotification = (course: CourseDevelopment) => {
-    const materialsError = courseMaterialsValidation(courseMaterialsFormValues(course));
-    if (materialsError) {
-      alert(`${materialsError} Complete these fields in Edit Course Development before generating the notification.`);
-      startEditingCourse(course);
-      return;
-    }
-    openCommunicationToolWindow(`${course.courseNumber} Course Completion & Next Steps`,
+    openCommunicationToolWindow(`${course.courseNumber || '[Not provided]'} Course Completion & Next Steps`,
       'Project completion notification copied to clipboard. You may also copy/edit from the text box below.',
       buildProjectCompletionNotification(course));
   };
