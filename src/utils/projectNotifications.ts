@@ -17,12 +17,28 @@ Details: This course was designed and developed by the Subject Matter Expert, ${
 export function buildProjectCompletionNotification(course: CourseDevelopment, now = new Date()): string {
   // Notification drafts remain available before required course fields are complete.
   const values = courseMaterialsFormValues(course);
+  const platformNames = values.thirdPartyPlatformNames.trim();
+  // A pasted email is not a platform name. Reject it before interpolation rather
+  // than attempting to extract names that may belong to a different course.
+  const containsEmailContent = /\b(?:TO|CC|SUBJECT|ATTACHMENT|LINK TO):|\bFSCJ ONLINE\b|\bSUBJECT MATTER EXPERT\b|\bDIRECTOR, E-ADMIN & SUPPORT SERVICES\b/i.test(platformNames);
+  const platformInformation = !platformNames
+    ? '[Third-party platform information not provided]'
+    : containsEmailContent
+      ? '[Third-party platform information needs review]'
+      : platformNames.replace(/\s+/g, ' ').replace(/\.+$/, '');
+  const completionStatement = course.devType === 'Tier 1 & 2 Revision' || course.devType === 'Modification'
+    ? 'The course modifications are complete.'
+    : ['Original (New) Development', 'Original', 'New Release'].includes(course.devType)
+      ? 'The course development is complete.'
+      : 'The course is complete.';
   const statements = {
     platform: values.usesThirdPartyPlatform === 'yes'
-      ? `This course does use a 3rd-party platform: ${values.thirdPartyPlatformNames.trim().replace(/\.+$/, '') || '[Not provided]'}.`
+      ? containsEmailContent || !platformNames
+        ? platformInformation
+        : `This course uses the following third-party platforms: ${platformInformation}.`
       : values.usesThirdPartyPlatform === 'no'
-        ? 'This course does not use a 3rd-party platform.'
-        : 'Third-Party Platform(s): [Not provided]',
+        ? 'This course does not use a third-party platform.'
+        : '[Third-party platform information not provided]',
     materials: { ZTC: 'This course is ZTC.', Textbook: 'This course uses a Textbook.', OER: 'This course uses OER.' }[values.instructionalMaterials]
       || 'Instructional Materials: [Not provided]',
   };
@@ -58,7 +74,7 @@ Good ${greetingTime},
 
 FSCJ ONLINE
 
-- The course [development is / modifications re] complete.
+- ${completionStatement}
 - The code check and archiving processes are complete.
 - The course is the ‘Staging’ account and is ready for Anšá to move to ‘Production.’
 

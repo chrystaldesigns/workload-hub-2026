@@ -37,7 +37,7 @@ test('legacy values remain unselected, do not invent statements, and are not ove
   assert.deepEqual(courseMaterialsFields(values), {});
   assert.equal(courseMaterialsValidation(values, false), '');
   assert(courseMaterialsValidation(values).includes('Yes or No'));
-  assert(buildProjectCompletionNotification(legacy, now).includes('Third-Party Platform(s): [Not provided]'));
+  assert(buildProjectCompletionNotification(legacy, now).includes('[Third-party platform information not provided]'));
   assert.throws(() => courseMaterialsStatements(legacy), /Yes or No/);
   assert.equal(JSON.stringify(legacy), before);
 });
@@ -100,13 +100,13 @@ test('saved selections and names survive JSON persistence, edits, and reopening 
   assert.equal(edited.instructionalMaterials, 'Textbook');
   assert.deepEqual(edited.tasks, original.tasks);
   const content = buildProjectCompletionNotification(edited, now);
-  assert(content.includes('This course does not use a 3rd-party platform.'));
+  assert(content.includes('This course does not use a third-party platform.'));
   assert(!content.includes('uCertify'));
 });
 
 test('completion content reflects saved Yes names and exact materials text, without version information', () => {
   const content = buildProjectCompletionNotification({ ...course(), ...courseMaterialsFields(selected()) }, now);
-  assert(content.includes('This course does use a 3rd-party platform: uCertify, NETLAB+, and Packet Tracer.'));
+  assert(content.includes('This course uses the following third-party platforms: uCertify, NETLAB+, and Packet Tracer.'));
   assert(content.includes('This course uses OER.'));
   assert(!content.includes('VERSION INFORMATION'));
   assert(!content.includes('Version Number:'));
@@ -161,7 +161,7 @@ test('completion resources preserve full plain-text content in the pop-up and cl
   assert(content.indexOf(section) > content.indexOf('Stipend Inquiries'));
   assert(content.includes('SUBJECT: TEST1234 Course Completion & Next Steps'));
   assert(content.includes('Professor Smith,'));
-  assert(content.includes('This course does use a 3rd-party platform: uCertify, NETLAB+, and Packet Tracer.'));
+  assert(content.includes('This course uses the following third-party platforms: uCertify, NETLAB+, and Packet Tracer.'));
   assert.equal(JSON.stringify(saved), before);
   await withPopup(async (context) => {
     openCommunicationToolWindow(`${saved.courseNumber} Course Completion & Next Steps`,
@@ -265,8 +265,8 @@ test('completion drafts tolerate missing team, course number, platform names, an
     assert(content.includes('Faculty Resources and Next Steps'));
     assert.equal((content.match(/https:\/\/canvas.fscj.edu\//g) || []).length, 4);
     if ('instructionalMaterials' in partial) assert(content.includes('This course uses OER.'));
-    if (partial.usesThirdPartyPlatform === true) assert(content.includes('This course does use a 3rd-party platform: [Not provided].'));
-    if (partial.usesThirdPartyPlatform === false) assert(content.includes('This course does not use a 3rd-party platform.'));
+    if (partial.usesThirdPartyPlatform === true) assert(content.includes('[Third-party platform information not provided]'));
+    if (partial.usesThirdPartyPlatform === false) assert(content.includes('This course does not use a third-party platform.'));
     await withPopup(async (context) => {
       openCommunicationToolWindow('Completion', 'Copied', content);
       assert.equal(context.copies[0], content);
@@ -317,5 +317,85 @@ test('completion button opens incomplete course drafts without alerts, editing, 
       if (descriptor) Object.defineProperty(globalThis, key, descriptor);
       else delete (globalThis as any)[key];
     }
+  }
+});
+
+const completionHeadings = [
+  'FSCJ ONLINE', 'SUBJECT MATTER EXPERT', 'Errors and Modifications',
+  'Future Classes Beyond This Term', 'Stipend Inquiries',
+  'Faculty Resources and Next Steps', 'DIRECTOR, E-ADMIN & SUPPORT SERVICES',
+];
+function assertSingleCompletionSections(content: string) {
+  let previous = -1;
+  for (const heading of completionHeadings) {
+    assert.equal(content.split(heading).length - 1, 1, heading);
+    const position = content.indexOf(heading);
+    assert(position > previous, heading + ' is in order');
+    previous = position;
+    assert(content.includes('\n\n' + heading + '\n\n'));
+  }
+  assert.equal((content.match(/^TO:/gm) || []).length, 1);
+  assert.equal((content.match(/^Cc:/gm) || []).length, 1);
+  assert.equal((content.match(/^SUBJECT:/gm) || []).length, 1);
+  assert(!/\n{3,}|\r|[ \t]+\n/.test(content));
+  assert.equal(content, content.trim());
+  assert(!content.includes('[development is / modifications re]'));
+  assert(!content.includes('**'));
+  assert.equal((content.match(/^- .*third-party platform.*$/gmi) || []).length, 1);
+  assert.equal((content.match(/^- (?:View Teaching Schedule|Syllabus|Term Target Dates|CeL Master Courses): https:\/\/canvas\.fscj\.edu\/courses\/100662\/pages\/[^\s]+\?module_item_id=\d+$/gm) || []).length, 4);
+}
+
+test('stored email pasted into platform names cannot duplicate sections or cross-course information', async () => {
+  const original = { ...course(), ...courseMaterialsFields(selected()), courseNumber: 'OTHER1234' };
+  // Production had a complete email flattened by the single-line names input.
+  const embeddedEmail = buildProjectCompletionNotification(original, now);
+  for (const names of [embeddedEmail, embeddedEmail.replace(/\n/g, ' '),
+    'TO: wrong@example.com Cc: other@example.com SUBJECT: OTHER1234 - This course does use a 3rd-party platform: PacketTracer, NDG NETLAB+, uCertify.',
+  ]) {
+    const contaminated = { ...course(), ...courseMaterialsFields(selected()), thirdPartyPlatformNames: names };
+    const before = JSON.stringify(contaminated);
+    const content = buildProjectCompletionNotification(contaminated, now);
+    assertSingleCompletionSections(content);
+    assert(content.includes('- [Third-party platform information needs review]'));
+    assert(!content.includes('OTHER1234'));
+    assert(!content.includes('wrong@example.com'));
+    assert(!content.includes('uCertify'));
+    assert.equal(JSON.stringify(contaminated), before);
+    await withPopup(async context => {
+      openCommunicationToolWindow('Completion', 'Copied', content);
+      const popup = new JSDOM(context.html);
+      try {
+        const textarea = popup.window.document.querySelector('textarea')!;
+        assert.equal(textarea.value, content);
+        assert.equal(context.copies[0], content);
+        assertSingleCompletionSections(textarea.value);
+      } finally { popup.window.close(); }
+    });
+  }
+});
+
+test('multiple stored platforms appear once, with consistent spacing and no unrelated field fallback', () => {
+  const saved = { ...course(), ...courseMaterialsFields(selected()), thirdPartyPlatformNames: 'PacketTracer, NDG NETLAB+, uCertify' };
+  const content = buildProjectCompletionNotification(saved, now);
+  assert(content.includes('- This course uses the following third-party platforms: PacketTracer, NDG NETLAB+, uCertify.\n'));
+  assertSingleCompletionSections(content);
+  const multiline = buildProjectCompletionNotification({ ...saved, thirdPartyPlatformNames: 'PacketTracer,\r\nNDG NETLAB+,\n\nuCertify. ' }, now);
+  assert.equal(multiline, content);
+  const missing = buildProjectCompletionNotification({ ...saved, thirdPartyPlatformNames: '', courseTitle: 'Not a platform' }, now);
+  assert(missing.includes('- [Third-party platform information not provided]'));
+  assert(!missing.includes('Not a platform'));
+  const no = buildProjectCompletionNotification({ ...saved, usesThirdPartyPlatform: false }, now);
+  assert(no.includes('- This course does not use a third-party platform.'));
+  assert(!no.includes('PacketTracer'));
+});
+
+test('all existing development types produce grammatical completion wording', () => {
+  for (const devType of ['Original (New) Development', 'Original', 'New Release', 'Tier 1 & 2 Revision', 'Modification', undefined] as const) {
+    const content = buildProjectCompletionNotification({ ...course(), devType }, now);
+    const sentence = devType === 'Modification' || devType === 'Tier 1 & 2 Revision'
+      ? 'The course modifications are complete.'
+      : devType ? 'The course development is complete.' : 'The course is complete.';
+    assert(content.includes('FSCJ ONLINE\n\n- ' + sentence + '\n'));
+    assertSingleCompletionSections(content);
   }
 });
