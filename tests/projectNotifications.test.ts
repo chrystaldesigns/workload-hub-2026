@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { JSDOM } from 'jsdom';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { CourseDevelopment } from '../src/types';
@@ -36,7 +37,8 @@ test('legacy values remain unselected, do not invent statements, and are not ove
   assert.deepEqual(courseMaterialsFields(values), {});
   assert.equal(courseMaterialsValidation(values, false), '');
   assert(courseMaterialsValidation(values).includes('Yes or No'));
-  assert.throws(() => buildProjectCompletionNotification(legacy, now), /Yes or No/);
+  assert(buildProjectCompletionNotification(legacy, now).includes('Third-Party Platform(s): [Not provided]'));
+  assert.throws(() => courseMaterialsStatements(legacy), /Yes or No/);
   assert.equal(JSON.stringify(legacy), before);
 });
 
@@ -140,6 +142,44 @@ test('QA task header exposes a Clipboard Version Information button and preserve
 });
 
 // Exercise the actual shared pop-up helper using browser boundary doubles.
+test('completion resources preserve full plain-text content in the pop-up and clipboard', async () => {
+  const saved = { ...course(), ...courseMaterialsFields(selected()) };
+  const before = JSON.stringify(saved);
+  const content = buildProjectCompletionNotification(saved, now);
+  const resources = [
+    '- View Teaching Schedule: https://canvas.fscj.edu/courses/100662/pages/view-teaching-schedule-and-class-roster?module_item_id=4639710',
+    '- Syllabus: https://canvas.fscj.edu/courses/100662/pages/syllabus?module_item_id=4701101',
+    '- Term Target Dates: https://canvas.fscj.edu/courses/100662/pages/term-targets?module_item_id=4710811',
+    '- CeL Master Courses: https://canvas.fscj.edu/courses/100662/pages/center-for-elearning-master-courses?module_item_id=4634868',
+  ].join('\n');
+  const section = 'Faculty Resources and Next Steps\n\n'
+    + 'You can find your Faculty Schedule in myFSCJ (PeopleSoft). Instructions for accessing your schedule are available in the Faculty Exchange.\n\n'
+    + 'I recommend visiting the Canvas pages linked below and saving them as favorites in your browser. The Faculty Exchange is a resource hub for adjunct faculty, with useful information that is regularly updated. Full-time faculty may also find these resources helpful.\n\n'
+    + resources + '\n\n'
+    + 'This page explains how to submit a request ticket to FSCJ Online to have course content loaded into your teaching sections.';
+  assert(content.includes('\n\n' + section + '\n\nDIRECTOR, E-ADMIN & SUPPORT SERVICES'));
+  assert(content.indexOf(section) > content.indexOf('Stipend Inquiries'));
+  assert(content.includes('SUBJECT: TEST1234 Course Completion & Next Steps'));
+  assert(content.includes('Professor Smith,'));
+  assert(content.includes('This course does use a 3rd-party platform: uCertify, NETLAB+, and Packet Tracer.'));
+  assert.equal(JSON.stringify(saved), before);
+  await withPopup(async (context) => {
+    openCommunicationToolWindow(`${saved.courseNumber} Course Completion & Next Steps`,
+      'Project completion notification copied to clipboard. You may also copy/edit from the text box below.', content);
+    const dom = new JSDOM(context.html);
+    try {
+      const textarea = dom.window.document.querySelector('textarea')!;
+      assert.equal(textarea.value, content);
+      assert.equal(context.copies[0], content);
+      assert(textarea.value.includes(resources));
+      assert(!textarea.value.includes('**'));
+      assert(!textarea.value.includes('](https://'));
+    } finally {
+      dom.window.close();
+    }
+  });
+});
+
 async function withPopup(run: (context: any) => Promise<void>) {
   const descriptors = Object.fromEntries(['window', 'navigator', 'alert'].map((key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
   const copies: string[] = [], listeners: Record<string, () => Promise<void>> = {};
@@ -209,4 +249,73 @@ test('API validation requires new project answers while permitting legacy update
   assert(validateSavedCourseMaterials({ usesThirdPartyPlatform: 'no' } as any).includes('Yes or No'));
   assert(validateSavedCourseMaterials({ instructionalMaterials: 'unknown' } as any).includes('Instructional Materials'));
   assert(validateSavedCourseMaterials({ thirdPartyPlatformNames: 123 } as any).includes('Name of Third-Party'));
+});
+
+test('completion drafts tolerate missing team, course number, platform names, and materials independently', async () => {
+  for (const partial of [
+    {},
+    { usesThirdPartyPlatform: true },
+    { usesThirdPartyPlatform: false },
+    { instructionalMaterials: 'OER' },
+  ]) {
+    const content = buildProjectCompletionNotification(partial as CourseDevelopment, now);
+    assert(content.includes('SUBJECT: [Not provided] Course Completion & Next Steps'));
+    assert(content.includes('Professor [Not provided],'));
+    assert(!content.includes('undefined'));
+    assert(content.includes('Faculty Resources and Next Steps'));
+    assert.equal((content.match(/https:\/\/canvas.fscj.edu\//g) || []).length, 4);
+    if ('instructionalMaterials' in partial) assert(content.includes('This course uses OER.'));
+    if (partial.usesThirdPartyPlatform === true) assert(content.includes('This course does use a 3rd-party platform: [Not provided].'));
+    if (partial.usesThirdPartyPlatform === false) assert(content.includes('This course does not use a 3rd-party platform.'));
+    await withPopup(async (context) => {
+      openCommunicationToolWindow('Completion', 'Copied', content);
+      assert.equal(context.copies[0], content);
+      const dom = new JSDOM(context.html);
+      assert.equal(dom.window.document.querySelector('textarea')!.value, content);
+      dom.window.close();
+    });
+  }
+});
+
+test('completion button opens incomplete course drafts without alerts, editing, or saves', async () => {
+  const { createRoot } = await import('react-dom/client');
+  const dom = new JSDOM('<div id="root"></div>', { url: 'http://localhost' });
+  const keys = ['window', 'document', 'navigator', 'localStorage', 'alert', 'IS_REACT_ACT_ENVIRONMENT'];
+  const previous = keys.map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)] as const);
+  let html = '', copied = '', alerts = 0, saves = 0;
+  const globals = { window: dom.window, document: dom.window.document, localStorage: dom.window.localStorage,
+    navigator: { clipboard: { writeText: async (text: string) => { copied = text; } } },
+    alert: () => { alerts++; }, IS_REACT_ACT_ENVIRONMENT: true };
+  for (const [key, value] of Object.entries(globals)) Object.defineProperty(globalThis, key, { configurable: true, value });
+  dom.window.open = (() => ({ document: { write: (text: string) => { html = text; }, close() {} } })) as any;
+  const root = createRoot(dom.window.document.getElementById('root')!);
+  try {
+    for (const incomplete of [course(), { ...course(), usesThirdPartyPlatform: true, thirdPartyPlatformNames: '', deptTeam: {}, courseNumber: '' } as CourseDevelopment]) {
+      await React.act(async () => root.render(React.createElement(Category1CourseDev, {
+        courseDevelopments: [incomplete], customBlocked: [], onAddCourse: async () => { saves++; },
+        onUpdateCourse: async () => { saves++; }, onDeleteCourse: async () => {},
+      })));
+      const button = dom.window.document.querySelector<HTMLButtonElement>('[aria-label="Project Completion Notification"]');
+      assert(button);
+      const formsBefore = dom.window.document.querySelectorAll('form').length;
+      await React.act(async () => button.click());
+      assert(html.includes('<textarea>'));
+      assert(copied.includes('[Not provided]'));
+      assert(copied.includes('Faculty Resources and Next Steps'));
+      const popup = new JSDOM(html);
+      assert.equal(popup.window.document.querySelector('textarea')!.value, copied);
+      popup.window.close();
+      assert.equal(dom.window.document.querySelectorAll('form').length, formsBefore);
+      assert.equal(alerts, 0);
+      assert.equal(saves, 0);
+      html = ''; copied = '';
+    }
+  } finally {
+    await React.act(async () => root.unmount());
+    dom.window.close();
+    for (const [key, descriptor] of previous) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+      else delete (globalThis as any)[key];
+    }
+  }
 });
