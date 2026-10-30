@@ -384,6 +384,7 @@ test('multiple stored platforms appear once, with consistent spacing and no unre
   const missing = buildProjectCompletionNotification({ ...saved, thirdPartyPlatformNames: '', courseTitle: 'Not a platform' }, now);
   assert(missing.includes('- [Third-party platform information not provided]'));
   assert(!missing.includes('Not a platform'));
+  assert(buildProjectCompletionNotification({ ...saved, thirdPartyPlatformNames: ' ... ' }, now).includes('- [Third-party platform information not provided]'));
   const no = buildProjectCompletionNotification({ ...saved, usesThirdPartyPlatform: false }, now);
   assert(no.includes('- This course does not use a third-party platform.'));
   assert(!no.includes('PacketTracer'));

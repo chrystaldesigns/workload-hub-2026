@@ -17,7 +17,7 @@ Details: This course was designed and developed by the Subject Matter Expert, ${
 export function buildProjectCompletionNotification(course: CourseDevelopment, now = new Date()): string {
   // Notification drafts remain available before required course fields are complete.
   const values = courseMaterialsFormValues(course);
-  const platformNames = values.thirdPartyPlatformNames.trim();
+  const platformNames = values.thirdPartyPlatformNames.trim().replace(/\.+$/, '').trim();
   // A pasted email is not a platform name. Reject it before interpolation rather
   // than attempting to extract names that may belong to a different course.
   const containsEmailContent = /\b(?:TO|CC|SUBJECT|ATTACHMENT|LINK TO):|\bFSCJ ONLINE\b|\bSUBJECT MATTER EXPERT\b|\bDIRECTOR, E-ADMIN & SUPPORT SERVICES\b/i.test(platformNames);
@@ -25,7 +25,7 @@ export function buildProjectCompletionNotification(course: CourseDevelopment, no
     ? '[Third-party platform information not provided]'
     : containsEmailContent
       ? '[Third-party platform information needs review]'
-      : platformNames.replace(/\s+/g, ' ').replace(/\.+$/, '');
+      : platformNames.replace(/\s+/g, ' ');
   const completionStatement = course.devType === 'Tier 1 & 2 Revision' || course.devType === 'Modification'
     ? 'The course modifications are complete.'
     : ['Original (New) Development', 'Original', 'New Release'].includes(course.devType)
