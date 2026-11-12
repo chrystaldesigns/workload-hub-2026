@@ -1,3 +1,5 @@
+import { completionEmailHtml } from './completionEmailHtml';
+
 const escapeHtml = (value: string) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 // Reuse the standard communication window; QA version information additionally
@@ -6,7 +8,8 @@ export const openCommunicationToolWindow = (
   popupTitle: string,
   clipboardMessage: string,
   content: string,
-  withCopyControls = false
+  withCopyControls = false,
+  completionPreview = false
 ) => {
   navigator.clipboard?.writeText(content).catch(() => undefined);
   const popupWindow = window.open('', '_blank', 'width=800,height=700,scrollbars=yes,resizable=yes');
@@ -30,12 +33,33 @@ export const openCommunicationToolWindow = (
       <body>
         <h1>${escapeHtml(popupTitle)}</h1>
         <p id="copy-status">${escapeHtml(clipboardMessage)}</p>
+        ${completionPreview ? `<div id="email-preview" style="background:white;padding:16px;border:1px solid #cbd5e1;border-radius:8px">${completionEmailHtml(content)}</div><p><button id="copy-html" type="button">Copy Formatted Email</button></p>` : ''}
         <textarea>${escapeHtml(content)}</textarea>
         ${withCopyControls ? '<p><button id="copy-content" type="button">Copy to Clipboard</button> <button id="close-popup" type="button">Close</button></p>' : ''}
       </body>
     </html>
   `);
   popupWindow.document.close();
+  if (completionPreview) {
+    const textarea = popupWindow.document.querySelector('textarea');
+    textarea?.addEventListener('input', () => {
+      const preview = popupWindow.document.getElementById('email-preview');
+      if (preview) preview.innerHTML = completionEmailHtml(textarea.value);
+    });
+    popupWindow.document.getElementById('copy-html')?.addEventListener('click', async () => {
+      const text = textarea?.value ?? content;
+      const status = popupWindow.document.getElementById('copy-status');
+      try {
+        await popupWindow.navigator.clipboard.write([new ClipboardItem({
+          'text/html': new Blob([completionEmailHtml(text)], { type: 'text/html' }),
+          'text/plain': new Blob([text], { type: 'text/plain' }),
+        })]);
+        if (status) status.textContent = 'Formatted email copied to clipboard.';
+      } catch {
+        if (status) status.textContent = 'Unable to copy formatted email. Select and copy the preview or plain text manually.';
+      }
+    });
+  }
   if (withCopyControls) {
     popupWindow.document.getElementById('copy-content')?.addEventListener('click', async () => {
       const status = popupWindow.document.getElementById('copy-status');

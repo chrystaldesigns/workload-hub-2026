@@ -76,7 +76,7 @@ FSCJ ONLINE
 
 - ${completionStatement}
 - The code check and archiving processes are complete.
-- The course is the ‘Staging’ account and is ready for Anšá to move to ‘Production.’
+- The course is ready for Anšá to move to ‘Production.’
 
 SUBJECT MATTER EXPERT
 
@@ -84,7 +84,7 @@ Professor ${smeLastName},
 
 Class Number
 
-Please contact our Director of E-Admin & Support Services, Dr. Anšá Reams-Johnson, and provide your class number so we can load the course content. FSCJ Online Support Services will load the course content into your class so you can begin personalizing your course.
+Please contact our Director, Center for eLearning, Dr. Anšá Reams-Johnson (Ansa.Reams.Johnson@fscj.edu), and provide your class number so we can load the course content. FSCJ Online Support Services will load the course content into your class so you can begin personalizing your course.
 
 Errors and Modifications
 
@@ -92,11 +92,11 @@ If you see any errors that need immediate attention, please contact us via CeL@f
 
 Future Classes Beyond This Term
 
-Important Note: For each new term, it is highly recommended that you contact our Director of E-Admin & Support Services, Dr. Anšá Reams-Johnson, to load your classes. This ensures that any changes to Canvas or the CeL-developed course are incorporated. From there, you should be able to transfer your course customization from a previous class, such as adding readings or the like.
+Important Note: For each new term, it is highly recommended that you contact our Director, Center for eLearning, Dr. Anšá Reams-Johnson (Ansa.Reams.Johnson@fscj.edu), to load your classes. This ensures that any changes to Canvas or the CeL-developed course are incorporated. From there, you should be able to transfer your course customization from a previous class, such as adding readings or the like.
 
 Stipend Inquiries
 
-If you have any questions regarding your stipend, please don’t hesitate to contact Kris Kristen directly.
+If you have any questions regarding your stipend, please don’t hesitate to contact Kris Kristen (kris.kristen@fscj.edu) directly.
 
 Faculty Resources and Next Steps
 
@@ -111,7 +111,7 @@ I recommend visiting the Canvas pages linked below and saving them as favorites 
 
 This page explains how to submit a request ticket to FSCJ Online to have course content loaded into your teaching sections.
 
-DIRECTOR, E-ADMIN & SUPPORT SERVICES
+DIRECTOR, CENTER FOR ELEARNING
 
 Anšá,
 

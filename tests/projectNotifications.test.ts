@@ -112,7 +112,7 @@ test('completion content reflects saved Yes names and exact materials text, with
   assert(!content.includes('Version Number:'));
   assert(!content.includes('[does/does not]'));
   assert(!content.includes('[is ZTC / uses a textbook]'));
-  for (const heading of ['FSCJ ONLINE', 'SUBJECT MATTER EXPERT', 'Errors and Modifications', 'Future Classes Beyond This Term', 'Stipend Inquiries', 'DIRECTOR, E-ADMIN & SUPPORT SERVICES']) assert(content.includes(heading));
+  for (const heading of ['FSCJ ONLINE', 'SUBJECT MATTER EXPERT', 'Errors and Modifications', 'Future Classes Beyond This Term', 'Stipend Inquiries', 'DIRECTOR, CENTER FOR ELEARNING']) assert(content.includes(heading));
   assert(content.startsWith('TO: sme@example.com; dean@example.com; associate@example.com; Ansa.Reams.Johnson@fscj.edu; martha.mcnulty@fscj.edu\nCc:'));
   assert(content.endsWith('- The Outcomes Map is attached for your convenience.'));
 });
@@ -157,7 +157,7 @@ test('completion resources preserve full plain-text content in the pop-up and cl
     + 'I recommend visiting the Canvas pages linked below and saving them as favorites in your browser. The Faculty Exchange is a resource hub for adjunct faculty, with useful information that is regularly updated. Full-time faculty may also find these resources helpful.\n\n'
     + resources + '\n\n'
     + 'This page explains how to submit a request ticket to FSCJ Online to have course content loaded into your teaching sections.';
-  assert(content.includes('\n\n' + section + '\n\nDIRECTOR, E-ADMIN & SUPPORT SERVICES'));
+  assert(content.includes('\n\n' + section + '\n\nDIRECTOR, CENTER FOR ELEARNING'));
   assert(content.indexOf(section) > content.indexOf('Stipend Inquiries'));
   assert(content.includes('SUBJECT: TEST1234 Course Completion & Next Steps'));
   assert(content.includes('Professor Smith,'));
@@ -323,7 +323,7 @@ test('completion button opens incomplete course drafts without alerts, editing, 
 const completionHeadings = [
   'FSCJ ONLINE', 'SUBJECT MATTER EXPERT', 'Errors and Modifications',
   'Future Classes Beyond This Term', 'Stipend Inquiries',
-  'Faculty Resources and Next Steps', 'DIRECTOR, E-ADMIN & SUPPORT SERVICES',
+  'Faculty Resources and Next Steps', 'DIRECTOR, CENTER FOR ELEARNING',
 ];
 function assertSingleCompletionSections(content: string) {
   let previous = -1;

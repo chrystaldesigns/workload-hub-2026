@@ -2728,7 +2728,7 @@ The next email will provide details on course completion, including finalized mo
   const handleSendProjectCompletionNotification = (course: CourseDevelopment) => {
     openCommunicationToolWindow(`${course.courseNumber || '[Not provided]'} Course Completion & Next Steps`,
       'Project completion notification copied to clipboard. You may also copy/edit from the text box below.',
-      buildProjectCompletionNotification(course));
+      buildProjectCompletionNotification(course), false, true);
   };
 
   const handleCourseCompletionRequest = (course: CourseDevelopment) => {
