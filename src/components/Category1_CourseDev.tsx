@@ -2939,16 +2939,19 @@ NOTES
   // Compliance business rule calculation: check if Closeout is >= 30 days
   const getCloseoutCompliance = (course: CourseDevelopment) => {
     const task26 = course.tasks.find(t => t.name.toLowerCase().includes("course completion") || t.name.toLowerCase().includes("code check and archive"));
-    if (!task26 || !task26.dueDate) return { success: true, count: 30 };
-    
-    const count = countWorkingDaysBetween(task26.dueDate, course.termDeadline, customBlocked);
-    return {
-      success: count >= 30,
-      count
-    };
+    if (!task26 || !task26.dueDate) return { success: true, count: 30, error: '' };
+
+    try {
+      const count = countWorkingDaysBetween(task26.dueDate, course.termDeadline, customBlocked);
+      return { success: count >= 30, count, error: '' };
+    } catch {
+      // A saved date range can exceed the calendar engine's safety limit.
+      // Keep the record viewable without recalculating or changing its dates.
+      return { success: false, count: null, error: 'Closeout compliance could not be calculated from the saved dates. Review the course completion date and Start of Term date. Saved dates have not been changed.' };
+    }
   };
 
-  const closeoutComp = activeCourse ? getCloseoutCompliance(activeCourse) : { success: true, count: 30 };
+  const closeoutComp = activeCourse ? getCloseoutCompliance(activeCourse) : { success: true, count: 30, error: '' };
 
   return (
     <div className="p-6 max-w-7xl mx-auto flex flex-col gap-8">
@@ -3053,7 +3056,10 @@ NOTES
               </div>
 
               {/* COMPLIANCE WARNING BLOCK */}
-              {!complianceRule(activeCourse, customBlocked) && (
+              {closeoutComp.error && (
+                <p role="alert" className="border border-amber-300 bg-amber-50 p-3.5 text-xs text-amber-900">{closeoutComp.error}</p>
+              )}
+              {!closeoutComp.error && !closeoutComp.success && (
                 <div className="flex items-center gap-2.5 border border-rose-300 bg-rose-50 text-rose-800 p-3.5 text-xs font-semibold">
                   <ShieldAlert className="w-5 h-5 shrink-0 text-rose-700 animate-bounce" />
                   <div>
@@ -3197,8 +3203,8 @@ NOTES
                         Subject Matter Expert
                       </span>
                       <div className="flex flex-col gap-0.5">
-                        <span className="font-medium text-slate-800">{activeCourse.deptTeam.smeName || 'Not entered'}</span>
-                        <span className="text-slate-500 font-normal break-all">{activeCourse.deptTeam.smeEmail || 'N/A'}</span>
+                        <span className="font-medium text-slate-800">{activeCourse.deptTeam?.smeName || 'Not entered'}</span>
+                        <span className="text-slate-500 font-normal break-all">{activeCourse.deptTeam?.smeEmail || 'N/A'}</span>
                       </div>
                     </div>
 
@@ -3217,8 +3223,8 @@ NOTES
                         Academic Dean
                       </span>
                       <div className="flex flex-col gap-0.5">
-                        <span className="font-medium text-slate-800">{activeCourse.deptTeam.deanName || 'Not entered'}</span>
-                        <span className="text-slate-500 font-normal break-all">{activeCourse.deptTeam.deanEmail || 'N/A'}</span>
+                        <span className="font-medium text-slate-800">{activeCourse.deptTeam?.deanName || 'Not entered'}</span>
+                        <span className="text-slate-500 font-normal break-all">{activeCourse.deptTeam?.deanEmail || 'N/A'}</span>
                       </div>
                     </div>
 
@@ -3227,8 +3233,8 @@ NOTES
                         Academic Program Manager
                       </span>
                       <div className="flex flex-col gap-0.5">
-                        <span className="font-medium text-slate-800">{activeCourse.deptTeam.managerName || 'None assigned'}</span>
-                        <span className="text-slate-500 font-normal break-all">{activeCourse.deptTeam.managerEmail || 'N/A'}</span>
+                        <span className="font-medium text-slate-800">{activeCourse.deptTeam?.managerName || 'None assigned'}</span>
+                        <span className="text-slate-500 font-normal break-all">{activeCourse.deptTeam?.managerEmail || 'N/A'}</span>
                       </div>
                     </div>
 
@@ -3237,8 +3243,8 @@ NOTES
                         Associate Dean
                       </span>
                       <div className="flex flex-col gap-0.5">
-                        <span className="font-medium text-slate-800">{activeCourse.deptTeam.associateDeanName || 'None assigned'}</span>
-                        <span className="text-slate-500 font-normal break-all">{activeCourse.deptTeam.associateDeanEmail || 'N/A'}</span>
+                        <span className="font-medium text-slate-800">{activeCourse.deptTeam?.associateDeanName || 'None assigned'}</span>
+                        <span className="text-slate-500 font-normal break-all">{activeCourse.deptTeam?.associateDeanEmail || 'N/A'}</span>
                       </div>
                     </div>
                   </div>
@@ -4117,7 +4123,7 @@ NOTES
               <dt className="font-semibold">Details:</dt>
               <dd>
                 This course was designed and developed by Subject Matter Expert{' '}
-                {activeCourse.deptTeam.smeName?.trim() || 'TBD'} and Instructional Designer Chrystal Wickline
+                {activeCourse.deptTeam?.smeName?.trim() || 'TBD'} and Instructional Designer Chrystal Wickline
               </dd>
             </dl>
 
@@ -4487,13 +4493,4 @@ NOTES
 
     </div>
   );
-}
-
-// Quick helper to evaluate activeCourse compliance outside of the component body
-function complianceRule(course: CourseDevelopment, customBlocked: string[]): boolean {
-  const task26 = course.tasks.find(t => t.name.toLowerCase().includes("course completion") || t.name.toLowerCase().includes("code check and archive"));
-  if (!task26 || !task26.dueDate) return true;
-  
-  const count = countWorkingDaysBetween(task26.dueDate, course.termDeadline, customBlocked);
-  return count >= 30;
 }
